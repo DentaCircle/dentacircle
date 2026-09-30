@@ -54,8 +54,12 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
 - External services sit behind interfaces so they can be swapped.
 - AI never controls business truth. See AGENTS.md safety rules.
 - Work runs in phases and slices, tracked in ROADMAP.md, with a human review of every diff.
-- **Database:** PostgreSQL in Docker from S0.1. Free locally, removes a migration risk
+- **Database:** PostgreSQL 16 in Docker from S0.1. Free locally, removes a migration risk
   later, and it can enforce the appointment overlap rule. The spec's SQLite path is not used.
+- **Tooling:** Python 3.12, managed with `uv`. API checks are `ruff`, `mypy` (strict) and
+  `pytest`. Web checks from S0.1 are TypeScript, ESLint and Vitest, managed with `pnpm`.
+  Next.js arrives in S0.3 on top of that package. The database smoke test uses `psycopg`.
+  The SQLAlchemy driver is decided in S0.2.
 - **Tenancy:** `clinic_id` on every clinic-owned table from Phase 0. One clinic in the UI,
   no clinic switcher. Cheap now, painful to retrofit.
 - **Follow-ups and recalls:** a completed care session does not always create a follow-up.
@@ -109,4 +113,4 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-Nothing built. Next step: slice S0.1 in ROADMAP.md.
+S0.1 is built and waiting for review. Nothing is merged.
