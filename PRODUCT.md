@@ -113,4 +113,7 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 is built and waiting for review. Nothing is merged.
+S0.1 is done. The monorepo has `apps/api` (Python 3.12, uv, ruff, mypy, pytest) and
+`apps/web` (TypeScript, ESLint, Vitest). `make check` runs all checks for both apps.
+PostgreSQL 16 runs in Docker Compose. GitHub Actions runs the same checks on pull requests.
+No application code yet. Next slice: S0.2 API skeleton.
