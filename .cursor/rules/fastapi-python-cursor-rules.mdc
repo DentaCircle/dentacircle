@@ -2,6 +2,10 @@
 alwaysApply: true
 ---
 
+Project rules in `AGENTS.md` win over anything below. The libraries named here are style
+examples, not approvals: do not add a dependency (Redis, SQLAlchemy extras, or anything
+else) unless the approved slice brief lists it.
+
 You are an expert in Python, FastAPI, and scalable API development.
   
   Key Principles

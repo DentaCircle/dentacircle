@@ -2,6 +2,11 @@
 alwaysApply: true
 ---
 
+Project rules in `AGENTS.md` win over anything below. The libraries named here are style
+examples, not approvals: do not add a dependency (Shadcn, Radix, Zustand, TanStack Query,
+Zod, Jest, or anything else) unless the approved slice brief lists it. The UI component
+system is still an open decision for slice S0.3 in `PRODUCT.md`.
+
 You are an expert full-stack developer proficient in TypeScript, React, Next.js, and modern UI/UX frameworks (e.g., Tailwind CSS, Shadcn UI, Radix UI). Your task is to produce the most optimized and maintainable Next.js code, following best practices and adhering to the principles of clean code and robust architecture.
 
     ### Objective

@@ -11,11 +11,11 @@ Milestones are demoable. Each one is a real stopping point.
 - **M2 Front desk:** patients and appointments are usable day to day.
 - **M3 Core loop:** the loop in PRODUCT.md works end to end. This is the first real demo.
 - **M4 Connected clinic:** documents, lab, inventory, messages, dashboard.
-- **M5 Pilot ready:** roles, audit, seed data, demo script, hardening.
+- **M5 Pilot ready:** roles, audit viewer, synthetic seed data, demo script, hardening.
 
 ## Phase 0: Foundation (M1)
 
-- [ ] S0.1 Repo, tooling, CI: monorepo, linters, type checks, test runners, Docker Compose with the database
+- [ ] S0.1 Repo, tooling, CI: monorepo, linters, type checks, test runners, Docker Compose with PostgreSQL
 - [ ] S0.2 API skeleton: FastAPI app, config, logging, error format, health check, Alembic baseline, test harness
 - [ ] S0.3 Web skeleton: Next.js shell, layout, navigation, typed API client, first component tests
 - [ ] S0.4 Auth and tenancy: Clinic, User, Role, login, session, `clinic_id` scoping helper, role check dependency
@@ -23,19 +23,20 @@ Milestones are demoable. Each one is a real stopping point.
 
 ## Phase 1: Patients and appointments (M2)
 
-- [ ] S1.1 Patients: create, list, search by name, phone and ID, pagination
-- [ ] S1.2 Patient detail: overview, edit, status
-- [ ] S1.3 Book appointment: model, availability and conflict rules, clinician assignment
+- [ ] S1.0 Clinic day: one clinic, timezone (Asia/Kolkata), weekly working hours, default appointment duration, appointment types. No rooms, no per-clinician rotas, no settings screen
+- [ ] S1.1 Patients: create, list, search by name, phone and ID, pagination, audit events on write
+- [ ] S1.2 Patient detail: overview, edit, status, audit events on write
+- [ ] S1.3 Book appointment: model, availability from the clinic day, clinician assignment, no overlapping appointments for one clinician enforced by a database constraint
 - [ ] S1.4 Calendar: day and week views, reschedule, cancel
 - [ ] S1.5 Appointment status flow: arrived, in progress, completed, no-show, plus audit events
 
 ## Phase 2: Care, follow-ups, recalls (M3)
 
-- [ ] S2.1 Care plan, care items, care sessions (recorded against an appointment)
-- [ ] S2.2 Incomplete care: detect and list
-- [ ] S2.3 Follow-ups: manual create, plus auto-create when a session completes
-- [ ] S2.4 Coordinator queue: due and overdue follow-ups, mark contacted, book from the queue
-- [ ] S2.5 Recalls: rules, due date calculation, due list
+- [ ] S2.1 Care plan, care items, care sessions (recorded against an arrived or in progress appointment)
+- [ ] S2.2 Incomplete care: detect it and create or update the patient's follow-up, so it feeds the one coordinator queue instead of a second list
+- [ ] S2.3 Follow-ups: manual create, plus auto-create on session completion only when care is unfinished or the clinician sets a due date
+- [ ] S2.4 Coordinator queue: follow-ups with due and overdue calculated from the date, mark contacted, book from the queue
+- [ ] S2.5 Recalls: rules, due date calculation, due list, kept separate from the follow-up queue
 - [ ] S2.6 Patient timeline: one chronological view of everything above
 - [ ] S2.7 Core loop check: end-to-end test and a written click-through of the M3 demo
 
@@ -73,14 +74,22 @@ Milestones are demoable. Each one is a real stopping point.
 
 ## Cut candidates
 
-Drop these first if time runs short: lightweight billing and invoices, medicines as a
-separate module, patient-behavior and financial analytics, supplier management.
+Billing, invoices, payments and financial analytics are out of this roadmap, not cut
+candidates. See the non-goals in PRODUCT.md.
+
+Drop these first if time runs short: medicines as a separate module, patient-behavior
+analytics, supplier management.
 
 ## Notes
 
-- The spec puts RBAC and audit in the last phase. Here the basics are enforced from S0.4
-  and from S1.5 onward, and Phase 7 is a review, not a first build.
+- The spec puts RBAC and audit in the last phase. Here role checks start in S0.4, audit
+  events start with the first patient write in S1.1, and Phase 7 is a review, not a
+  first build. S7.3 builds only the audit viewer.
 - Simulated messaging is in Phase 5. Until then, "patient contacted" in S2.4 is a manual
   status the coordinator sets.
+- S1.4 and S2.1 are the slices most likely to be too big. Split them when the brief is
+  written if the acceptance criteria do not fit one review.
+- Lab work in S3.3 uses pending, collected, ready and cancelled. Ready is what puts the
+  patient back on the follow-up queue. The spec's longer status list can wait.
 - The spec's 220 to 300 hour estimate is optimistic. Track actual hours per slice for the
   first two phases, then rescale the rest.
