@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: dentacircle
+          POSTGRES_PASSWORD: dentacircle
+          POSTGRES_DB: dentacircle
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dentacircle -d dentacircle"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://dentacircle:dentacircle@localhost:5432/dentacircle
+    steps:
+      - uses: actions/checkout@v5
+      - uses: astral-sh/setup-uv@v10.0.1
+      - name: Install API dependencies
+        working-directory: apps/api
+        run: uv sync --frozen
+      - name: Lint API
+        working-directory: apps/api
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: Type check API
+        working-directory: apps/api
+        run: uv run mypy
+      - name: Test API
+        working-directory: apps/api
+        run: uv run pytest
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: pnpm/action-setup@v6.0.10
+        with:
+          version: 10.15.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+      - name: Install web dependencies
+        working-directory: apps/web
+        run: pnpm install --frozen-lockfile
+      - name: Lint web
+        working-directory: apps/web
+        run: pnpm lint
+      - name: Type check web
+        working-directory: apps/web
+        run: pnpm typecheck
+      - name: Test web
+        working-directory: apps/web
+        run: pnpm test
