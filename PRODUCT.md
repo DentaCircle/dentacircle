@@ -59,7 +59,14 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
 - **Tooling:** Python 3.12, managed with `uv`. API checks are `ruff`, `mypy` (strict) and
   `pytest`. Web checks from S0.1 are TypeScript, ESLint and Vitest, managed with `pnpm`.
   Next.js arrives in S0.3 on top of that package. The database smoke test uses `psycopg`.
-  The SQLAlchemy driver is decided in S0.2.
+- **API database access:** sync SQLAlchemy 2.0 with `psycopg` (decided in S0.2). Routes are
+  plain `def`. Async is a later change if ever needed. S0.2 also adds `fastapi`, `uvicorn`,
+  `pydantic-settings`, `sqlalchemy`, `alembic` and dev-only `httpx`.
+- **Public routes:** `/health` and `/health/ready` are the only routes open without login.
+  They return no clinic or patient data. Every other route declares its roles.
+- **Logs and errors:** a 500 logs only the exception class and request id. The full
+  traceback is logged only at `LOG_LEVEL=DEBUG` (local, synthetic data). Error bodies and
+  logs never echo submitted values.
 - **Tenancy:** `clinic_id` on every clinic-owned table from Phase 0. One clinic in the UI,
   no clinic switcher. Cheap now, painful to retrofit.
 - **Follow-ups and recalls:** a completed care session does not always create a follow-up.
@@ -113,7 +120,5 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 is done. The monorepo has `apps/api` (Python 3.12, uv, ruff, mypy, pytest) and
-`apps/web` (TypeScript, ESLint, Vitest). `make check` runs all checks for both apps.
-PostgreSQL 16 runs in Docker Compose. GitHub Actions runs the same checks on pull requests.
-No application code yet. Next slice: S0.2 API skeleton.
+S0.1 is done. S0.2 is built and waiting for review. The API serves `/health` and
+`/health/ready`, returns one JSON error shape, and has an empty Alembic baseline.

@@ -1,4 +1,4 @@
-.PHONY: lint typecheck test check db-up db-down
+.PHONY: lint typecheck test check db-up db-down api-dev migrate
 
 lint:
 	cd apps/api && uv run ruff check . && uv run ruff format --check .
@@ -19,3 +19,9 @@ db-up:
 
 db-down:
 	docker compose down
+
+api-dev:
+	cd apps/api && uv run uvicorn dentacircle.main:app --reload --port 8000 --no-access-log
+
+migrate:
+	cd apps/api && uv run alembic upgrade head
