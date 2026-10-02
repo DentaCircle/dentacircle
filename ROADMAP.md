@@ -3,7 +3,7 @@
 The tracker. Phases are made of slices. A slice is one reviewable change, about half a day
 to a day of work, with a visible result. Tick a slice only after `/ship-seal`.
 
-**Now:** S0.2 (not started)
+**Now:** S0.3 (not started)
 
 Milestones are demoable. Each one is a real stopping point.
 
@@ -16,7 +16,7 @@ Milestones are demoable. Each one is a real stopping point.
 ## Phase 0: Foundation (M1)
 
 - [x] S0.1 Repo, tooling, CI: monorepo, linters, type checks, test runners, Docker Compose with PostgreSQL
-- [ ] S0.2 API skeleton: FastAPI app, config, logging, error format, health check, Alembic baseline, test harness
+- [x] S0.2 API skeleton: FastAPI app, config, logging, error format, health check, Alembic baseline, test harness
 - [ ] S0.3 Web skeleton: Next.js shell, layout, navigation, typed API client, first component tests
 - [ ] S0.4 Auth and tenancy: Clinic, User, Role, login, session, `clinic_id` scoping helper, role check dependency
 - [ ] S0.5 Walking skeleton: one authenticated screen backed by the DB, running with one command (deployment optional)
