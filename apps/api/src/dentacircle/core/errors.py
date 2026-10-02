@@ -20,6 +20,15 @@ _STATUS_CODES = {
     503: "service_unavailable",
 }
 
+# Fixed client text. HTTPException.detail is never returned: a route can put submitted
+# values in it, and error bodies must not echo those.
+_CLIENT_MESSAGES = {
+    400: "Bad request",
+    404: "Not Found",
+    405: "Method Not Allowed",
+    503: "Database is not ready.",
+}
+
 
 def code_for_status(status_code: int) -> str:
     return _STATUS_CODES.get(status_code, "http_error")
@@ -44,7 +53,7 @@ def unhandled_error_response(request_id: str, exc: Exception) -> JSONResponse:
 def handle_http_exception(request: Request, exc: Exception) -> JSONResponse:
     if not isinstance(exc, HTTPException):
         return unhandled_error_response(current_request_id(request), exc)
-    message = exc.detail if isinstance(exc.detail, str) else "Request failed"
+    message = _CLIENT_MESSAGES.get(exc.status_code, "Request failed")
     request_id = current_request_id(request)
     return error_response(exc.status_code, code_for_status(exc.status_code), message, request_id)
 

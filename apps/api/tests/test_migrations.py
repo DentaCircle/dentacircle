@@ -6,6 +6,8 @@ from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
+from dentacircle.core.database import to_psycopg_url
+
 API_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -29,7 +31,7 @@ def test_baseline_upgrade_and_downgrade(
 
 
 def _public_tables(database_url: str) -> list[str]:
-    with psycopg.connect(database_url, connect_timeout=5) as connection:
+    with psycopg.connect(to_psycopg_url(database_url), connect_timeout=5) as connection:
         rows = connection.execute(
             "SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename"
         ).fetchall()
@@ -43,7 +45,7 @@ def _version(database_url: str) -> str:
 
 
 def _versions(database_url: str) -> list[str]:
-    with psycopg.connect(database_url, connect_timeout=5) as connection:
+    with psycopg.connect(to_psycopg_url(database_url), connect_timeout=5) as connection:
         rows = connection.execute("SELECT version_num FROM alembic_version").fetchall()
     return [str(row[0]) for row in rows]
 

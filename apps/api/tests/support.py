@@ -10,12 +10,12 @@ from psycopg import sql
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from dentacircle.core.database import to_sqlalchemy_url
+from dentacircle.core.database import to_psycopg_url, to_sqlalchemy_url
 
 
 def create_throwaway_database(database_url: str) -> str:
     name = f"dentacircle_test_{uuid4().hex}"
-    admin_url = _with_database(database_url, "postgres")
+    admin_url = to_psycopg_url(_with_database(database_url, "postgres"))
     with psycopg.connect(admin_url, autocommit=True, connect_timeout=5) as connection:
         connection.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
     return _with_database(database_url, name)
@@ -23,7 +23,7 @@ def create_throwaway_database(database_url: str) -> str:
 
 def drop_database(database_url: str) -> None:
     name = urlsplit(database_url).path.lstrip("/")
-    admin_url = _with_database(database_url, "postgres")
+    admin_url = to_psycopg_url(_with_database(database_url, "postgres"))
     with psycopg.connect(admin_url, autocommit=True, connect_timeout=5) as connection:
         connection.execute(
             "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = %s",

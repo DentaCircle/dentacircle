@@ -1,7 +1,7 @@
 import pytest
 
 from dentacircle.core.config import StartupError, get_settings
-from dentacircle.core.database import to_sqlalchemy_url
+from dentacircle.core.database import to_psycopg_url, to_sqlalchemy_url
 from dentacircle.main import create_app
 
 
@@ -55,3 +55,16 @@ def test_postgres_scheme_is_normalized_for_sqlalchemy() -> None:
 def test_sqlalchemy_scheme_is_left_unchanged() -> None:
     url = "postgresql+psycopg://dentacircle:dentacircle@localhost:5432/dentacircle"
     assert to_sqlalchemy_url(url) == url
+
+
+def test_psycopg_url_strips_the_sqlalchemy_driver() -> None:
+    assert (
+        to_psycopg_url("postgresql+psycopg://dentacircle:dentacircle@localhost:5432/dentacircle")
+        == "postgresql://dentacircle:dentacircle@localhost:5432/dentacircle"
+    )
+    assert (
+        to_psycopg_url("postgres://dentacircle:dentacircle@localhost:5432/dentacircle")
+        == "postgresql://dentacircle:dentacircle@localhost:5432/dentacircle"
+    )
+    plain = "postgresql://dentacircle:dentacircle@localhost:5432/dentacircle"
+    assert to_psycopg_url(plain) == plain

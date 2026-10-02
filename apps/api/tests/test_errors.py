@@ -32,7 +32,7 @@ def test_http_exception_uses_the_error_shape(monkeypatch: pytest.MonkeyPatch) ->
 
     @application.get("/denied")
     def denied() -> None:
-        raise HTTPException(status_code=400, detail="Bad request")
+        raise HTTPException(status_code=400, detail="patient synthetic-name is invalid")
 
     with TestClient(application) as client:
         response = client.get("/denied")
@@ -41,6 +41,7 @@ def test_http_exception_uses_the_error_shape(monkeypatch: pytest.MonkeyPatch) ->
     assert set(body) == {"error"}
     assert body["error"]["code"] == "bad_request"
     assert body["error"]["message"] == "Bad request"
+    assert "synthetic-name" not in response.text
     assert response.headers["X-Request-ID"] == body["error"]["request_id"]
 
 

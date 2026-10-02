@@ -34,6 +34,17 @@ def to_sqlalchemy_url(database_url: str) -> str:
     raise ValueError("DATABASE_URL must start with postgresql://")
 
 
+def to_psycopg_url(database_url: str) -> str:
+    """Libpq URL for psycopg.connect. SQLAlchemy's +psycopg prefix is not valid there."""
+    if database_url.startswith("postgresql+psycopg://"):
+        return "postgresql://" + database_url.removeprefix("postgresql+psycopg://")
+    if database_url.startswith("postgres://"):
+        return "postgresql://" + database_url.removeprefix("postgres://")
+    if database_url.startswith("postgresql://"):
+        return database_url
+    raise ValueError("DATABASE_URL must start with postgresql://")
+
+
 def alembic_sqlalchemy_url(database_url: str) -> str:
     # ConfigParser treats % as interpolation. Escape it before Alembic stores the URL.
     return to_sqlalchemy_url(database_url).replace("%", "%%")
