@@ -120,5 +120,6 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 is done. S0.2 is built and waiting for review. The API serves `/health` and
-`/health/ready`, returns one JSON error shape, and has an empty Alembic baseline.
+S0.1 and S0.2 are done. The API runs with `make api-dev`, serves `/health` and
+`/health/ready`, returns one JSON error shape, and has an empty Alembic baseline applied with
+`make migrate`. Next slice: S0.3 web skeleton.
