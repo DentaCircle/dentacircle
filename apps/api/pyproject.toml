@@ -43,7 +43,7 @@ strict = true
 python_version = "3.12"
 plugins = ["pydantic.mypy"]
 mypy_path = ["src", "."]
-packages = ["dentacircle", "tests"]
+packages = ["dentacircle", "tests", "scripts"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
