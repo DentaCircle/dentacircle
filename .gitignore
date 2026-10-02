@@ -6,6 +6,7 @@ __pycache__/
 *.db
 node_modules/
 .next/
+*.tsbuildinfo
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/

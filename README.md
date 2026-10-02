@@ -11,6 +11,9 @@ Coordination workflow for an outpatient clinic. See PRODUCT.md for scope.
 5. Install and check both apps: `make check`.
 6. Apply database migrations: `make migrate`.
 7. Start the API: `make api-dev`. It listens on port 8000. `curl http://127.0.0.1:8000/health` returns `{"status":"ok"}`.
+8. Start the web app: `make web-dev`. It listens on port 3000. Open `/` for the shell and `/status` for API and database health.
+
+`API_BASE_URL` is read by the web server when it calls the API. It defaults to `http://127.0.0.1:8000`. Regenerate the typed client after an API shape change with `make api-types`.
 
 `make check` lints, type checks and tests `apps/api` and `apps/web`. Database tests, including the smoke test, run only when `DATABASE_URL` is set. Export it from `.env` before `make check` if you want those tests to connect:
 
