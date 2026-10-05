@@ -38,7 +38,7 @@ def test_health_routes_are_public(client: TestClient) -> None:
         for route in _api_routes(application)
         if getattr(route.endpoint, "is_public", False)
     )
-    assert paths == ["/health", "/health/ready"]
+    assert paths == ["/auth/login", "/auth/logout", "/health", "/health/ready"]
 
 
 def _api_routes(application: FastAPI) -> list[APIRoute]:
