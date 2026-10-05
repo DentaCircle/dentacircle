@@ -6,6 +6,17 @@ on:
     branches: [main]
 
 jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: TruffleHog OSS
+        uses: trufflesecurity/trufflehog@v3.98.0
+        with:
+          extra_args: --only-verified
+
   api:
     runs-on: ubuntu-latest
     services:
