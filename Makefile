@@ -1,4 +1,4 @@
-.PHONY: lint typecheck test check db-up db-down api-dev migrate
+.PHONY: lint typecheck test check db-up db-down api-dev migrate web-dev web-build api-types
 
 lint:
 	cd apps/api && uv run ruff check . && uv run ruff format --check .
@@ -25,3 +25,13 @@ api-dev:
 
 migrate:
 	cd apps/api && uv run alembic upgrade head
+
+web-dev:
+	cd apps/web && pnpm dev
+
+web-build:
+	cd apps/web && pnpm build
+
+api-types:
+	cd apps/api && uv run python scripts/export_openapi.py
+	cd apps/web && pnpm exec openapi-typescript ../api/openapi.json -o lib/api/schema.d.ts

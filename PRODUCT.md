@@ -85,14 +85,20 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   what is next"), never clinical findings.
 - **Synthetic data only.** M5 is a demo on generated data. No real patient data and no
   production deployment until the DPDP question below is settled.
+- **UI:** Tailwind CSS plus shadcn/Radix (decided in S0.3). Component source is copied into
+  the repo. S0.3 adds only `button`, `sheet`, `badge` and `card`.
+- **Web API client:** response types are generated with `openapi-typescript` from a committed
+  OpenAPI snapshot (decided in S0.3). The web app calls the API from the server with
+  `API_BASE_URL`. No browser calls and no CORS until S0.4, which chooses CORS or a Next
+  rewrite when sessions need it.
 
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.
 
 - **Auth approach:** cookie sessions or JWT. Decide in slice S0.4. Recommendation:
-  httpOnly cookie session. Keep no token in browser storage.
-- **UI component system:** Tailwind alone or a component library. Decide in slice S0.3.
+  httpOnly cookie session. Keep no token in browser storage. S0.3 calls the API only from
+  the server, so this choice also picks CORS or a Next rewrite.
 - **Deployment host for the walking skeleton:** decide in slice S0.5, or defer it.
   Synthetic data only, whatever is chosen.
 - **Regulation:** check what India's DPDP Act requires before any real patient data is stored.
@@ -120,6 +126,8 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 and S0.2 are done. The API runs with `make api-dev`, serves `/health` and
-`/health/ready`, returns one JSON error shape, and has an empty Alembic baseline applied with
-`make migrate`. Next slice: S0.3 web skeleton.
+S0.1 through S0.3 are done. The API runs with `make api-dev`. The web app runs with
+`make web-dev` on port 3000: a shell with Dashboard and Status navigation, and `/status`
+shows live API and database health through a typed client (`openapi-typescript` from a
+committed `openapi.json`). UI is Tailwind plus shadcn/Radix. Server-side API calls use
+`API_BASE_URL`. Next slice: S0.4 auth and tenancy.
