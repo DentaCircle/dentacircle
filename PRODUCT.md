@@ -62,8 +62,9 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
 - **API database access:** sync SQLAlchemy 2.0 with `psycopg` (decided in S0.2). Routes are
   plain `def`. Async is a later change if ever needed. S0.2 also adds `fastapi`, `uvicorn`,
   `pydantic-settings`, `sqlalchemy`, `alembic` and dev-only `httpx`.
-- **Public routes:** `/health` and `/health/ready` are the only routes open without login.
-  They return no clinic or patient data. Every other route declares its roles.
+- **Public routes:** `/health`, `/health/ready`, `/auth/login` and `/auth/logout` are open
+  without a session. They return no clinic or patient data. Every other route declares
+  its roles.
 - **Logs and errors:** a 500 logs only the exception class and request id. The full
   traceback is logged only at `LOG_LEVEL=DEBUG` (local, synthetic data). Error bodies and
   logs never echo submitted values.
@@ -92,13 +93,29 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   `API_BASE_URL`. No browser calls and no CORS until S0.4, which chooses CORS or a Next
   rewrite when sessions need it.
 
+- **Auth (decided in S0.4):** an opaque random token in an httpOnly cookie `dc_session`
+  (SameSite=Lax, Secure by setting). The database keeps only its SHA-256 hash in
+  `auth_session`, so logout and deactivation take effect at once. Not JWT: we load the user
+  on every request anyway, and a JWT cannot be revoked or updated without a denylist.
+  Passwords are hashed with Argon2id (`argon2-cffi`, the only new dependency in S0.4).
+- **Browser access to the API (decided in S0.4, built in S0.5):** a Next rewrite proxies
+  `/api/*` to the API, so the browser sees one origin. No CORS. The API keeps its routes
+  without a prefix. Check proxy body-size limits at S3.1 (uploads).
+- **Roles (decided in S0.4):** four roles (`clinician`, `receptionist`, `inventory_admin`,
+  `clinic_admin`) in a `user_role` table, one row per user and role, as text with a check
+  constraint, not a PostgreSQL enum. `clinic_admin` has no automatic access: every route
+  lists its roles. A test fails on any route that is neither `@public` nor role-protected.
+- **Login lookup (decided in S0.4):** email is unique across all clinics. `find_for_login`
+  is the only repository query not scoped by `clinic_id`. After login the clinic comes from
+  the session, never from the request.
+- **Known gaps until real patient data:** CSRF relies on SameSite=Lax with no token or
+  Origin check, and there is no login rate limiting. Login and logout are not audited
+  until `AuditEvent` exists (S1.1).
+
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.
 
-- **Auth approach:** cookie sessions or JWT. Decide in slice S0.4. Recommendation:
-  httpOnly cookie session. Keep no token in browser storage. S0.3 calls the API only from
-  the server, so this choice also picks CORS or a Next rewrite.
 - **Deployment host for the walking skeleton:** decide in slice S0.5, or defer it.
   Synthetic data only, whatever is chosen.
 - **Regulation:** check what India's DPDP Act requires before any real patient data is stored.
@@ -126,8 +143,11 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 through S0.3 are done. The API runs with `make api-dev`. The web app runs with
-`make web-dev` on port 3000: a shell with Dashboard and Status navigation, and `/status`
-shows live API and database health through a typed client (`openapi-typescript` from a
-committed `openapi.json`). UI is Tailwind plus shadcn/Radix. Server-side API calls use
-`API_BASE_URL`. Next slice: S0.4 auth and tenancy.
+S0.1 through S0.4 are done. The API runs with `make api-dev`. Login is cookie-based:
+`POST /auth/login` sets `dc_session`, `GET /auth/me` returns the signed-in user,
+`POST /auth/logout` clears the session. Passwords are Argon2id; session tokens are stored
+hashed. `require_roles` guards routes; `scoped_select` scopes queries by clinic from the
+session. Create a user with `make create-user` after `make migrate`. The web app runs
+with `make web-dev` on port 3000 (shell and `/status` health page; no login UI yet).
+OpenAPI and `schema.d.ts` include the auth routes. Next slice: S0.5 walking skeleton
+(login page, Next `/api` rewrite, one authenticated screen).

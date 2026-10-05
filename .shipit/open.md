@@ -1,4 +1,4 @@
 # Open items
 
-- **CI on S0.3 PR.** Confirm GitHub Actions is green before merging
-  `slice/S0.3-web-skeleton` to `main`. Next action: open the PR and check both jobs.
+- **S0.4 PR.** Open a pull request for `slice/S0.4-auth-and-tenancy` and confirm GitHub
+  Actions is green. Next action: push the branch and run `gh pr create`.

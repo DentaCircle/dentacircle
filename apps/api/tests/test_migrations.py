@@ -15,19 +15,46 @@ def test_baseline_upgrade_and_downgrade(
     throwaway_database_url: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
-    config = Config(str(API_ROOT / "alembic.ini"))
-    config.set_main_option("script_location", str(API_ROOT / "migrations"))
+    config = _config()
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "0001_baseline")
     assert _public_tables(throwaway_database_url) == ["alembic_version"]
-    assert _version(throwaway_database_url) == _head(config)
+    assert _version(throwaway_database_url) == "0001_baseline"
 
     command.downgrade(config, "base")
     assert _versions(throwaway_database_url) == []
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "0001_baseline")
     assert _public_tables(throwaway_database_url) == ["alembic_version"]
     assert _version(throwaway_database_url) == "0001_baseline"
+
+
+_AUTH_TABLES = ["alembic_version", "app_user", "auth_session", "clinic", "user_role"]
+
+
+def test_auth_migration_upgrade_and_downgrade(
+    throwaway_database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
+    config = _config()
+
+    command.upgrade(config, "head")
+    assert _public_tables(throwaway_database_url) == _AUTH_TABLES
+    assert _version(throwaway_database_url) == "0002_auth"
+
+    command.downgrade(config, "0001_baseline")
+    assert _public_tables(throwaway_database_url) == ["alembic_version"]
+    assert _version(throwaway_database_url) == "0001_baseline"
+
+    command.upgrade(config, "head")
+    assert _public_tables(throwaway_database_url) == _AUTH_TABLES
+    assert _version(throwaway_database_url) == "0002_auth"
+
+
+def _config() -> Config:
+    config = Config(str(API_ROOT / "alembic.ini"))
+    config.set_main_option("script_location", str(API_ROOT / "migrations"))
+    return config
 
 
 def _public_tables(database_url: str) -> list[str]:

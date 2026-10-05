@@ -3,6 +3,7 @@
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+import dentacircle.models  # noqa: F401  (registers tables on Base.metadata)
 from dentacircle.core.config import get_settings
 from dentacircle.core.database import Base, alembic_sqlalchemy_url
 

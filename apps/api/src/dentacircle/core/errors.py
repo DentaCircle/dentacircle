@@ -14,6 +14,8 @@ GENERIC_ERROR_MESSAGE = "Something went wrong."
 
 _STATUS_CODES = {
     400: "bad_request",
+    401: "unauthenticated",
+    403: "forbidden",
     404: "not_found",
     405: "method_not_allowed",
     422: "validation_error",
@@ -24,6 +26,8 @@ _STATUS_CODES = {
 # values in it, and error bodies must not echo those.
 _CLIENT_MESSAGES = {
     400: "Bad request",
+    401: "Sign in required.",
+    403: "You do not have access.",
     404: "Not Found",
     405: "Method Not Allowed",
     503: "Database is not ready.",

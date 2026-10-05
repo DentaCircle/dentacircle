@@ -41,6 +41,51 @@ def test_log_level_is_case_insensitive(monkeypatch: pytest.MonkeyPatch) -> None:
     assert get_settings().log_level == "DEBUG"
 
 
+def test_session_settings_have_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql://dentacircle:dentacircle@127.0.0.1:5432/dentacircle",
+    )
+    monkeypatch.delenv("SESSION_TTL_HOURS", raising=False)
+    monkeypatch.delenv("COOKIE_SECURE", raising=False)
+    settings = get_settings()
+    assert settings.session_ttl_hours == 12
+    assert settings.cookie_secure is True
+
+
+def test_session_ttl_must_be_a_positive_integer(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql://dentacircle:dentacircle@127.0.0.1:5432/dentacircle",
+    )
+    monkeypatch.setenv("SESSION_TTL_HOURS", "0")
+    with pytest.raises(StartupError) as caught:
+        get_settings()
+    assert "SESSION_TTL_HOURS" in str(caught.value)
+
+
+def test_session_ttl_rejects_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql://dentacircle:dentacircle@127.0.0.1:5432/dentacircle",
+    )
+    monkeypatch.setenv("SESSION_TTL_HOURS", "twelve")
+    with pytest.raises(StartupError) as caught:
+        get_settings()
+    assert "SESSION_TTL_HOURS" in str(caught.value)
+
+
+def test_cookie_secure_rejects_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql://dentacircle:dentacircle@127.0.0.1:5432/dentacircle",
+    )
+    monkeypatch.setenv("COOKIE_SECURE", "sometimes")
+    with pytest.raises(StartupError) as caught:
+        get_settings()
+    assert "COOKIE_SECURE" in str(caught.value)
+
+
 def test_postgres_scheme_is_normalized_for_sqlalchemy() -> None:
     assert (
         to_sqlalchemy_url("postgresql://dentacircle:dentacircle@localhost:5432/dentacircle")

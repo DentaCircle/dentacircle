@@ -31,7 +31,7 @@ def client(monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
         yield test_client
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture
 def throwaway_database_url() -> Iterator[str]:
     database_url = os.environ.get("DATABASE_URL")
     if database_url is None:

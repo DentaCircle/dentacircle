@@ -1,4 +1,4 @@
-.PHONY: lint typecheck test check db-up db-down api-dev migrate web-dev web-build api-types
+.PHONY: lint typecheck test check db-up db-down api-dev migrate web-dev web-build api-types create-user
 
 lint:
 	cd apps/api && uv run ruff check . && uv run ruff format --check .
@@ -31,6 +31,9 @@ web-dev:
 
 web-build:
 	cd apps/web && pnpm build
+
+create-user:
+	cd apps/api && uv run python scripts/create_user.py $(ARGS)
 
 api-types:
 	cd apps/api && uv run python scripts/export_openapi.py
