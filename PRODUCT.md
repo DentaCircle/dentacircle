@@ -126,6 +126,8 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 and S0.2 are done. The API runs with `make api-dev`, serves `/health` and
-`/health/ready`, returns one JSON error shape, and has an empty Alembic baseline applied with
-`make migrate`. Next slice: S0.3 web skeleton.
+S0.1 through S0.3 are done. The API runs with `make api-dev`. The web app runs with
+`make web-dev` on port 3000: a shell with Dashboard and Status navigation, and `/status`
+shows live API and database health through a typed client (`openapi-typescript` from a
+committed `openapi.json`). UI is Tailwind plus shadcn/Radix. Server-side API calls use
+`API_BASE_URL`. Next slice: S0.4 auth and tenancy.
