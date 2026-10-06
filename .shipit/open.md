@@ -1,4 +1,4 @@
 # Open items
 
-- **S0.4 PR.** Open a pull request for `slice/S0.4-auth-and-tenancy` and confirm GitHub
-  Actions is green. Next action: push the branch and run `gh pr create`.
+- **S0.5 is built and waiting for review.** Branch `slice/S0.5-walking-skeleton`.
+  Next action: review the diff, then `/ship-seal` if it is approved.
