@@ -149,11 +149,9 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 through S0.4 are done. The API runs with `make api-dev`. Login is cookie-based:
-`POST /auth/login` sets `dc_session`, `GET /auth/me` returns the signed-in user,
-`POST /auth/logout` clears the session. Passwords are Argon2id; session tokens are stored
-hashed. `require_roles` guards routes; `scoped_select` scopes queries by clinic from the
-session. Create a user with `make create-user` after `make migrate`. The web app runs
-with `make web-dev` on port 3000 (shell and `/status` health page; no login UI yet).
-OpenAPI and `schema.d.ts` include the auth routes. Next slice: S0.5 walking skeleton
-(login page, Next `/api` rewrite, one authenticated screen).
+S0.1 through S0.5 are done. `make dev` starts PostgreSQL, applies migrations, and runs
+the API and the web app. Sign in at `/login`. The browser posts through the `/api` rewrite,
+so `dc_session` stays on the web origin. The dashboard shows the signed-in user's name,
+roles and clinic from `GET /auth/me`. `/` and `/status` require that session. Create a
+user with `make create-user`. Deployment is still deferred to the end of Phase 1.
+Next slice: S1.0 clinic day.
