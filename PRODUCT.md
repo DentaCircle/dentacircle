@@ -108,14 +108,6 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
 - **Login lookup (decided in S0.4):** email is unique across all clinics. `find_for_login`
   is the only repository query not scoped by `clinic_id`. After login the clinic comes from
   the session, never from the request.
-- **Walking skeleton (decided in S0.5):** the one authenticated, clinic-scoped screen is the
-  dashboard, showing the signed-in user, roles and clinic from `GET /auth/me`. No new API
-  route and no staff list. The page guard runs in the server layout and asks the API whether
-  the session is valid (not a Next `proxy.ts` cookie check). Login and logout run in the
-  browser through the `/api` rewrite. `/status` is signed-in only.
-- **Deployment (deferred in S0.5):** no host chosen. Revisit at the end of Phase 1, when
-  there is a demo worth showing. Synthetic data only whatever is chosen. A production web
-  build needs `API_BASE_URL` set at build time because the rewrite target is fixed then.
 - **Known gaps until real patient data:** CSRF relies on SameSite=Lax with no token or
   Origin check, and there is no login rate limiting. Login and logout are not audited
   until `AuditEvent` exists (S1.1).
@@ -124,6 +116,8 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
 
 Recommendations are mine, not decisions.
 
+- **Deployment host for the walking skeleton:** decide in slice S0.5, or defer it.
+  Synthetic data only, whatever is chosen.
 - **Regulation:** check what India's DPDP Act requires before any real patient data is stored.
 - **AI coding tool:** Claude Code, Codex or Cursor. Skills and rules here are plain
   markdown so the choice can change.
@@ -149,9 +143,11 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 through S0.5 are done. `make dev` starts PostgreSQL, applies migrations, and runs
-the API and the web app. Sign in at `/login`. The browser posts through the `/api` rewrite,
-so `dc_session` stays on the web origin. The dashboard shows the signed-in user's name,
-roles and clinic from `GET /auth/me`. `/` and `/status` require that session. Create a
-user with `make create-user`. Deployment is still deferred to the end of Phase 1.
-Next slice: S1.0 clinic day.
+S0.1 through S0.4 are done. The API runs with `make api-dev`. Login is cookie-based:
+`POST /auth/login` sets `dc_session`, `GET /auth/me` returns the signed-in user,
+`POST /auth/logout` clears the session. Passwords are Argon2id; session tokens are stored
+hashed. `require_roles` guards routes; `scoped_select` scopes queries by clinic from the
+session. Create a user with `make create-user` after `make migrate`. The web app runs
+with `make web-dev` on port 3000 (shell and `/status` health page; no login UI yet).
+OpenAPI and `schema.d.ts` include the auth routes. Next slice: S0.5 walking skeleton
+(login page, Next `/api` rewrite, one authenticated screen).

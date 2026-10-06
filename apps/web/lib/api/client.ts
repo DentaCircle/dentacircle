@@ -11,7 +11,6 @@ import {
 import type { components } from "@/lib/api/schema";
 
 export type HealthResponse = components["schemas"]["HealthResponse"];
-export type CurrentUser = components["schemas"]["UserResponse"];
 
 export type { ApiError, ApiResult };
 
@@ -24,34 +23,24 @@ export function apiBaseUrl(): string {
 }
 
 export function getHealth(): Promise<ApiResult<HealthResponse>> {
-  return getJson("/health", healthData);
+  return getJson("/health");
 }
 
 export function getReadiness(): Promise<ApiResult<HealthResponse>> {
-  return getJson("/health/ready", healthData);
+  return getJson("/health/ready");
 }
 
-export function getCurrentUser(cookieHeader: string): Promise<ApiResult<CurrentUser>> {
-  const headers = cookieHeader === "" ? undefined : { cookie: cookieHeader };
-  return getJson("/auth/me", currentUserData, headers);
-}
-
-async function getJson<T>(
-  path: string,
-  parse: (value: unknown) => T | null,
-  headers?: HeadersInit,
-): Promise<ApiResult<T>> {
+async function getJson(path: string): Promise<ApiResult<HealthResponse>> {
   try {
     const response = await fetch(`${apiBaseUrl()}${path}`, {
       cache: "no-store",
-      headers,
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) {
       const body: unknown = await readJson(response);
       return { ok: false, error: parseErrorBody(response.status, body) };
     }
-    const data = parse(await readJson(response));
+    const data = healthData(await readJson(response));
     if (data === null) return { ok: false, error: genericApiError(response.status) };
     return { ok: true, data };
   } catch (error) {
@@ -76,41 +65,4 @@ function healthData(value: unknown): HealthResponse | null {
   if (typeof status !== "string") return null;
   const data: HealthResponse = { status };
   return data;
-}
-
-function currentUserData(value: unknown): CurrentUser | null {
-  if (!isRecord(value)) return null;
-  const id = stringField(value, "id");
-  const email = stringField(value, "email");
-  const fullName = stringField(value, "full_name");
-  const roles = stringListField(value, "roles");
-  const clinic = isRecord(value.clinic) ? value.clinic : null;
-  const clinicId = clinic === null ? null : stringField(clinic, "id");
-  const clinicName = clinic === null ? null : stringField(clinic, "name");
-  if (id === null || email === null || fullName === null || roles === null || clinicId === null || clinicName === null) {
-    return null;
-  }
-  return {
-    id,
-    email,
-    full_name: fullName,
-    roles,
-    clinic: { id: clinicId, name: clinicName },
-  };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
-}
-
-function stringField(value: Record<string, unknown>, key: string): string | null {
-  const field = value[key];
-  if (typeof field !== "string") return null;
-  return field;
-}
-
-function stringListField(value: Record<string, unknown>, key: string): string[] | null {
-  const field = value[key];
-  if (!Array.isArray(field) || !field.every((item) => typeof item === "string")) return null;
-  return field;
 }
