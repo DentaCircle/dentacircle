@@ -2,34 +2,22 @@ import { render, screen } from "@testing-library/react";
 import { expect, test, vi } from "vitest";
 
 import { AppShell } from "@/components/app-shell";
-import type { CurrentUser } from "@/lib/api/client";
+import HomePage from "@/app/page";
 
 vi.mock("next/navigation", () => ({
   usePathname: () => "/",
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
-const syntheticUser: CurrentUser = {
-  id: "00000000-0000-4000-8000-000000000001",
-  email: "a@x.test",
-  full_name: "Synthetic Person",
-  roles: ["clinician"],
-  clinic: { id: "00000000-0000-4000-8000-000000000002", name: "Synthetic Clinic" },
-};
-
-test("shell shows the app name, the signed-in user, and the current page", () => {
+test("shell shows the app name, existing routes, and the current page", () => {
   render(
-    <AppShell user={syntheticUser}>
-      <p>page body</p>
+    <AppShell>
+      <HomePage />
     </AppShell>,
   );
 
   expect(screen.getByRole("banner").textContent).toContain("Dentacircle");
-  expect(screen.getByRole("banner")).toHaveTextContent("Synthetic Person");
-  expect(screen.getByRole("banner")).toHaveTextContent("Synthetic Clinic");
-  expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
   expect(screen.getByRole("main")).toBeInTheDocument();
-  expect(screen.getByText("page body")).toBeInTheDocument();
+  expect(screen.getByText("nothing to show yet")).toBeInTheDocument();
 
   const dashboardLinks = screen.getAllByRole("link", { name: "Dashboard" });
   const statusLinks = screen.getAllByRole("link", { name: "Status" });
@@ -46,8 +34,8 @@ test("shell shows the app name, the signed-in user, and the current page", () =>
 
 test("sidebar is hidden below md and the menu button is hidden from md up", () => {
   render(
-    <AppShell user={syntheticUser}>
-      <p>page body</p>
+    <AppShell>
+      <HomePage />
     </AppShell>,
   );
 

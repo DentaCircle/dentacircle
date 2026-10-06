@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { getCurrentUser, getHealth, getReadiness } from "@/lib/api/client";
+import { getHealth, getReadiness } from "@/lib/api/client";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/api/errors";
 
 const marker = "synthetic-marker-raw-body";
@@ -90,52 +90,6 @@ describe("getHealth", () => {
   });
 });
 
-describe("getCurrentUser", () => {
-  test("forwards the session cookie to /auth/me", async () => {
-    const fetchMock = stubFetch(jsonResponse(200, syntheticUser));
-
-    await expect(getCurrentUser("dc_session=token")).resolves.toEqual({ ok: true, data: syntheticUser });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "http://127.0.0.1:8000/auth/me",
-      expect.objectContaining({
-        cache: "no-store",
-        headers: { cookie: "dc_session=token" },
-      }),
-    );
-  });
-
-  test("omits the cookie header when there is no session", async () => {
-    const fetchMock = stubFetch(jsonResponse(401, { error: { code: "unauthenticated", message: "Sign in required.", request_id: "req-1" } }));
-
-    const result = await getCurrentUser("");
-
-    expect(result.ok).toBe(false);
-    if (!result.ok && result.error.kind === "api") expect(result.error.status).toBe(401);
-    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
-    expect(init.headers).toBeUndefined();
-  });
-
-  test("returns an error when the body is not a user and does not keep the raw text", async () => {
-    stubFetch(jsonResponse(200, { email: "a@x.test", full_name: marker }));
-
-    const result = await getCurrentUser("dc_session=token");
-
-    expect(result.ok).toBe(false);
-    if (!result.ok && result.error.kind === "api") {
-      expect(result.error.message).toBe(GENERIC_ERROR_MESSAGE);
-    }
-    expect(JSON.stringify(result)).not.toContain(marker);
-  });
-});
-
-const syntheticUser = {
-  id: "00000000-0000-4000-8000-000000000001",
-  email: "a@x.test",
-  full_name: "Synthetic Person",
-  roles: ["clinician"],
-  clinic: { id: "00000000-0000-4000-8000-000000000002", name: "Synthetic Clinic" },
-};
-
 function jsonResponse(status: number, body: unknown): { ok: boolean; status: number; json: () => Promise<unknown> } {
   return {
     ok: status >= 200 && status < 300,
@@ -144,8 +98,9 @@ function jsonResponse(status: number, body: unknown): { ok: boolean; status: num
   };
 }
 
-function stubFetch(value: unknown): ReturnType<typeof vi.fn> {
-  const fetchMock = vi.fn(() => Promise.resolve(value));
-  vi.stubGlobal("fetch", fetchMock);
-  return fetchMock;
+function stubFetch(value: unknown): void {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() => Promise.resolve(value)),
+  );
 }
