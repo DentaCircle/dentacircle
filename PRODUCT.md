@@ -120,6 +120,17 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   Origin check, and there is no login rate limiting. Login and logout are not audited
   until `AuditEvent` exists (S1.1).
 
+- **Clinic day (decided in S1.0):** `clinic` gains `timezone` (IANA, default `Asia/Kolkata`)
+  and `default_appointment_minutes` (default 30). Working hours are stored as intervals in
+  clinic-local wall time, any number per weekday (0 is Monday). A break is a gap between
+  intervals. A day with no interval is closed. The database forbids overlapping or touching
+  intervals with an exclusion constraint, so the `btree_gist` extension is enabled here (S1.3
+  reuses it). Appointment types have an optional duration that falls back to the clinic
+  default, and are deactivated, never deleted. Everyone reads. Only `clinic_admin` writes,
+  through the API, with no settings screen. Defaults (Monday to Saturday 09:00 to 18:00, four
+  placeholder types) are seeded once by the migration and for new clinics, and live in code.
+  Not audited: clinic setup is not on the AGENTS.md audit list.
+
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.
@@ -154,4 +165,4 @@ the API and the web app. Sign in at `/login`. The browser posts through the `/ap
 so `dc_session` stays on the web origin. The dashboard shows the signed-in user's name,
 roles and clinic from `GET /auth/me`. `/` and `/status` require that session. Create a
 user with `make create-user`. Deployment is still deferred to the end of Phase 1.
-Next slice: S1.0 clinic day.
+Next slice: S1.0 clinic day is built and waiting for review.

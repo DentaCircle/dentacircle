@@ -70,6 +70,28 @@ def test_validation_error_lists_location_and_rule_without_the_value(
     assert response.headers["X-Request-ID"] == body["error"]["request_id"]
 
 
+def test_conflict_uses_a_fixed_message_and_hides_the_detail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql://dentacircle:dentacircle@127.0.0.1:5432/dentacircle",
+    )
+    application = create_app()
+
+    @application.get("/clash")
+    def clash() -> None:
+        raise HTTPException(status_code=409, detail="name scaling already exists")
+
+    with TestClient(application) as client:
+        response = client.get("/clash")
+    body = response.json()
+    assert response.status_code == 409
+    assert body["error"]["code"] == "conflict"
+    assert body["error"]["message"] == "That name is already in use."
+    assert "scaling" not in response.text
+
+
 def test_unhandled_exception_hides_the_message(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(
         "DATABASE_URL",

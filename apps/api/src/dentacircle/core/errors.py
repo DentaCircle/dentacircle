@@ -19,6 +19,7 @@ _STATUS_CODES = {
     404: "not_found",
     405: "method_not_allowed",
     422: "validation_error",
+    409: "conflict",
     503: "service_unavailable",
 }
 
@@ -30,6 +31,7 @@ _CLIENT_MESSAGES = {
     403: "You do not have access.",
     404: "Not Found",
     405: "Method Not Allowed",
+    409: "That name is already in use.",
     503: "Database is not ready.",
 }
 
