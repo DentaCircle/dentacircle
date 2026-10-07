@@ -65,6 +65,22 @@ class AppointmentTypeResponse(BaseModel):
     is_active: bool
 
 
+class ErrorBody(BaseModel):
+    code: str
+    message: str
+    request_id: str
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorBody
+
+
+_APPOINTMENT_TYPE_ERRORS = {
+    404: {"model": ErrorResponse, "description": "Not Found"},
+    409: {"model": ErrorResponse, "description": "Conflict"},
+}
+
+
 def _response(item: AppointmentTypeView) -> AppointmentTypeResponse:
     return AppointmentTypeResponse(
         id=item.id,
@@ -88,7 +104,7 @@ def get_appointment_types(
     return [_response(row) for row in rows]
 
 
-@router.post("/appointment-types", status_code=201)
+@router.post("/appointment-types", status_code=201, responses=_APPOINTMENT_TYPE_ERRORS)
 def post_appointment_type(
     body: AppointmentTypeCreate,
     user: Annotated[CurrentUser, Depends(clinic_admin_only)],
@@ -106,7 +122,7 @@ def post_appointment_type(
     return _response(created)
 
 
-@router.put("/appointment-types/{type_id}")
+@router.put("/appointment-types/{type_id}", responses=_APPOINTMENT_TYPE_ERRORS)
 def put_appointment_type(
     type_id: UUID,
     body: AppointmentTypeUpdate,
