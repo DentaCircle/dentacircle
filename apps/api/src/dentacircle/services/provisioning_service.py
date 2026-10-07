@@ -11,6 +11,7 @@ from dentacircle.domain.roles import ROLES
 from dentacircle.models.app_user import AppUser
 from dentacircle.models.clinic import Clinic
 from dentacircle.repositories.user_repository import UserRepository
+from dentacircle.services.clinic_day_service import seed_clinic_day
 
 
 class UnknownRoleError(Exception):
@@ -28,6 +29,7 @@ def get_or_create_clinic(session: Session, name: str) -> Clinic:
     clinic = Clinic(id=uuid4(), name=name)
     session.add(clinic)
     session.flush()
+    seed_clinic_day(session, clinic.id)
     return clinic
 
 

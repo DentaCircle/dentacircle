@@ -7,7 +7,9 @@ require DATABASE_URL. Uvicorn loads `dentacircle.main:app`.
 from fastapi import FastAPI
 from starlette.types import Receive, Scope, Send
 
+from dentacircle.api.appointment_types import router as appointment_types_router
 from dentacircle.api.auth import router as auth_router
+from dentacircle.api.clinic_day import router as clinic_day_router
 from dentacircle.api.health import router as health_router
 from dentacircle.core.config import get_settings
 from dentacircle.core.errors import register_exception_handlers
@@ -23,6 +25,8 @@ def create_app() -> FastAPI:
     application.add_middleware(RequestContextMiddleware)
     application.include_router(health_router)
     application.include_router(auth_router)
+    application.include_router(clinic_day_router)
+    application.include_router(appointment_types_router)
     return application
 
 

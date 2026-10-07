@@ -4,6 +4,41 @@
  */
 
 export interface paths {
+    "/appointment-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Appointment Types */
+        get: operations["get_appointment_types_appointment_types_get"];
+        put?: never;
+        /** Post Appointment Type */
+        post: operations["post_appointment_type_appointment_types_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/appointment-types/{type_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Appointment Type */
+        put: operations["put_appointment_type_appointment_types__type_id__put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -55,6 +90,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/clinic/day": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Clinic Day */
+        get: operations["get_clinic_day_clinic_day_get"];
+        /** Put Clinic Day */
+        put: operations["put_clinic_day_clinic_day_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -93,6 +146,56 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AppointmentTypeCreate */
+        AppointmentTypeCreate: {
+            /** Duration Minutes */
+            duration_minutes?: number | null;
+            /** Name */
+            name: string;
+        };
+        /** AppointmentTypeResponse */
+        AppointmentTypeResponse: {
+            /** Duration Minutes */
+            duration_minutes: number | null;
+            /** Effective Duration Minutes */
+            effective_duration_minutes: number;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Is Active */
+            is_active: boolean;
+            /** Name */
+            name: string;
+        };
+        /** AppointmentTypeUpdate */
+        AppointmentTypeUpdate: {
+            /** Duration Minutes */
+            duration_minutes: number | null;
+            /** Is Active */
+            is_active: boolean;
+            /** Name */
+            name: string;
+        };
+        /** ClinicDayBody */
+        ClinicDayBody: {
+            /** Default Appointment Minutes */
+            default_appointment_minutes: number;
+            /** Timezone */
+            timezone: string;
+            /** Working Hours */
+            working_hours: components["schemas"]["WorkingHoursInterval"][];
+        };
+        /** ClinicDayResponse */
+        ClinicDayResponse: {
+            /** Default Appointment Minutes */
+            default_appointment_minutes: number;
+            /** Timezone */
+            timezone: string;
+            /** Working Hours */
+            working_hours: components["schemas"]["WorkingHoursResponse"][];
+        };
         /** ClinicResponse */
         ClinicResponse: {
             /**
@@ -102,6 +205,19 @@ export interface components {
             id: string;
             /** Name */
             name: string;
+        };
+        /** ErrorBody */
+        ErrorBody: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
+            /** Request Id */
+            request_id: string;
+        };
+        /** ErrorResponse */
+        ErrorResponse: {
+            error: components["schemas"]["ErrorBody"];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -152,6 +268,36 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** WorkingHoursInterval */
+        WorkingHoursInterval: {
+            /**
+             * Closes At
+             * Format: time
+             */
+            closes_at: string;
+            /**
+             * Opens At
+             * Format: time
+             */
+            opens_at: string;
+            /** Weekday */
+            weekday: number;
+        };
+        /** WorkingHoursResponse */
+        WorkingHoursResponse: {
+            /**
+             * Closes At
+             * Format: time
+             */
+            closes_at: string;
+            /**
+             * Opens At
+             * Format: time
+             */
+            opens_at: string;
+            /** Weekday */
+            weekday: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -161,6 +307,141 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    get_appointment_types_appointment_types_get: {
+        parameters: {
+            query?: {
+                include_inactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentTypeResponse"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_appointment_type_appointment_types_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointmentTypeCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentTypeResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_appointment_type_appointment_types__type_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                type_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AppointmentTypeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentTypeResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     login_route_auth_login_post: {
         parameters: {
             query?: never;
@@ -228,6 +509,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UserResponse"];
+                };
+            };
+        };
+    };
+    get_clinic_day_clinic_day_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicDayResponse"];
+                };
+            };
+        };
+    };
+    put_clinic_day_clinic_day_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClinicDayBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClinicDayResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

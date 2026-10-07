@@ -38,7 +38,7 @@ def test_auth_migration_upgrade_and_downgrade(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "0002_auth")
     assert _public_tables(throwaway_database_url) == _AUTH_TABLES
     assert _version(throwaway_database_url) == "0002_auth"
 
@@ -46,7 +46,7 @@ def test_auth_migration_upgrade_and_downgrade(
     assert _public_tables(throwaway_database_url) == ["alembic_version"]
     assert _version(throwaway_database_url) == "0001_baseline"
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "0002_auth")
     assert _public_tables(throwaway_database_url) == _AUTH_TABLES
     assert _version(throwaway_database_url) == "0002_auth"
 

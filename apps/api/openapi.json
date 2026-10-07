@@ -1,6 +1,163 @@
 {
   "components": {
     "schemas": {
+      "AppointmentTypeCreate": {
+        "properties": {
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "maximum": 480.0,
+                "minimum": 5.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "AppointmentTypeCreate",
+        "type": "object"
+      },
+      "AppointmentTypeResponse": {
+        "properties": {
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes"
+          },
+          "effective_duration_minutes": {
+            "title": "Effective Duration Minutes",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "duration_minutes",
+          "effective_duration_minutes",
+          "is_active"
+        ],
+        "title": "AppointmentTypeResponse",
+        "type": "object"
+      },
+      "AppointmentTypeUpdate": {
+        "properties": {
+          "duration_minutes": {
+            "anyOf": [
+              {
+                "maximum": 480.0,
+                "minimum": 5.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Minutes"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "duration_minutes",
+          "is_active"
+        ],
+        "title": "AppointmentTypeUpdate",
+        "type": "object"
+      },
+      "ClinicDayBody": {
+        "properties": {
+          "default_appointment_minutes": {
+            "maximum": 480.0,
+            "minimum": 5.0,
+            "title": "Default Appointment Minutes",
+            "type": "integer"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "working_hours": {
+            "items": {
+              "$ref": "#/components/schemas/WorkingHoursInterval"
+            },
+            "title": "Working Hours",
+            "type": "array"
+          }
+        },
+        "required": [
+          "timezone",
+          "default_appointment_minutes",
+          "working_hours"
+        ],
+        "title": "ClinicDayBody",
+        "type": "object"
+      },
+      "ClinicDayResponse": {
+        "properties": {
+          "default_appointment_minutes": {
+            "title": "Default Appointment Minutes",
+            "type": "integer"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          },
+          "working_hours": {
+            "items": {
+              "$ref": "#/components/schemas/WorkingHoursResponse"
+            },
+            "title": "Working Hours",
+            "type": "array"
+          }
+        },
+        "required": [
+          "timezone",
+          "default_appointment_minutes",
+          "working_hours"
+        ],
+        "title": "ClinicDayResponse",
+        "type": "object"
+      },
       "ClinicResponse": {
         "properties": {
           "id": {
@@ -18,6 +175,41 @@
           "name"
         ],
         "title": "ClinicResponse",
+        "type": "object"
+      },
+      "ErrorBody": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message",
+          "request_id"
+        ],
+        "title": "ErrorBody",
+        "type": "object"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -151,6 +343,58 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "WorkingHoursInterval": {
+        "properties": {
+          "closes_at": {
+            "format": "time",
+            "title": "Closes At",
+            "type": "string"
+          },
+          "opens_at": {
+            "format": "time",
+            "title": "Opens At",
+            "type": "string"
+          },
+          "weekday": {
+            "maximum": 6.0,
+            "minimum": 0.0,
+            "title": "Weekday",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weekday",
+          "opens_at",
+          "closes_at"
+        ],
+        "title": "WorkingHoursInterval",
+        "type": "object"
+      },
+      "WorkingHoursResponse": {
+        "properties": {
+          "closes_at": {
+            "format": "time",
+            "title": "Closes At",
+            "type": "string"
+          },
+          "opens_at": {
+            "format": "time",
+            "title": "Opens At",
+            "type": "string"
+          },
+          "weekday": {
+            "title": "Weekday",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "weekday",
+          "opens_at",
+          "closes_at"
+        ],
+        "title": "WorkingHoursResponse",
+        "type": "object"
       }
     }
   },
@@ -160,6 +404,176 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/appointment-types": {
+      "get": {
+        "operationId": "get_appointment_types_appointment_types_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "include_inactive",
+            "required": false,
+            "schema": {
+              "default": false,
+              "title": "Include Inactive",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AppointmentTypeResponse"
+                  },
+                  "title": "Response Get Appointment Types Appointment Types Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Appointment Types"
+      },
+      "post": {
+        "operationId": "post_appointment_type_appointment_types_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentTypeCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentTypeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Appointment Type"
+      }
+    },
+    "/appointment-types/{type_id}": {
+      "put": {
+        "operationId": "put_appointment_type_appointment_types__type_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "type_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Type Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentTypeUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentTypeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Appointment Type"
+      }
+    },
     "/auth/login": {
       "post": {
         "operationId": "login_route_auth_login_post",
@@ -225,6 +639,60 @@
           }
         },
         "summary": "Me"
+      }
+    },
+    "/clinic/day": {
+      "get": {
+        "operationId": "get_clinic_day_clinic_day_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicDayResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Clinic Day"
+      },
+      "put": {
+        "operationId": "put_clinic_day_clinic_day_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClinicDayBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClinicDayResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Clinic Day"
       }
     },
     "/health": {

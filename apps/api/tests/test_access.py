@@ -1,6 +1,6 @@
 """Role checks, and the rule that every route is public or role-protected."""
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from typing import Annotated
 
 import pytest
@@ -112,15 +112,32 @@ def test_the_walk_catches_an_unmarked_route() -> None:
 
 def unmarked_routes(application: FastAPI) -> list[str]:
     found: list[str] = []
-    for route in application.routes:
-        if not isinstance(route, APIRoute):
-            continue
+    for route in iter_api_routes(application):
         if getattr(route.endpoint, "is_public", False):
             continue
         if any(getattr(dep.call, "allowed_roles", None) for dep in route.dependant.dependencies):
             continue
         found.append(route.path)
     return sorted(found)
+
+
+def iter_api_routes(application: FastAPI) -> Iterator[APIRoute]:
+    """Routes declared on the app, including ones added with include_router.
+
+    This FastAPI version stores included routers as one object instead of copying
+    each route onto the app, so a walk of app.routes alone would miss them.
+    """
+    yield from _walk_routes(application.routes)
+
+
+def _walk_routes(routes: Iterable[object]) -> Iterator[APIRoute]:
+    for route in routes:
+        if isinstance(route, APIRoute):
+            yield route
+            continue
+        original = getattr(route, "original_router", None)
+        if original is not None:
+            yield from _walk_routes(original.routes)
 
 
 def _login(client: TestClient, email: str) -> str:

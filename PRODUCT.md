@@ -120,6 +120,17 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   Origin check, and there is no login rate limiting. Login and logout are not audited
   until `AuditEvent` exists (S1.1).
 
+- **Clinic day (decided in S1.0):** `clinic` gains `timezone` (IANA, default `Asia/Kolkata`)
+  and `default_appointment_minutes` (default 30). Working hours are stored as intervals in
+  clinic-local wall time, any number per weekday (0 is Monday). A break is a gap between
+  intervals. A day with no interval is closed. The database forbids overlapping or touching
+  intervals with an exclusion constraint, so the `btree_gist` extension is enabled here (S1.3
+  reuses it). Appointment types have an optional duration that falls back to the clinic
+  default, and are deactivated, never deleted. Everyone reads. Only `clinic_admin` writes,
+  through the API, with no settings screen. Defaults (Monday to Saturday 09:00 to 18:00, four
+  placeholder types) are seeded once by the migration and for new clinics, and live in code.
+  Not audited: clinic setup is not on the AGENTS.md audit list.
+
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.
@@ -149,9 +160,17 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 through S0.5 are done. `make dev` starts PostgreSQL, applies migrations, and runs
+S0.1 through S1.0 are done. `make dev` starts PostgreSQL, applies migrations, and runs
 the API and the web app. Sign in at `/login`. The browser posts through the `/api` rewrite,
 so `dc_session` stays on the web origin. The dashboard shows the signed-in user's name,
 roles and clinic from `GET /auth/me`. `/` and `/status` require that session. Create a
 user with `make create-user`. Deployment is still deferred to the end of Phase 1.
-Next slice: S1.0 clinic day.
+
+Each clinic has a timezone, weekly working hours, a default appointment duration and
+appointment types in the database. Everyone signed in can read them with `GET /clinic/day`
+and `GET /appointment-types`. Only `clinic_admin` can change them through the API. There is
+no settings screen yet; README has curl examples. Migration `0003` enables `btree_gist` for
+the no-overlap hours constraint (S1.3 will reuse it). New clinics are seeded once; existing
+clinics were backfilled by the migration.
+
+Next slice: S1.1 patients.
