@@ -63,7 +63,7 @@ def test_upgrade_downgrade_upgrade_seeds_an_existing_clinic(
     ]
     assert _version(throwaway_database_url) == "0002_auth"
     assert "timezone" not in _clinic_columns(throwaway_database_url)
-    assert not _extension_present(throwaway_database_url)
+    assert _extension_present(throwaway_database_url)
     assert not _timerange_present(throwaway_database_url)
 
     command.upgrade(config, "head")

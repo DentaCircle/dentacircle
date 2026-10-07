@@ -6,21 +6,29 @@ Create Date: 2026-10-07
 """
 
 from collections.abc import Sequence
+from datetime import time
 
 import sqlalchemy as sa
 from alembic import op
-
-from dentacircle.domain.clinic_day import (
-    DEFAULT_APPOINTMENT_MINUTES,
-    DEFAULT_APPOINTMENT_TYPES,
-    DEFAULT_TIMEZONE,
-    DEFAULT_WORKING_HOURS,
-)
 
 revision: str = "0003_clinic_day"
 down_revision: str | None = "0002_auth"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
+
+# Frozen at migration time. Do not import live domain constants: a later change to
+# domain/clinic_day.py must not alter what this revision backfills.
+_MIGRATION_TIMEZONE = "Asia/Kolkata"
+_MIGRATION_DEFAULT_APPOINTMENT_MINUTES = 30
+_MIGRATION_WORKING_HOURS: tuple[tuple[int, time, time], ...] = tuple(
+    (weekday, time(9, 0), time(18, 0)) for weekday in range(6)
+)
+_MIGRATION_APPOINTMENT_TYPES: tuple[tuple[str, int], ...] = (
+    ("Consultation", 30),
+    ("Scaling", 30),
+    ("Root canal visit", 60),
+    ("Crown visit", 45),
+)
 
 
 def upgrade() -> None:
@@ -31,7 +39,7 @@ def upgrade() -> None:
         sa.Column(
             "timezone",
             sa.Text(),
-            server_default=sa.text(f"'{DEFAULT_TIMEZONE}'"),
+            server_default=sa.text(f"'{_MIGRATION_TIMEZONE}'"),
             nullable=False,
         ),
     )
@@ -40,7 +48,7 @@ def upgrade() -> None:
         sa.Column(
             "default_appointment_minutes",
             sa.Integer(),
-            server_default=sa.text(str(DEFAULT_APPOINTMENT_MINUTES)),
+            server_default=sa.text(str(_MIGRATION_DEFAULT_APPOINTMENT_MINUTES)),
             nullable=False,
         ),
     )
@@ -130,29 +138,24 @@ def downgrade() -> None:
     op.drop_column("clinic", "default_appointment_minutes")
     op.drop_column("clinic", "timezone")
     op.execute("DROP TYPE IF EXISTS timerange")
-    op.execute("DROP EXTENSION IF EXISTS btree_gist")
 
 
 def _seed_existing_clinics() -> None:
     bind = op.get_bind()
-    for interval in DEFAULT_WORKING_HOURS:
+    for weekday, opens_at, closes_at in _MIGRATION_WORKING_HOURS:
         bind.execute(
             sa.text(
                 "INSERT INTO clinic_working_hours (clinic_id, weekday, opens_at, closes_at)"
                 " SELECT id, :weekday, :opens_at, :closes_at FROM clinic"
             ),
-            {
-                "weekday": interval.weekday,
-                "opens_at": interval.opens_at,
-                "closes_at": interval.closes_at,
-            },
+            {"weekday": weekday, "opens_at": opens_at, "closes_at": closes_at},
         )
-    for appointment_type in DEFAULT_APPOINTMENT_TYPES:
+    for name, duration in _MIGRATION_APPOINTMENT_TYPES:
         bind.execute(
             sa.text(
                 "INSERT INTO appointment_type"
                 " (id, clinic_id, name, duration_minutes, is_active)"
                 " SELECT gen_random_uuid(), id, :name, :duration, true FROM clinic"
             ),
-            {"name": appointment_type.name, "duration": appointment_type.duration_minutes},
+            {"name": name, "duration": duration},
         )
