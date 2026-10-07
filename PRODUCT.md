@@ -160,9 +160,17 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 through S0.5 are done. `make dev` starts PostgreSQL, applies migrations, and runs
+S0.1 through S1.0 are done. `make dev` starts PostgreSQL, applies migrations, and runs
 the API and the web app. Sign in at `/login`. The browser posts through the `/api` rewrite,
 so `dc_session` stays on the web origin. The dashboard shows the signed-in user's name,
 roles and clinic from `GET /auth/me`. `/` and `/status` require that session. Create a
 user with `make create-user`. Deployment is still deferred to the end of Phase 1.
-Next slice: S1.0 clinic day is built and waiting for review.
+
+Each clinic has a timezone, weekly working hours, a default appointment duration and
+appointment types in the database. Everyone signed in can read them with `GET /clinic/day`
+and `GET /appointment-types`. Only `clinic_admin` can change them through the API. There is
+no settings screen yet; README has curl examples. Migration `0003` enables `btree_gist` for
+the no-overlap hours constraint (S1.3 will reuse it). New clinics are seeded once; existing
+clinics were backfilled by the migration.
+
+Next slice: S1.1 patients.

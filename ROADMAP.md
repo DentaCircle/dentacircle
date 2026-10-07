@@ -3,7 +3,7 @@
 The tracker. Phases are made of slices. A slice is one reviewable change, about half a day
 to a day of work, with a visible result. Tick a slice only after `/ship-seal`.
 
-**Now:** S1.0 (not started). M1 reached 2026-10-06.
+**Now:** S1.1 (not started). M1 reached 2026-10-06.
 
 Milestones are demoable. Each one is a real stopping point.
 
@@ -23,7 +23,7 @@ Milestones are demoable. Each one is a real stopping point.
 
 ## Phase 1: Patients and appointments (M2)
 
-- [ ] S1.0 Clinic day: one clinic, timezone (Asia/Kolkata), weekly working hours, default appointment duration, appointment types. No rooms, no per-clinician rotas, no settings screen
+- [x] S1.0 Clinic day: one clinic, timezone (Asia/Kolkata), weekly working hours, default appointment duration, appointment types. No rooms, no per-clinician rotas, no settings screen
 - [ ] S1.1 Patients: create, list, search by name, phone and ID, pagination, audit events on write
 - [ ] S1.2 Patient detail: overview, edit, status, audit events on write
 - [ ] S1.3 Book appointment: model, availability from the clinic day, clinician assignment, no overlapping appointments for one clinician enforced by a database constraint
