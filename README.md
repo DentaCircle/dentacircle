@@ -7,19 +7,19 @@ Coordination workflow for an outpatient clinic. See PRODUCT.md for scope.
 1. Install [uv](https://docs.astral.sh/uv/), [pnpm](https://pnpm.io/), and Docker.
 2. Clone this repo and `cd` into it.
 3. Copy `.env.example` to `.env`.
-4. Start PostgreSQL: `make db-up`. Wait until `docker compose ps` shows the database as healthy.
-5. Install and check both apps: `make check`.
-6. Apply database migrations: `make migrate`.
-7. Create a user. The password is prompted, or read from `CREATE_USER_PASSWORD`, never passed as an argument:
+4. Install and check both apps: `make check`.
+5. Start the stack: `make dev`. This starts PostgreSQL, waits until it is healthy, applies migrations, then runs the API (port 8000) and the web app (port 3000). Ctrl-C stops both apps. Open `http://localhost:3000`. You are sent to the login page.
+6. Create a user in another terminal. The password is prompted, or read from `CREATE_USER_PASSWORD`, never passed as an argument:
 
    ```sh
    make create-user ARGS='--clinic "Synthetic Clinic" --email a@x.test --name "Synthetic Person" --roles clinician'
    ```
 
-8. Start the API: `make api-dev`. It listens on port 8000. `curl http://127.0.0.1:8000/health` returns `{"status":"ok"}`.
-9. Start the web app: `make web-dev`. It listens on port 3000. Open `/` for the shell and `/status` for API and database health.
+7. Sign in on the login page. The dashboard shows that name, role and clinic.
 
-`API_BASE_URL` is read by the web server when it calls the API. It defaults to `http://127.0.0.1:8000`. Regenerate the typed client after an API shape change with `make api-types`.
+`make api-dev` and `make web-dev` still start one app each, after `make db-up` and `make migrate`. `curl http://127.0.0.1:8000/health` returns `{"status":"ok"}`.
+
+`API_BASE_URL` is read by the web server when it calls the API and when it proxies `/api`. It defaults to `http://127.0.0.1:8000`. The browser calls `/api` on the web origin. Regenerate the typed client after an API shape change with `make api-types`.
 
 `make check` lints, type checks and tests `apps/api` and `apps/web`. Database tests, including the smoke test, run only when `DATABASE_URL` is set. Export it from `.env` before `make check` if you want those tests to connect:
 

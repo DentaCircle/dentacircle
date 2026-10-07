@@ -1,4 +1,4 @@
-.PHONY: lint typecheck test check db-up db-down api-dev migrate web-dev web-build api-types create-user
+.PHONY: lint typecheck test check db-up db-down api-dev migrate web-dev web-build api-types create-user dev
 
 lint:
 	cd apps/api && uv run ruff check . && uv run ruff format --check .
@@ -15,7 +15,11 @@ test:
 check: lint typecheck test
 
 db-up:
-	docker compose up -d db
+	docker compose up -d --wait db
+
+dev: db-up
+	$(MAKE) migrate
+	$(MAKE) -j2 api-dev web-dev
 
 db-down:
 	docker compose down
