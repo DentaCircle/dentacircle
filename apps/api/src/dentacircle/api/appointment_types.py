@@ -1,6 +1,6 @@
 """List, create and update appointment types. There is no delete."""
 
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -75,7 +75,7 @@ class ErrorResponse(BaseModel):
     error: ErrorBody
 
 
-_APPOINTMENT_TYPE_ERRORS = {
+_APPOINTMENT_TYPE_ERRORS: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorResponse, "description": "Not Found"},
     409: {"model": ErrorResponse, "description": "Conflict"},
 }
