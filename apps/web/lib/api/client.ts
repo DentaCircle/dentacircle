@@ -12,6 +12,8 @@ import type { components } from "@/lib/api/schema";
 
 export type HealthResponse = components["schemas"]["HealthResponse"];
 export type CurrentUser = components["schemas"]["UserResponse"];
+export type Patient = components["schemas"]["PatientResponse"];
+export type PatientPage = components["schemas"]["PatientListResponse"];
 
 export type { ApiError, ApiResult };
 
@@ -34,6 +36,17 @@ export function getReadiness(): Promise<ApiResult<HealthResponse>> {
 export function getCurrentUser(cookieHeader: string): Promise<ApiResult<CurrentUser>> {
   const headers = cookieHeader === "" ? undefined : { cookie: cookieHeader };
   return getJson("/auth/me", currentUserData, headers);
+}
+
+export function listPatients(
+  cookieHeader: string,
+  page: number,
+  query: string,
+): Promise<ApiResult<PatientPage>> {
+  const params = new URLSearchParams({ page: String(page), page_size: "20" });
+  if (query !== "") params.set("q", query);
+  const headers = cookieHeader === "" ? undefined : { cookie: cookieHeader };
+  return getJson(`/patients?${params.toString()}`, patientPageData, headers);
 }
 
 async function getJson<T>(
@@ -99,6 +112,52 @@ function currentUserData(value: unknown): CurrentUser | null {
   };
 }
 
+function patientPageData(value: unknown): PatientPage | null {
+  if (!isRecord(value) || !Array.isArray(value.items)) return null;
+  const page = numberField(value, "page");
+  const pageSize = numberField(value, "page_size");
+  const total = numberField(value, "total");
+  if (page === null || pageSize === null || total === null) return null;
+  const items: Patient[] = [];
+  for (const item of value.items) {
+    const patient = patientData(item);
+    if (patient === null) return null;
+    items.push(patient);
+  }
+  return { items, page, page_size: pageSize, total };
+}
+
+function patientData(value: unknown): Patient | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const patientNumber = numberField(value, "patient_number");
+  const displayId = stringField(value, "display_id");
+  const fullName = stringField(value, "full_name");
+  const phone = stringField(value, "phone");
+  const createdAt = stringField(value, "created_at");
+  const dateOfBirth = value.date_of_birth;
+  if (
+    id === null ||
+    patientNumber === null ||
+    displayId === null ||
+    fullName === null ||
+    phone === null ||
+    createdAt === null ||
+    (dateOfBirth !== null && typeof dateOfBirth !== "string")
+  ) {
+    return null;
+  }
+  return {
+    id,
+    patient_number: patientNumber,
+    display_id: displayId,
+    full_name: fullName,
+    phone,
+    date_of_birth: dateOfBirth,
+    created_at: createdAt,
+  };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -106,6 +165,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function stringField(value: Record<string, unknown>, key: string): string | null {
   const field = value[key];
   if (typeof field !== "string") return null;
+  return field;
+}
+
+function numberField(value: Record<string, unknown>, key: string): number | null {
+  const field = value[key];
+  if (typeof field !== "number" || !Number.isFinite(field)) return null;
   return field;
 }
 

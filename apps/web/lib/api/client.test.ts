@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { getCurrentUser, getHealth, getReadiness } from "@/lib/api/client";
+import { getCurrentUser, getHealth, getReadiness, listPatients } from "@/lib/api/client";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/api/errors";
 
 const marker = "synthetic-marker-raw-body";
@@ -124,6 +124,47 @@ describe("getCurrentUser", () => {
     if (!result.ok && result.error.kind === "api") {
       expect(result.error.message).toBe(GENERIC_ERROR_MESSAGE);
     }
+    expect(JSON.stringify(result)).not.toContain(marker);
+  });
+});
+
+describe("listPatients", () => {
+  test("asks for one page and parses the list", async () => {
+    const fetchMock = stubFetch(
+      jsonResponse(200, {
+        items: [
+          {
+            id: "00000000-0000-4000-8000-000000000010",
+            patient_number: 1,
+            display_id: "P-0001",
+            full_name: "Sample Ada",
+            phone: "9000000001",
+            date_of_birth: null,
+            created_at: "2026-10-08T00:00:00Z",
+          },
+        ],
+        total: 1,
+        page: 1,
+        page_size: 20,
+      }),
+    );
+
+    const result = await listPatients("dc_session=token", 2, "ada");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/patients?page=2&page_size=20&q=ada",
+      expect.objectContaining({ headers: { cookie: "dc_session=token" } }),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.items[0]?.display_id).toBe("P-0001");
+  });
+
+  test("does not keep a raw body that is not a patient list", async () => {
+    stubFetch(jsonResponse(200, { items: [{ full_name: marker }] }));
+
+    const result = await listPatients("dc_session=token", 1, "");
+
+    expect(result.ok).toBe(false);
     expect(JSON.stringify(result)).not.toContain(marker);
   });
 });

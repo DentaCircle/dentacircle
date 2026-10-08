@@ -41,7 +41,12 @@ test("shell shows the app name, the signed-in user, and the current page", () =>
   for (const link of statusLinks) {
     expect(link).not.toHaveAttribute("aria-current");
   }
-  expect(screen.queryByRole("link", { name: "Patients" })).not.toBeInTheDocument();
+  const patientLinks = screen.getAllByRole("link", { name: "Patients" });
+  expect(patientLinks).toHaveLength(1);
+  for (const link of patientLinks) {
+    expect(link).toHaveAttribute("href", "/patients");
+    expect(link).not.toHaveAttribute("aria-current");
+  }
 });
 
 test("sidebar is hidden below md and the menu button is hidden from md up", () => {
