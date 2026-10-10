@@ -47,7 +47,7 @@ def test_upgrade_downgrade_upgrade_seeds_an_existing_clinic(
     command.upgrade(config, "0002_auth")
     _insert_clinic(throwaway_database_url, _CLINIC)
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "0003_clinic_day")
     assert _public_tables(throwaway_database_url) == _DAY_TABLES
     assert _version(throwaway_database_url) == "0003_clinic_day"
     assert _extension_present(throwaway_database_url)
@@ -66,7 +66,7 @@ def test_upgrade_downgrade_upgrade_seeds_an_existing_clinic(
     assert _extension_present(throwaway_database_url)
     assert not _timerange_present(throwaway_database_url)
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "0003_clinic_day")
     assert _version(throwaway_database_url) == "0003_clinic_day"
     _assert_defaults(throwaway_database_url, _CLINIC)
 

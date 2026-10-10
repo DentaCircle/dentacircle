@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { navItems } from "@/lib/navigation";
+import { isNavCurrent, navItems } from "@/lib/navigation";
 
 type MainNavProps = {
   onNavigate?: () => void;
@@ -16,7 +16,7 @@ export function MainNav({ onNavigate }: MainNavProps) {
     <nav aria-label="Main">
       <ul className="flex flex-col gap-1">
         {navItems.map((item) => {
-          const isCurrent = pathname === item.href;
+          const isCurrent = isNavCurrent(pathname, item.href);
           return (
             <li key={item.href}>
               <Link

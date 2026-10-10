@@ -142,6 +142,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Patients */
+        get: operations["get_patients_patients_get"];
+        put?: never;
+        /** Post Patient */
+        post: operations["post_patient_patients_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -239,6 +257,49 @@ export interface components {
         /** LoginResponse */
         LoginResponse: {
             user: components["schemas"]["UserResponse"];
+        };
+        /** PatientCreate */
+        PatientCreate: {
+            /** Date Of Birth */
+            date_of_birth?: string | null;
+            /** Full Name */
+            full_name: string;
+            /** Phone */
+            phone: string;
+        };
+        /** PatientListResponse */
+        PatientListResponse: {
+            /** Items */
+            items: components["schemas"]["PatientResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** PatientResponse */
+        PatientResponse: {
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Date Of Birth */
+            date_of_birth: string | null;
+            /** Display Id */
+            display_id: string;
+            /** Full Name */
+            full_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Patient Number */
+            patient_number: number;
+            /** Phone */
+            phone: string;
         };
         /** UserResponse */
         UserResponse: {
@@ -602,6 +663,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HealthResponse"];
+                };
+            };
+        };
+    };
+    get_patients_patients_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+                q?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_patient_patients_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

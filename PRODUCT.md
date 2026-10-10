@@ -117,8 +117,8 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   there is a demo worth showing. Synthetic data only whatever is chosen. A production web
   build needs `API_BASE_URL` set at build time because the rewrite target is fixed then.
 - **Known gaps until real patient data:** CSRF relies on SameSite=Lax with no token or
-  Origin check, and there is no login rate limiting. Login and logout are not audited
-  until `AuditEvent` exists (S1.1).
+  Origin check, and there is no login rate limiting. Login and logout stay unaudited.
+  S1.1 records patient registration only.
 
 - **Clinic day (decided in S1.0):** `clinic` gains `timezone` (IANA, default `Asia/Kolkata`)
   and `default_appointment_minutes` (default 30). Working hours are stored as intervals in
@@ -130,6 +130,18 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   through the API, with no settings screen. Defaults (Monday to Saturday 09:00 to 18:00, four
   placeholder types) are seeded once by the migration and for new clinics, and live in code.
   Not audited: clinic setup is not on the AGENTS.md audit list.
+
+- **Patients (decided in S1.1):** staff register patients. There is no patient self-registration
+  or self-booking. The patient ID is a number per clinic, shown as `P-0001`, allocated from a
+  `patient_number_counter` row so concurrent creates cannot collide. Required fields are name
+  and phone, and date of birth is optional. Phone is stored as entered and as digits only, for
+  search. Duplicate names and phones are allowed. `receptionist`, `clinician` and
+  `clinic_admin` may register and list patients, and `inventory_admin` may not. Search is plain
+  "contains" with no `pg_trgm`. Add a trigram index only if search gets slow.
+- **Audit (decided in S1.1):** one `audit_event` table holds who, what entity, which action and
+  when. It never stores patient values. Update events (from S1.2) list changed field names
+  only. The service writes the event in the same transaction as the change, through one
+  `audit_service.record` call, not a trigger. There is no update or delete path for audit rows.
 
 ## Open decisions (need the developer's call)
 
@@ -160,7 +172,7 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 through S1.0 are done. `make dev` starts PostgreSQL, applies migrations, and runs
+S0.1 through S1.1 are done. `make dev` starts PostgreSQL, applies migrations, and runs
 the API and the web app. Sign in at `/login`. The browser posts through the `/api` rewrite,
 so `dc_session` stays on the web origin. The dashboard shows the signed-in user's name,
 roles and clinic from `GET /auth/me`. `/` and `/status` require that session. Create a
@@ -173,4 +185,10 @@ no settings screen yet; README has curl examples. Migration `0003` enables `btre
 the no-overlap hours constraint (S1.3 will reuse it). New clinics are seeded once; existing
 clinics were backfilled by the migration.
 
-Next slice: S1.1 patients.
+Staff with `receptionist`, `clinician` or `clinic_admin` can register patients and search
+the clinic list at `/patients` (`POST` and `GET /patients`). Patient numbers are per clinic
+(`P-0001`, …). Migration `0004` adds `patient`, `patient_number_counter` and `audit_event`.
+Every successful registration writes one audit event (no patient values stored). Login and
+logout are still not audited.
+
+Next slice: S1.2 patient detail.
