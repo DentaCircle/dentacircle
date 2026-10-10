@@ -172,7 +172,7 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 through S1.0 are done. `make dev` starts PostgreSQL, applies migrations, and runs
+S0.1 through S1.1 are done. `make dev` starts PostgreSQL, applies migrations, and runs
 the API and the web app. Sign in at `/login`. The browser posts through the `/api` rewrite,
 so `dc_session` stays on the web origin. The dashboard shows the signed-in user's name,
 roles and clinic from `GET /auth/me`. `/` and `/status` require that session. Create a
@@ -185,4 +185,10 @@ no settings screen yet; README has curl examples. Migration `0003` enables `btre
 the no-overlap hours constraint (S1.3 will reuse it). New clinics are seeded once; existing
 clinics were backfilled by the migration.
 
-Next slice: S1.1 patients.
+Staff with `receptionist`, `clinician` or `clinic_admin` can register patients and search
+the clinic list at `/patients` (`POST` and `GET /patients`). Patient numbers are per clinic
+(`P-0001`, …). Migration `0004` adds `patient`, `patient_number_counter` and `audit_event`.
+Every successful registration writes one audit event (no patient values stored). Login and
+logout are still not audited.
+
+Next slice: S1.2 patient detail.

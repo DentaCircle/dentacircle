@@ -31,6 +31,10 @@ router = APIRouter()
 
 can_use_patients = require_roles(*PATIENT_ROLES)
 
+# OFFSET is a PostgreSQL bigint. Cap page so (page - 1) * page_size stays in range
+# even when page_size is the maximum.
+MAX_PAGE = (2**63 - 1) // MAX_PAGE_SIZE + 1
+
 
 def _trimmed(value: object) -> object:
     if isinstance(value, str):
@@ -120,7 +124,7 @@ def post_patient(
 def get_patients(
     user: Annotated[CurrentUser, Depends(can_use_patients)],
     session: SessionDep,
-    page: Annotated[int, Query(ge=1)] = 1,
+    page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1,
     page_size: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
     q: str | None = None,
 ) -> PatientListResponse:

@@ -859,6 +859,7 @@
             "required": false,
             "schema": {
               "default": 1,
+              "maximum": 92233720368547759,
               "minimum": 1,
               "title": "Page",
               "type": "integer"

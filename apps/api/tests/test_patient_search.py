@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from dentacircle.api.patients import MAX_PAGE
 from dentacircle.core.database import get_engine
 from dentacircle.domain.patient import parse_search
 from dentacircle.services.patient_service import register_patient
@@ -96,7 +97,13 @@ def test_pages_follow_the_name_then_the_number(api: TestClient) -> None:
 
 def test_page_bounds_are_rejected(api: TestClient) -> None:
     cookie = _cookie(api)
-    for params in ({"page": 0}, {"page": -1}, {"page_size": 0}, {"page_size": 101}):
+    for params in (
+        {"page": 0},
+        {"page": -1},
+        {"page": MAX_PAGE + 1},
+        {"page_size": 0},
+        {"page_size": 101},
+    ):
         response = api.get("/patients", cookies=cookie, params=params)
         assert response.status_code == 422
         assert response.json()["error"]["code"] == "validation_error"
@@ -104,6 +111,16 @@ def test_page_bounds_are_rejected(api: TestClient) -> None:
             str(params["page"] if "page" in params else params["page_size"])
             not in (response.json()["error"]["message"])
         )
+
+
+def test_the_largest_page_is_accepted(api: TestClient) -> None:
+    response = api.get(
+        "/patients",
+        cookies=_cookie(api),
+        params={"page": MAX_PAGE, "page_size": 100},
+    )
+    assert response.status_code == 200
+    assert response.json()["items"] == []
 
 
 def test_name_search_is_case_insensitive_and_requires_every_word(api: TestClient) -> None:
