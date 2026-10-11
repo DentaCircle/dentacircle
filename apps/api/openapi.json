@@ -1,6 +1,92 @@
 {
   "components": {
     "schemas": {
+      "AppointmentCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "appointment_type_id": {
+            "format": "uuid",
+            "title": "Appointment Type Id",
+            "type": "string"
+          },
+          "clinician_id": {
+            "format": "uuid",
+            "title": "Clinician Id",
+            "type": "string"
+          },
+          "patient_id": {
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "patient_id",
+          "clinician_id",
+          "appointment_type_id",
+          "starts_at"
+        ],
+        "title": "AppointmentCreate",
+        "type": "object"
+      },
+      "AppointmentResponse": {
+        "properties": {
+          "appointment_type": {
+            "$ref": "#/components/schemas/TypeNameResponse"
+          },
+          "clinician": {
+            "$ref": "#/components/schemas/PartyResponse"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "patient_id": {
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "scheduled",
+              "arrived",
+              "in_progress",
+              "completed",
+              "cancelled",
+              "no_show"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "patient_id",
+          "starts_at",
+          "ends_at",
+          "status",
+          "clinician",
+          "appointment_type"
+        ],
+        "title": "AppointmentResponse",
+        "type": "object"
+      },
       "AppointmentTypeCreate": {
         "properties": {
           "duration_minutes": {
@@ -104,6 +190,43 @@
         "title": "AppointmentTypeUpdate",
         "type": "object"
       },
+      "AvailabilityResponse": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "duration_minutes": {
+            "title": "Duration Minutes",
+            "type": "integer"
+          },
+          "is_open": {
+            "title": "Is Open",
+            "type": "boolean"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/SlotResponse"
+            },
+            "title": "Slots",
+            "type": "array"
+          },
+          "timezone": {
+            "title": "Timezone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "date",
+          "timezone",
+          "is_open",
+          "duration_minutes",
+          "slots"
+        ],
+        "title": "AvailabilityResponse",
+        "type": "object"
+      },
       "ClinicDayBody": {
         "properties": {
           "default_appointment_minutes": {
@@ -175,6 +298,25 @@
           "name"
         ],
         "title": "ClinicResponse",
+        "type": "object"
+      },
+      "ClinicianResponse": {
+        "properties": {
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "full_name"
+        ],
+        "title": "ClinicianResponse",
         "type": "object"
       },
       "ErrorBody": {
@@ -266,6 +408,25 @@
           "user"
         ],
         "title": "LoginResponse",
+        "type": "object"
+      },
+      "PartyResponse": {
+        "properties": {
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "full_name"
+        ],
+        "title": "PartyResponse",
         "type": "object"
       },
       "PatientCreate": {
@@ -456,6 +617,45 @@
           }
         },
         "title": "PatientUpdate",
+        "type": "object"
+      },
+      "SlotResponse": {
+        "properties": {
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "starts_at",
+          "ends_at"
+        ],
+        "title": "SlotResponse",
+        "type": "object"
+      },
+      "TypeNameResponse": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "TypeNameResponse",
         "type": "object"
       },
       "UserResponse": {
@@ -764,6 +964,114 @@
         "summary": "Put Appointment Type"
       }
     },
+    "/appointments": {
+      "post": {
+        "operationId": "post_appointment_appointments_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppointmentCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "slot_taken or patient_busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Appointment"
+      }
+    },
+    "/appointments/availability": {
+      "get": {
+        "operationId": "get_availability_appointments_availability_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "clinician_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Clinician Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "appointment_type_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Appointment Type Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvailabilityResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Availability"
+      }
+    },
     "/auth/login": {
       "post": {
         "operationId": "login_route_auth_login_post",
@@ -883,6 +1191,28 @@
           }
         },
         "summary": "Put Clinic Day"
+      }
+    },
+    "/clinicians": {
+      "get": {
+        "operationId": "get_clinicians_clinicians_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ClinicianResponse"
+                  },
+                  "title": "Response Get Clinicians Clinicians Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Clinicians"
       }
     },
     "/health": {
@@ -1133,6 +1463,60 @@
           }
         },
         "summary": "Patch Patient"
+      }
+    },
+    "/patients/{patient_id}/appointments": {
+      "get": {
+        "operationId": "get_patient_appointments_patients__patient_id__appointments_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/AppointmentResponse"
+                  },
+                  "title": "Response Get Patient Appointments Patients  Patient Id  Appointments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Patient Appointments"
       }
     },
     "/patients/{patient_id}/status": {

@@ -26,7 +26,17 @@ afterEach(() => {
 });
 
 test("shows the patient, an edit link and a status button", () => {
-  render(<PatientDetail status="ready" patient={patient} canEdit saved={false} />);
+  render(
+    <PatientDetail
+      status="ready"
+      patient={patient}
+      canEdit
+      canBook
+      saved={false}
+      booked={false}
+      upcomingItems={[]}
+    />,
+  );
 
   expect(screen.getByRole("heading", { name: "Sample Ada" })).toBeInTheDocument();
   expect(screen.getByText("P-0001")).toBeInTheDocument();
@@ -34,6 +44,11 @@ test("shows the patient, an edit link and a status button", () => {
   expect(screen.getByText("1990-04-05")).toBeInTheDocument();
   expect(screen.getByText("Active")).toBeInTheDocument();
   expect(screen.getByText("2026-10-08")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Book appointment" })).toHaveAttribute(
+    "href",
+    "/patients/00000000-0000-4000-8000-000000000010/book",
+  );
+  expect(screen.getByText("No upcoming appointments.")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Edit" })).toHaveAttribute(
     "href",
     "/patients/00000000-0000-4000-8000-000000000010/edit",
@@ -46,29 +61,78 @@ test("registeredOn keeps the date prefix", () => {
 });
 
 test("hides edit and the status button when the role cannot edit", () => {
-  render(<PatientDetail status="ready" patient={patient} canEdit={false} saved={false} />);
+  render(
+    <PatientDetail
+      status="ready"
+      patient={patient}
+      canEdit={false}
+      canBook={false}
+      saved={false}
+      booked={false}
+      upcomingItems={[]}
+    />,
+  );
 
   expect(screen.getByText("Active")).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Book appointment" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Mark inactive" })).not.toBeInTheDocument();
 });
 
 test("shows not found, forbidden and error states", () => {
   const { rerender } = render(
-    <PatientDetail status="not-found" patient={null} canEdit={false} saved={false} />,
+    <PatientDetail
+      status="not-found"
+      patient={null}
+      canEdit={false}
+      canBook={false}
+      saved={false}
+      booked={false}
+      upcomingItems={[]}
+    />,
   );
   expect(screen.getByRole("alert")).toHaveTextContent("Patient not found");
 
-  rerender(<PatientDetail status="forbidden" patient={null} canEdit={false} saved={false} />);
+  rerender(
+    <PatientDetail
+      status="forbidden"
+      patient={null}
+      canEdit={false}
+      canBook={false}
+      saved={false}
+      booked={false}
+      upcomingItems={[]}
+    />,
+  );
   expect(screen.getByRole("alert")).toHaveTextContent("You do not have access.");
 
-  rerender(<PatientDetail status="error" patient={null} canEdit={false} saved={false} />);
+  rerender(
+    <PatientDetail
+      status="error"
+      patient={null}
+      canEdit={false}
+      canBook={false}
+      saved={false}
+      booked={false}
+      upcomingItems={[]}
+    />,
+  );
   expect(screen.getByRole("alert")).toHaveTextContent("The patient could not be loaded.");
   expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
 });
 
 test("shows saved after an edit", () => {
-  render(<PatientDetail status="ready" patient={patient} canEdit saved />);
+  render(
+    <PatientDetail
+      status="ready"
+      patient={patient}
+      canEdit
+      canBook={false}
+      saved
+      booked={false}
+      upcomingItems={[]}
+    />,
+  );
 
   expect(screen.getByRole("status")).toHaveTextContent("Saved.");
 });
@@ -83,7 +147,17 @@ test("a status click updates the page and a double click sends one request", asy
       }),
   );
   vi.stubGlobal("fetch", fetchMock);
-  render(<PatientDetail status="ready" patient={patient} canEdit saved={false} />);
+  render(
+    <PatientDetail
+      status="ready"
+      patient={patient}
+      canEdit
+      canBook
+      saved={false}
+      booked={false}
+      upcomingItems={[]}
+    />,
+  );
 
   const button = screen.getByRole("button", { name: "Mark inactive" });
   const first = user.click(button);
@@ -102,4 +176,46 @@ test("a status click updates the page and a double click sends one request", asy
   expect(screen.getByText("Inactive")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Mark active" })).toBeInTheDocument();
   expect(refresh).toHaveBeenCalledOnce();
+});
+
+test("shows upcoming visits and Booked", () => {
+  render(
+    <PatientDetail
+      status="ready"
+      patient={patient}
+      canEdit
+      canBook
+      saved={false}
+      booked
+      upcomingItems={[
+        {
+          id: "visit-1",
+          date: "2026-10-12",
+          time: "09:15",
+          typeName: "Consultation",
+          clinicianName: "Sample Clinician",
+        },
+      ]}
+    />,
+  );
+
+  expect(screen.getByRole("status")).toHaveTextContent("Booked.");
+  expect(screen.getByRole("heading", { name: "Upcoming appointments" })).toBeInTheDocument();
+  expect(screen.getByText("2026-10-12 09:15 Consultation Sample Clinician")).toBeInTheDocument();
+});
+
+test("hides the book link when the patient is inactive", () => {
+  render(
+    <PatientDetail
+      status="ready"
+      patient={{ ...patient, status: "inactive" }}
+      canEdit
+      canBook
+      saved={false}
+      booked={false}
+      upcomingItems={[]}
+    />,
+  );
+
+  expect(screen.queryByRole("link", { name: "Book appointment" })).not.toBeInTheDocument();
 });

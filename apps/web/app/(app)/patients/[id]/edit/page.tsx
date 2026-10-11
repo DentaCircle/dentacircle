@@ -24,7 +24,10 @@ export default async function EditPatientPage({ params }: EditPatientPageProps) 
         status={detailStatus(result.error)}
         patient={null}
         canEdit={false}
+        canBook={false}
         saved={false}
+        booked={false}
+        upcomingItems={null}
       />
     );
   }
