@@ -35,13 +35,26 @@ class PatientRepository:
         patient.clinic_id = self._clinic_id
         self._session.add(patient)
 
+    def get(self, patient_id: UUID, *, lock: bool = False) -> Patient | None:
+        statement = scoped_select(Patient, self._clinic_id).where(Patient.id == patient_id)
+        if lock:
+            statement = statement.with_for_update()
+        return cast(Patient | None, self._session.scalar(statement))
+
     def search(
-        self, search_filter: SearchFilter, page: int, page_size: int
+        self,
+        search_filter: SearchFilter,
+        page: int,
+        page_size: int,
+        *,
+        status: str | None = None,
     ) -> tuple[list[Patient], int]:
         statement = scoped_select(Patient, self._clinic_id)
         clause = _clause(search_filter)
         if clause is not None:
             statement = statement.where(clause)
+        if status is not None:
+            statement = statement.where(Patient.status == status)
         total = self._session.scalar(select(func.count()).select_from(statement.subquery()))
         rows = self._session.scalars(
             statement.order_by(func.lower(Patient.full_name), Patient.patient_number)
