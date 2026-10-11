@@ -29,6 +29,28 @@ class UserRepository:
         statement = scoped_select(AppUser, self._clinic_id).where(AppUser.id == user_id)
         return self._session.scalars(statement).one_or_none()
 
+    def list_clinicians(self) -> list[AppUser]:
+        """Active users in this clinic who hold the clinician role, ordered by name."""
+        statement = (
+            scoped_select(AppUser, self._clinic_id)
+            .join(
+                UserRole,
+                (UserRole.user_id == AppUser.id) & (UserRole.clinic_id == self._clinic_id),
+            )
+            .where(UserRole.role == "clinician", AppUser.is_active.is_(True))
+            .order_by(func.lower(AppUser.full_name), AppUser.full_name, AppUser.id)
+        )
+        return list(self._session.scalars(statement).unique())
+
+    def get_clinician(self, user_id: UUID) -> AppUser | None:
+        """The user when they are an active clinician in this clinic. Otherwise none."""
+        user = self.get(user_id)
+        if user is None or not user.is_active:
+            return None
+        if "clinician" not in self.roles_for(user_id):
+            return None
+        return user
+
     def roles_for(self, user_id: UUID) -> list[str]:
         statement = (
             scoped_select(UserRole, self._clinic_id)

@@ -56,11 +56,22 @@ def unhandled_error_response(request_id: str, exc: Exception) -> JSONResponse:
     return error_response(500, "internal_error", GENERIC_ERROR_MESSAGE, request_id)
 
 
+class CodedHttpError(HTTPException):
+    """An HTTP error with a fixed code and message. Neither may contain a submitted value."""
+
+    def __init__(self, status_code: int, code: str, message: str) -> None:
+        self.error_code = code
+        self.error_message = message
+        super().__init__(status_code=status_code)
+
+
 def handle_http_exception(request: Request, exc: Exception) -> JSONResponse:
     if not isinstance(exc, HTTPException):
         return unhandled_error_response(current_request_id(request), exc)
-    message = _CLIENT_MESSAGES.get(exc.status_code, "Request failed")
     request_id = current_request_id(request)
+    if isinstance(exc, CodedHttpError):
+        return error_response(exc.status_code, exc.error_code, exc.error_message, request_id)
+    message = _CLIENT_MESSAGES.get(exc.status_code, "Request failed")
     return error_response(exc.status_code, code_for_status(exc.status_code), message, request_id)
 
 
