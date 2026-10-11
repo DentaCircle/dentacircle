@@ -160,6 +160,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patients/{patient_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Patient By Id */
+        get: operations["get_patient_by_id_patients__patient_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Patient */
+        patch: operations["patch_patient_patients__patient_id__patch"];
+        trace?: never;
+    };
+    "/patients/{patient_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Patient Status */
+        put: operations["put_patient_status_patients__patient_id__status_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -300,6 +335,28 @@ export interface components {
             patient_number: number;
             /** Phone */
             phone: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "inactive";
+        };
+        /** PatientStatusUpdate */
+        PatientStatusUpdate: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "inactive";
+        };
+        /** PatientUpdate */
+        PatientUpdate: {
+            /** Date Of Birth */
+            date_of_birth?: string | null;
+            /** Full Name */
+            full_name?: string | null;
+            /** Phone */
+            phone?: string | null;
         };
         /** UserResponse */
         UserResponse: {
@@ -673,6 +730,7 @@ export interface operations {
                 page?: number;
                 page_size?: number;
                 q?: string | null;
+                status?: ("active" | "inactive") | null;
             };
             header?: never;
             path?: never;
@@ -715,6 +773,107 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_patient_by_id_patients__patient_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_patient_patients__patient_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatientResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_patient_status_patients__patient_id__status_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatientStatusUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

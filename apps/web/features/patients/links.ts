@@ -1,8 +1,21 @@
-export function patientsHref(query: string, page: number): string {
+export type PatientStatusFilter = "all" | "active" | "inactive";
+
+export function patientsHref(
+  query: string,
+  page: number,
+  status: PatientStatusFilter = "all",
+): string {
   const params = new URLSearchParams();
   if (query !== "") params.set("q", query);
+  if (status !== "all") params.set("status", status);
   params.set("page", String(page));
   return `/patients?${params.toString()}`;
+}
+
+export function statusFromQuery(value: string | undefined): PatientStatusFilter | "invalid" {
+  if (value === undefined || value === "") return "all";
+  if (value === "active" || value === "inactive") return value;
+  return "invalid";
 }
 
 export function pageFromQuery(value: string | undefined): number {

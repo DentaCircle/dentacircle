@@ -4,10 +4,12 @@ import { expect, test } from "vitest";
 import { PatientList } from "@/features/patients/patient-list";
 
 const row = {
+  id: "00000000-0000-4000-8000-000000000010",
   displayId: "P-0001",
   fullName: "Sample Ada",
   phone: "9000000001",
   dateOfBirth: "1990-04-05",
+  status: "active" as const,
 };
 
 test("shows the list, search, a new-patient link and page links", () => {
@@ -19,6 +21,7 @@ test("shows the list, search, a new-patient link and page links", () => {
       page={2}
       pageSize={10}
       query="ada"
+      statusFilter="all"
       canCreate
       createdDisplayId="P-0001"
     />,
@@ -27,8 +30,17 @@ test("shows the list, search, a new-patient link and page links", () => {
   expect(screen.getByRole("status")).toHaveTextContent("Saved P-0001.");
   expect(screen.getByRole("link", { name: "New patient" })).toHaveAttribute("href", "/patients/new");
   expect(screen.getByRole("searchbox", { name: "Search" })).toHaveValue("ada");
-  expect(screen.getByRole("table")).toHaveTextContent("Sample Ada");
+  expect(screen.getByRole("link", { name: "Sample Ada" })).toHaveAttribute(
+    "href",
+    "/patients/00000000-0000-4000-8000-000000000010",
+  );
   expect(screen.getByRole("table")).toHaveTextContent("P-0001");
+  expect(screen.getByRole("link", { name: "All" })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("link", { name: "Active" })).toHaveAttribute("href", "/patients?q=ada&status=active&page=1");
+  expect(screen.getByRole("link", { name: "Inactive" })).toHaveAttribute(
+    "href",
+    "/patients?q=ada&status=inactive&page=1",
+  );
   expect(screen.getByRole("link", { name: "Previous" })).toHaveAttribute("href", "/patients?q=ada&page=1");
   expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute("href", "/patients?q=ada&page=3");
 });
@@ -42,6 +54,7 @@ test("hides the new-patient link when the role cannot create", () => {
       page={1}
       pageSize={20}
       query=""
+      statusFilter="all"
       canCreate={false}
       createdDisplayId={null}
     />,
@@ -61,6 +74,7 @@ test("shows an empty state", () => {
       page={1}
       pageSize={20}
       query=""
+      statusFilter="all"
       canCreate
       createdDisplayId={null}
     />,
@@ -79,6 +93,7 @@ test("shows a no-match state", () => {
       page={1}
       pageSize={20}
       query="nobody"
+      statusFilter="all"
       canCreate
       createdDisplayId={null}
     />,
@@ -96,6 +111,7 @@ test("shows a forbidden state without the create link", () => {
       page={1}
       pageSize={20}
       query=""
+      statusFilter="all"
       canCreate={false}
       createdDisplayId={null}
     />,
@@ -115,10 +131,41 @@ test("shows a generic error state", () => {
       page={1}
       pageSize={20}
       query=""
+      statusFilter="all"
       canCreate
       createdDisplayId={null}
     />,
   );
 
   expect(screen.getByRole("alert")).toHaveTextContent("Patients could not be loaded.");
+});
+
+test("links an inactive patient and keeps the status filter in the url", () => {
+  render(
+    <PatientList
+      status="ready"
+      items={[{ ...row, status: "inactive" }]}
+      total={3}
+      page={2}
+      pageSize={1}
+      query="ada"
+      statusFilter="inactive"
+      canCreate
+      createdDisplayId={null}
+    />,
+  );
+
+  const patientRow = screen.getByRole("row", { name: /Sample Ada/ });
+  expect(patientRow).toHaveTextContent("Inactive");
+  expect(screen.getByRole("link", { name: "Inactive" })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("link", { name: "All" })).toHaveAttribute("href", "/patients?q=ada&page=1");
+  expect(screen.getByRole("link", { name: "Previous" })).toHaveAttribute(
+    "href",
+    "/patients?q=ada&status=inactive&page=1",
+  );
+  expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute(
+    "href",
+    "/patients?q=ada&status=inactive&page=3",
+  );
+  expect(document.querySelector("input[name=status]")).toHaveValue("inactive");
 });
