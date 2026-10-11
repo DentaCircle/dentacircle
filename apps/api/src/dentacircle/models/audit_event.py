@@ -12,6 +12,7 @@ from sqlalchemy import (
     Text,
     func,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
 from dentacircle.core.database import Base
@@ -45,6 +46,7 @@ class AuditEvent(Base):
     entity_type: Mapped[str] = mapped_column(Text)
     entity_id: Mapped[UUID] = mapped_column()
     action: Mapped[str] = mapped_column(Text)
+    changed_fields: Mapped[list[str] | None] = mapped_column(ARRAY(Text))
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )

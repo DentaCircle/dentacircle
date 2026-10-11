@@ -20,6 +20,7 @@ def record(
     entity_type: str,
     entity_id: UUID,
     action: str,
+    changed_fields: list[str] | None = None,
 ) -> None:
     if action not in AUDIT_ACTIONS:
         raise UnknownAuditActionError
@@ -30,5 +31,6 @@ def record(
             entity_type=entity_type,
             entity_id=entity_id,
             action=action,
+            changed_fields=[] if changed_fields is None else changed_fields,
         )
     )

@@ -1,4 +1,4 @@
-/** Roles that may register and list patients. The API checks this again. */
+/** Roles that may register, list, view and edit patients. The API checks this again. */
 
 const PATIENT_ROLES = ["receptionist", "clinician", "clinic_admin"] as const;
 

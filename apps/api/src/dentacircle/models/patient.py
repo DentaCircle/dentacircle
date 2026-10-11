@@ -3,7 +3,7 @@
 from datetime import date
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, Index, Integer, String, UniqueConstraint, text
+from sqlalchemy import CheckConstraint, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from dentacircle.core.database import Base
@@ -19,6 +19,7 @@ class Patient(ClinicScoped, Base):
             "char_length(phone_digits) BETWEEN 7 AND 15",
             name="phone_digits_length",
         ),
+        CheckConstraint("status IN ('active', 'inactive')", name="status_known"),
         Index("ix_patient_clinic_lower_full_name", "clinic_id", text("lower(full_name)")),
     )
 
@@ -28,3 +29,4 @@ class Patient(ClinicScoped, Base):
     phone: Mapped[str] = mapped_column(String(30))
     phone_digits: Mapped[str] = mapped_column(String(15))
     date_of_birth: Mapped[date | None] = mapped_column()
+    status: Mapped[str] = mapped_column(Text, default="active", server_default=text("'active'"))

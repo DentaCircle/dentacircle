@@ -190,6 +190,47 @@ def test_an_id_search_does_not_cross_clinics(api: TestClient) -> None:
     assert [item["full_name"] for item in theirs.json()["items"]] == ["Sample Bea"]
 
 
+def test_the_list_returns_status_and_filters_it_with_search_and_paging(api: TestClient) -> None:
+    ada = _create(api, "Sample Ada", "9000000001")
+    bea = _create(api, "Sample Bea", "9000000002")
+    cee = _create(api, "Sample Cee", "9000000003")
+    cookie = _cookie(api)
+    for patient_id in (bea["id"], cee["id"]):
+        changed = api.put(
+            f"/patients/{patient_id}/status", cookies=cookie, json={"status": "inactive"}
+        )
+        assert changed.status_code == 200
+
+    everyone = api.get("/patients", cookies=cookie)
+    assert everyone.status_code == 200
+    assert everyone.json()["total"] == 3
+    assert {item["status"] for item in everyone.json()["items"]} == {"active", "inactive"}
+
+    inactive = api.get("/patients", cookies=cookie, params={"status": "inactive"})
+    assert [item["full_name"] for item in inactive.json()["items"]] == ["Sample Bea", "Sample Cee"]
+    assert inactive.json()["total"] == 2
+    assert all(item["status"] == "inactive" for item in inactive.json()["items"])
+
+    active = api.get("/patients", cookies=cookie, params={"status": "active", "q": "Sample"})
+    assert [item["full_name"] for item in active.json()["items"]] == ["Sample Ada"]
+    assert active.json()["total"] == 1
+    assert active.json()["items"][0]["id"] == ada["id"]
+
+    page = api.get(
+        "/patients",
+        cookies=cookie,
+        params={"status": "inactive", "q": "Sample", "page": 2, "page_size": 1},
+    )
+    assert page.status_code == 200
+    assert page.json()["total"] == 2
+    assert [item["full_name"] for item in page.json()["items"]] == ["Sample Cee"]
+
+    rejected = api.get("/patients", cookies=cookie, params={"status": "gone-marker"})
+    assert rejected.status_code == 422
+    assert "query.status" in rejected.json()["error"]["message"]
+    assert "gone-marker" not in rejected.text
+
+
 def _cookie(api: TestClient) -> dict[str, str]:
     return {"dc_session": login(api, "receptionist@x.test")}
 

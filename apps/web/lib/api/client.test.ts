@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { getCurrentUser, getHealth, getReadiness, listPatients } from "@/lib/api/client";
+import { getCurrentUser, getHealth, getPatient, getReadiness, listPatients } from "@/lib/api/client";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/api/errors";
 
 const marker = "synthetic-marker-raw-body";
@@ -140,6 +140,7 @@ describe("listPatients", () => {
             full_name: "Sample Ada",
             phone: "9000000001",
             date_of_birth: null,
+            status: "active",
             created_at: "2026-10-08T00:00:00Z",
           },
         ],
@@ -163,6 +164,55 @@ describe("listPatients", () => {
     stubFetch(jsonResponse(200, { items: [{ full_name: marker }] }));
 
     const result = await listPatients("dc_session=token", 1, "");
+
+    expect(result.ok).toBe(false);
+    expect(JSON.stringify(result)).not.toContain(marker);
+  });
+
+  test("sends a status filter", async () => {
+    const fetchMock = stubFetch(
+      jsonResponse(200, {
+        items: [],
+        total: 0,
+        page: 1,
+        page_size: 20,
+      }),
+    );
+
+    await listPatients("dc_session=token", 1, "ada", "inactive");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/patients?page=1&page_size=20&q=ada&status=inactive",
+      expect.objectContaining({ headers: { cookie: "dc_session=token" } }),
+    );
+  });
+});
+
+describe("getPatient", () => {
+  test("parses one patient", async () => {
+    stubFetch(
+      jsonResponse(200, {
+        id: "00000000-0000-4000-8000-000000000010",
+        patient_number: 1,
+        display_id: "P-0001",
+        full_name: "Sample Ada",
+        phone: "9000000001",
+        date_of_birth: null,
+        status: "inactive",
+        created_at: "2026-10-08T00:00:00Z",
+      }),
+    );
+
+    const result = await getPatient("dc_session=token", "00000000-0000-4000-8000-000000000010");
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.status).toBe("inactive");
+  });
+
+  test("does not keep a body that is not a patient", async () => {
+    stubFetch(jsonResponse(200, { full_name: marker, status: "active" }));
+
+    const result = await getPatient("dc_session=token", "00000000-0000-4000-8000-000000000010");
 
     expect(result.ok).toBe(false);
     expect(JSON.stringify(result)).not.toContain(marker);

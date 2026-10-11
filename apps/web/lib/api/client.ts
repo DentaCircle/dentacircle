@@ -42,11 +42,18 @@ export function listPatients(
   cookieHeader: string,
   page: number,
   query: string,
+  status: string | null = null,
 ): Promise<ApiResult<PatientPage>> {
   const params = new URLSearchParams({ page: String(page), page_size: "20" });
   if (query !== "") params.set("q", query);
+  if (status !== null && status !== "") params.set("status", status);
   const headers = cookieHeader === "" ? undefined : { cookie: cookieHeader };
   return getJson(`/patients?${params.toString()}`, patientPageData, headers);
+}
+
+export function getPatient(cookieHeader: string, patientId: string): Promise<ApiResult<Patient>> {
+  const headers = cookieHeader === "" ? undefined : { cookie: cookieHeader };
+  return getJson(`/patients/${encodeURIComponent(patientId)}`, patientData, headers);
 }
 
 async function getJson<T>(
@@ -135,6 +142,7 @@ function patientData(value: unknown): Patient | null {
   const fullName = stringField(value, "full_name");
   const phone = stringField(value, "phone");
   const createdAt = stringField(value, "created_at");
+  const status = value.status;
   const dateOfBirth = value.date_of_birth;
   if (
     id === null ||
@@ -143,6 +151,7 @@ function patientData(value: unknown): Patient | null {
     fullName === null ||
     phone === null ||
     createdAt === null ||
+    (status !== "active" && status !== "inactive") ||
     (dateOfBirth !== null && typeof dateOfBirth !== "string")
   ) {
     return null;
@@ -154,6 +163,7 @@ function patientData(value: unknown): Patient | null {
     full_name: fullName,
     phone,
     date_of_birth: dateOfBirth,
+    status,
     created_at: createdAt,
   };
 }
