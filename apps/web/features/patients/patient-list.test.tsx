@@ -30,6 +30,10 @@ test("shows the list, search, a new-patient link and page links", () => {
   expect(screen.getByRole("status")).toHaveTextContent("Saved P-0001.");
   expect(screen.getByRole("link", { name: "New patient" })).toHaveAttribute("href", "/patients/new");
   expect(screen.getByRole("searchbox", { name: "Search" })).toHaveValue("ada");
+  expect(screen.getByRole("link", { name: "P-0001" })).toHaveAttribute(
+    "href",
+    "/patients/00000000-0000-4000-8000-000000000010",
+  );
   expect(screen.getByRole("link", { name: "Sample Ada" })).toHaveAttribute(
     "href",
     "/patients/00000000-0000-4000-8000-000000000010",

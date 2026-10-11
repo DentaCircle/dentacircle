@@ -84,10 +84,14 @@ export function PatientList({
               {items.map((patient) => (
                 <tr key={patient.displayId} className="border-b">
                   <td className="py-2 pr-3">
-                    <Badge>{patient.displayId}</Badge>
+                    <Link href={`/patients/${patient.id}`}>
+                      <Badge>{patient.displayId}</Badge>
+                    </Link>
                   </td>
                   <td className="py-2 pr-3">
-                    <Link href={`/patients/${patient.id}`}>{patient.fullName}</Link>
+                    <Link href={`/patients/${patient.id}`} className="font-medium underline">
+                      {patient.fullName}
+                    </Link>
                     {patient.status === "inactive" ? (
                       <Badge variant="secondary" className="ml-2">
                         Inactive

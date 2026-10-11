@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { PatientStatusButton, statusLabel } from "@/features/patients/patient-status-button";
 
 export type PatientDetailData = {
@@ -29,7 +30,9 @@ export function PatientDetail({ status, patient, canEdit, saved }: PatientDetail
         </h1>
         <div className="flex gap-3 text-sm">
           {status === "ready" && patient !== null && canEdit ? (
-            <Link href={`/patients/${patient.id}/edit`}>Edit</Link>
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/patients/${patient.id}/edit`}>Edit</Link>
+            </Button>
           ) : null}
           <Link href="/patients">Patients</Link>
         </div>
