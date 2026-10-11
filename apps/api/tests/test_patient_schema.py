@@ -36,6 +36,7 @@ _PATIENT_COLUMNS = {
     "phone",
     "phone_digits",
     "date_of_birth",
+    "status",
     "created_at",
 }
 _COUNTER_COLUMNS = {"clinic_id", "last_number"}
@@ -46,6 +47,7 @@ _AUDIT_COLUMNS = {
     "entity_type",
     "entity_id",
     "action",
+    "changed_fields",
     "occurred_at",
 }
 
@@ -64,7 +66,7 @@ def test_upgrade_downgrade_upgrade(
     config = _config()
     command.upgrade(config, "head")
     assert _public_tables(throwaway_database_url) == _HEAD_TABLES
-    assert _version(throwaway_database_url) == "0004_patients"
+    assert _version(throwaway_database_url) == "0005_patient_detail"
     assert _columns(throwaway_database_url, "patient") == _PATIENT_COLUMNS
     assert _columns(throwaway_database_url, "patient_number_counter") == _COUNTER_COLUMNS
     assert _columns(throwaway_database_url, "audit_event") == _AUDIT_COLUMNS
@@ -81,7 +83,33 @@ def test_upgrade_downgrade_upgrade(
 
     command.upgrade(config, "head")
     assert _public_tables(throwaway_database_url) == _HEAD_TABLES
+    assert _version(throwaway_database_url) == "0005_patient_detail"
+
+
+def test_existing_patients_become_active_and_downgrade_drops_the_columns(
+    throwaway_database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
+    config = _config()
+    command.upgrade(config, "0004_patients")
+    _insert_patient_at_0004(throwaway_database_url)
+
+    command.upgrade(config, "head")
+    assert _version(throwaway_database_url) == "0005_patient_detail"
+    nullable, default = _column(throwaway_database_url, "patient", "status")
+    assert nullable == "NO"
+    assert default is not None and "active" in default
+    assert _column(throwaway_database_url, "audit_event", "changed_fields")[0] == "YES"
+    assert _patient_status(throwaway_database_url) == "active"
+    _reject_unknown_status(throwaway_database_url)
+
+    command.downgrade(config, "0004_patients")
     assert _version(throwaway_database_url) == "0004_patients"
+    assert "status" not in _columns(throwaway_database_url, "patient")
+    assert "changed_fields" not in _columns(throwaway_database_url, "audit_event")
+
+    command.upgrade(config, "head")
+    assert _patient_status(throwaway_database_url) == "active"
 
 
 def test_patient_number_is_unique_per_clinic(migrated: str, db_session: Session) -> None:
@@ -133,6 +161,45 @@ def test_audit_action_must_be_known_and_the_actor_must_be_in_the_clinic(
         _insert_audit(
             db_session, _CLINIC, _OTHER_USER, "create", "dddddddd-dddd-dddd-dddd-dddddddddddd"
         )
+
+
+def _insert_patient_at_0004(database_url: str) -> None:
+    with psycopg.connect(to_psycopg_url(database_url), connect_timeout=5) as connection:
+        connection.execute(
+            "INSERT INTO clinic (id, name) VALUES (%s, 'Synthetic Clinic')",
+            (_CLINIC,),
+        )
+        connection.execute(
+            "INSERT INTO patient"
+            " (id, clinic_id, patient_number, full_name, phone, phone_digits)"
+            " VALUES (%s, %s, 1, 'Sample', '9000000001', '9000000001')",
+            ("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", _CLINIC),
+        )
+        connection.commit()
+
+
+def _column(database_url: str, table: str, column: str) -> tuple[str, str | None]:
+    with psycopg.connect(to_psycopg_url(database_url), connect_timeout=5) as connection:
+        row = connection.execute(
+            "SELECT is_nullable, column_default FROM information_schema.columns"
+            " WHERE table_schema = 'public' AND table_name = %s AND column_name = %s",
+            (table, column),
+        ).fetchone()
+    assert row is not None
+    return (str(row[0]), None if row[1] is None else str(row[1]))
+
+
+def _patient_status(database_url: str) -> str:
+    with psycopg.connect(to_psycopg_url(database_url), connect_timeout=5) as connection:
+        row = connection.execute("SELECT status FROM patient").fetchone()
+    assert row is not None
+    return str(row[0])
+
+
+def _reject_unknown_status(database_url: str) -> None:
+    with psycopg.connect(to_psycopg_url(database_url), connect_timeout=5) as connection:
+        with pytest.raises(psycopg.errors.CheckViolation):
+            connection.execute("UPDATE patient SET status = 'gone'")
 
 
 def _columns(database_url: str, table: str) -> set[str]:

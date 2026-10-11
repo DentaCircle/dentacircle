@@ -143,6 +143,15 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   only. The service writes the event in the same transaction as the change, through one
   `audit_service.record` call, not a trigger. There is no update or delete path for audit rows.
 
+- **Patient status (decided in S1.2):** a patient is `active` or `inactive`, stored on
+  `patient.status` (default `active`). Patients are never deleted, so inactive is how staff
+  retire a record while keeping history. `receptionist`, `clinician` and `clinic_admin` may
+  change it. The list shows all patients by default, with a `status` filter. Edits are last
+  write wins, with no version check. Update and status-change audit events record changed
+  field names only in `audit_event.changed_fields`, never values and never the direction of a
+  status change. Rules that use status (for example no booking for an inactive patient) come
+  with the slice that needs them.
+
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.

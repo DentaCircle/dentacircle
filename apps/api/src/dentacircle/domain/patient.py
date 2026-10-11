@@ -15,6 +15,7 @@ Search is plain "contains". There is no trigram index.
   ignoring case. A word may appear in any order. `%` is a literal character.
 """
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
 from typing import Literal
@@ -32,6 +33,9 @@ _PHONE_CHARS = set("0123456789+-() ")
 _MAX_PATIENT_NUMBER = 2_147_483_647
 
 PATIENT_ROLES = ("receptionist", "clinician", "clinic_admin")
+PATIENT_STATUSES = ("active", "inactive")
+# Names an audit row may list. Values never go in the row.
+PATIENT_AUDIT_FIELDS = ("full_name", "phone", "date_of_birth", "status")
 
 
 class PatientFieldError(Exception):
@@ -53,6 +57,27 @@ class SearchFilter:
 
 def display_id(patient_number: int) -> str:
     return f"P-{patient_number:04d}"
+
+
+def changed_field_names(before: Mapping[str, object], after: Mapping[str, object]) -> list[str]:
+    """Field names whose values differ. Order follows PATIENT_AUDIT_FIELDS.
+
+    A name that is missing on either side is left out. Names outside
+    PATIENT_AUDIT_FIELDS are ignored, so phone_digits cannot be recorded.
+    """
+    changed: list[str] = []
+    for field in PATIENT_AUDIT_FIELDS:
+        if field not in before or field not in after:
+            continue
+        if before[field] != after[field]:
+            changed.append(field)
+    return changed
+
+
+def check_status(status: str) -> str:
+    if status not in PATIENT_STATUSES:
+        raise PatientFieldError("status", "literal_error")
+    return status
 
 
 def clean_name(name: str) -> str:
