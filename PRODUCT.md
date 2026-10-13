@@ -193,7 +193,7 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 through S1.2 are done. `make dev` starts PostgreSQL, applies migrations, and runs
+S0.1 through S1.3 are done. `make dev` starts PostgreSQL, applies migrations, and runs
 the API and the web app. Sign in at `/login`. The browser posts through the `/api` rewrite,
 so `dc_session` stays on the web origin. The dashboard shows the signed-in user's name,
 roles and clinic from `GET /auth/me`. `/` and `/status` require that session. Create a
@@ -203,8 +203,8 @@ Each clinic has a timezone, weekly working hours, a default appointment duration
 appointment types in the database. Everyone signed in can read them with `GET /clinic/day`
 and `GET /appointment-types`. Only `clinic_admin` can change them through the API. There is
 no settings screen yet; README has curl examples. Migration `0003` enables `btree_gist` for
-the no-overlap hours constraint (S1.3 will reuse it). New clinics are seeded once; existing
-clinics were backfilled by the migration.
+working-hours overlap; migration `0006` reuses it for clinician appointment overlap. New
+clinics are seeded once; existing clinics were backfilled by the migration.
 
 Staff with `receptionist`, `clinician` or `clinic_admin` can register patients, open a
 patient from the list, edit name, phone and date of birth, and set `active` or `inactive`.
@@ -212,7 +212,14 @@ The API exposes `GET`, `PATCH` and `PUT /patients/{id}/status` plus `status` on 
 The web has `/patients/[id]` and `/patients/[id]/edit`; edits and status changes go through
 the `/api` rewrite. Patient numbers are per clinic (`P-0001`, …). Migrations `0004` and `0005`
 add patients, audit events, `patient.status` and `audit_event.changed_fields`. Registration,
-updates and status changes write audit rows (field names only, no patient values). Booking
-rules for inactive patients are not built yet (S1.3+). Login and logout are still not audited.
+updates and status changes write audit rows (field names only, no patient values). Login and
+logout are still not audited.
 
-Next slice: S1.3 book appointment.
+The same three roles can book appointments for active patients: `GET /clinicians`,
+`GET /appointments/availability`, `POST /appointments`, and `GET /patients/{id}/appointments`.
+Slots follow clinic hours on a 15-minute grid; the database refuses overlapping visits for one
+clinician. The web book flow is `/patients/[id]/book`; the patient page shows upcoming visits
+and a book link when allowed. A successful booking writes an `appointment` create audit event.
+Reschedule, cancel and calendar views are not built yet (S1.4+).
+
+Next slice: S1.4 calendar.
