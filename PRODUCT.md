@@ -152,6 +152,18 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   status change. Rules that use status (for example no booking for an inactive patient) come
   with the slice that needs them.
 
+- **Appointments (decided in S1.3):** start times sit on a 15-minute grid counted from each
+  working-hours interval's opening time. The grid only sets where an appointment may start.
+  Its length comes from the appointment type, or the clinic default, with no per-booking
+  override, and the whole span must fit inside one interval. Back-to-back is allowed (one ends
+  10:30, the next may start 10:30). A PostgreSQL exclusion constraint forbids overlapping
+  appointments for one clinician; `cancelled` and `no_show` do not block. One patient in two
+  overlapping appointments is refused by a service check only. Inactive patients cannot be
+  booked. Bookings may be up to 365 days ahead, as a guard against typos. API times are sent in
+  the clinic's offset. `receptionist`, `clinician` and `clinic_admin` book, and
+  `inventory_admin` does not. `GET /clinicians` lists only id and name of active users holding
+  `clinician`. No appointment notes yet. Booking writes an `appointment` `create` audit event.
+
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.
