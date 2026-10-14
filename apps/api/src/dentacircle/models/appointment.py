@@ -1,4 +1,4 @@
-"""One visit. A clinician cannot have two blocking visits at the same time."""
+"""One visit. A clinician, and a patient, cannot have two blocking visits at once."""
 
 from datetime import datetime
 from uuid import UUID
@@ -51,6 +51,14 @@ class Appointment(ClinicScoped, Base):
             where=text("status NOT IN ('cancelled', 'no_show')"),
             using="gist",
             name="ex_appointment_no_overlap",
+        ),
+        ExcludeConstraint(
+            ("clinic_id", "="),
+            ("patient_id", "="),
+            (literal_column("tstzrange(starts_at, ends_at, '[)')"), "&&"),
+            where=text("status NOT IN ('cancelled', 'no_show')"),
+            using="gist",
+            name="ex_appointment_patient_no_overlap",
         ),
     )
 

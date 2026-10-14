@@ -97,14 +97,18 @@ def test_the_list_includes_both_edges_and_a_visit_that_crosses_midnight(database
 
 
 def test_same_start_times_sort_by_id_and_cancelled_is_hidden(database: str) -> None:
-    clinic_id, _actor, clinician_id, patient_id, type_id = _world()
+    clinic_id, actor_id, clinician_id, patient_id, type_id = _world()
     other = _clinician(clinic_id, "two@x.test", "Second Clinician")
+    with Session(get_engine()) as session:
+        second = register_patient(session, clinic_id, actor_id, "Sample Bea", "9000000002", None)
+        session.commit()
+        second_id = second.id
     later_id = UUID("00000000-0000-4000-8000-000000000002")
     earlier_id = UUID("00000000-0000-4000-8000-000000000001")
     start = datetime(2026, 10, 14, 10, 0, tzinfo=_ZONE)
     end = start + timedelta(minutes=30)
     _visit(clinic_id, patient_id, clinician_id, type_id, start, end, appointment_id=later_id)
-    _visit(clinic_id, patient_id, other, type_id, start, end, appointment_id=earlier_id)
+    _visit(clinic_id, second_id, other, type_id, start, end, appointment_id=earlier_id)
     _visit(
         clinic_id,
         patient_id,

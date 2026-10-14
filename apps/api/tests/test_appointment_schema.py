@@ -38,7 +38,7 @@ def test_upgrade_downgrade_upgrade(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0006_appointments"
+    assert _version(throwaway_database_url) == "0007_patient_overlap"
     assert "appointment" in _public_tables(throwaway_database_url)
 
     command.downgrade(config, "0005_patient_detail")
@@ -46,7 +46,7 @@ def test_upgrade_downgrade_upgrade(
     assert "appointment" not in _public_tables(throwaway_database_url)
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0006_appointments"
+    assert _version(throwaway_database_url) == "0007_patient_overlap"
     assert "appointment" in _public_tables(throwaway_database_url)
 
 
@@ -65,7 +65,12 @@ def test_back_to_back_and_two_clinicians_are_allowed(migrated: str, db_session: 
     _insert(db_session, "dddddddd-dddd-dddd-dddd-dddddddddddd", _USER, _at(10, 0), _at(10, 30))
     _insert(db_session, "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", _USER, _at(10, 30), _at(11, 0))
     _insert(
-        db_session, "ffffffff-ffff-ffff-ffff-ffffffffffff", _OTHER_USER, _at(10, 0), _at(10, 30)
+        db_session,
+        "ffffffff-ffff-ffff-ffff-ffffffffffff",
+        _OTHER_USER,
+        _at(10, 0),
+        _at(10, 30),
+        patient_id=_OTHER_PATIENT,
     )
     db_session.flush()
 
@@ -112,6 +117,32 @@ def test_an_unknown_status_is_rejected(migrated: str, db_session: Session) -> No
             status="gone",
         )
     assert getattr(caught.value.orig, "sqlstate", None) == "23514"
+
+
+def test_one_patient_cannot_overlap_two_clinicians(migrated: str, db_session: Session) -> None:
+    _seed(db_session)
+    _insert(db_session, "dddddddd-dddd-dddd-dddd-dddddddddddd", _USER, _at(10, 0), _at(10, 30))
+    with pytest.raises(IntegrityError) as caught:
+        _insert(
+            db_session,
+            "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+            _OTHER_USER,
+            _at(10, 15),
+            _at(10, 45),
+        )
+    diag = getattr(caught.value.orig, "diag", None)
+    assert getattr(diag, "constraint_name", None) == "ex_appointment_patient_no_overlap"
+
+
+def test_one_patient_can_see_two_clinicians_back_to_back(
+    migrated: str, db_session: Session
+) -> None:
+    _seed(db_session)
+    _insert(db_session, "dddddddd-dddd-dddd-dddd-dddddddddddd", _USER, _at(10, 0), _at(10, 30))
+    _insert(
+        db_session, "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee", _OTHER_USER, _at(10, 30), _at(11, 0)
+    )
+    db_session.flush()
 
 
 def test_a_clinician_from_another_clinic_is_rejected(migrated: str, db_session: Session) -> None:
@@ -174,6 +205,7 @@ def _insert(
     start: datetime,
     end: datetime,
     status: str = "scheduled",
+    patient_id: str = _PATIENT,
 ) -> None:
     session.execute(
         text(
@@ -186,7 +218,7 @@ def _insert(
         {
             "id": appointment_id,
             "clinic_id": _CLINIC,
-            "patient_id": _PATIENT,
+            "patient_id": patient_id,
             "clinician_id": clinician_id,
             "type_id": _TYPE,
             "starts_at": start,

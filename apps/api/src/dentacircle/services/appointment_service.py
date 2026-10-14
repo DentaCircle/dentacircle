@@ -36,6 +36,8 @@ from dentacircle.services.clinic_day_service import ClinicNotFoundError
 from dentacircle.services.patient_service import PatientNotFoundError
 
 _EXCLUSION_VIOLATION = "23P01"
+_CLINICIAN_OVERLAP = "ex_appointment_no_overlap"
+_PATIENT_OVERLAP = "ex_appointment_patient_no_overlap"
 
 
 class AppointmentNotFoundError(Exception):
@@ -207,10 +209,11 @@ def find_availability(
     reschedule_appointment_id: UUID | None = None,
 ) -> AvailabilityView:
     zone, timezone_name, default_minutes = _clinic_clock(session, clinic_id)
-    _require_clinician(session, clinic_id, clinician_id)
-    duration, exclude_id = _availability_duration(
+    duration, exclude_id, kept_clinician_id = _availability_duration(
         session, clinic_id, appointment_type_id, reschedule_appointment_id, default_minutes
     )
+    if kept_clinician_id is None or clinician_id != kept_clinician_id:
+        _require_clinician(session, clinic_id, clinician_id)
     problem = date_problem(day, zone, now)
     if problem is not None:
         raise AppointmentFieldError("date", problem)
@@ -302,9 +305,7 @@ def reschedule_appointment(
     try:
         session.flush()
     except IntegrityError as exc:
-        if _is_exclusion(exc):
-            raise SlotTakenError from None
-        raise
+        _raise_overlap(exc)
     return _require_detail(session, clinic_id, appointment_id, zone)
 
 
@@ -362,9 +363,7 @@ def book_appointment(
     try:
         session.flush()
     except IntegrityError as exc:
-        if _is_exclusion(exc):
-            raise SlotTakenError from None
-        raise
+        _raise_overlap(exc)
     session.refresh(appointment)
     return _view(appointment, zone, clinician, appointment_type)
 
@@ -429,7 +428,7 @@ def _availability_duration(
     appointment_type_id: UUID | None,
     reschedule_appointment_id: UUID | None,
     default_minutes: int,
-) -> tuple[int, UUID | None]:
+) -> tuple[int, UUID | None, UUID | None]:
     if (appointment_type_id is None) == (reschedule_appointment_id is None):
         if appointment_type_id is None:
             raise AppointmentFieldError("appointment_type_id", "required")
@@ -438,10 +437,11 @@ def _availability_duration(
         found = AppointmentRepository(session, clinic_id).get_detail(reschedule_appointment_id)
         if found is None:
             raise AppointmentFieldError("reschedule_appointment_id", "unknown")
-        return _length_minutes(found[0]), found[0].id
+        return _length_minutes(found[0]), found[0].id, found[0].clinician_user_id
     if appointment_type_id is None:
         raise AppointmentFieldError("appointment_type_id", "required")
-    return _duration(_require_type(session, clinic_id, appointment_type_id), default_minutes), None
+    duration = _duration(_require_type(session, clinic_id, appointment_type_id), default_minutes)
+    return duration, None, None
 
 
 def _length_minutes(row: Appointment) -> int:
@@ -542,5 +542,12 @@ def _view(
     )
 
 
-def _is_exclusion(exc: IntegrityError) -> bool:
-    return getattr(exc.orig, "sqlstate", None) == _EXCLUSION_VIOLATION
+def _raise_overlap(exc: IntegrityError) -> None:
+    if getattr(exc.orig, "sqlstate", None) != _EXCLUSION_VIOLATION:
+        raise exc
+    name = getattr(getattr(exc.orig, "diag", None), "constraint_name", None)
+    if name == _PATIENT_OVERLAP:
+        raise PatientBusyError from None
+    if name == _CLINICIAN_OVERLAP:
+        raise SlotTakenError from None
+    raise exc

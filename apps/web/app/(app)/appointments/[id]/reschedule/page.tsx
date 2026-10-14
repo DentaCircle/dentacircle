@@ -1,4 +1,5 @@
 import { canBookAppointments } from "@/features/appointments/access";
+import { clinicianChoices } from "@/features/appointments/clinician-choices";
 import { ReschedulePage } from "@/features/appointments/reschedule-page";
 import { clinicToday, wallDate, wallTime } from "@/features/appointments/wall-time";
 import { requireUser } from "@/features/auth/current-user";
@@ -44,8 +45,10 @@ export default async function RescheduleRoute({ params }: RescheduleRouteProps) 
   const start = wallTime(appointment.data.starts_at);
   const end = wallTime(appointment.data.ends_at);
   if (visitDay === null || start === null || end === null) return <ReschedulePage status="error" />;
-  const known = clinicians.data.some((row) => row.id === appointment.data.clinician.id);
-  if (!known || clinicians.data.length === 0) return <ReschedulePage status="error" />;
+  const assigned = {
+    id: appointment.data.clinician.id,
+    label: appointment.data.clinician.full_name,
+  };
   return (
     <ReschedulePage
       status="ready"
@@ -53,8 +56,11 @@ export default async function RescheduleRoute({ params }: RescheduleRouteProps) 
       patientName={appointment.data.patient.full_name}
       typeName={appointment.data.appointment_type.name}
       currentWhen={`${start}–${end}`}
-      clinicians={clinicians.data.map((row) => ({ id: row.id, label: row.full_name }))}
-      initialClinicianId={appointment.data.clinician.id}
+      clinicians={clinicianChoices(
+        assigned,
+        clinicians.data.map((row) => ({ id: row.id, label: row.full_name })),
+      )}
+      initialClinicianId={assigned.id}
       initialDate={visitDay < today ? today : visitDay}
       today={today}
     />

@@ -92,6 +92,37 @@ def test_the_same_start_and_clinician_is_unchanged(database: str) -> None:
         assert _audits(session) == before
 
 
+def test_omitting_the_clinician_keeps_an_inactive_one(database: str) -> None:
+    clinic_id, actor_id, clinician_id, patient_id, type_id = _world()
+    appointment_id = _book(clinic_id, actor_id, patient_id, clinician_id, type_id, _START)
+    with Session(get_engine()) as session:
+        stored = session.get(AppUser, clinician_id)
+        assert stored is not None
+        stored.is_active = False
+        session.commit()
+    later = _START.replace(hour=11)
+    with Session(get_engine()) as session:
+        moved = reschedule_appointment(
+            session, clinic_id, actor_id, appointment_id, later, None, _NOW
+        )
+        session.commit()
+    assert moved.clinician.id == clinician_id
+    assert moved.starts_at == later
+    with Session(get_engine()) as session:
+        with pytest.raises(AppointmentFieldError) as caught:
+            reschedule_appointment(
+                session,
+                clinic_id,
+                actor_id,
+                appointment_id,
+                _START.replace(hour=12),
+                clinician_id,
+                _NOW,
+            )
+    assert caught.value.field == "clinician_id"
+    assert caught.value.code == "inactive"
+
+
 def test_changing_clinician_is_recorded(database: str) -> None:
     clinic_id, actor_id, clinician_id, patient_id, type_id = _world()
     other = _clinician(clinic_id, "two@x.test", "Second Clinician")

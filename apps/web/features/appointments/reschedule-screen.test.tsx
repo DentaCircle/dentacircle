@@ -105,8 +105,30 @@ test("a double click reschedules once and opens the new day", async () => {
   await Promise.all([first, second]);
 
   expect(postCount(fetchMock)).toBe(1);
+  const posted = fetchMock.mock.calls.find((call) => call[1]?.method === "POST");
+  expect(JSON.parse(String(posted?.[1]?.body))).toEqual({ starts_at: slot.starts_at });
   expect(push).toHaveBeenCalledWith("/calendar?view=day&date=2026-10-16&notice=rescheduled");
   expect(refresh).toHaveBeenCalled();
+});
+
+test("changing the clinician sends that clinician", async () => {
+  const user = userEvent.setup();
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === "POST") return jsonResponse({});
+    return jsonResponse({ is_open: true, slots: [slot] });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  render(<ReadyScreen />);
+  await user.selectOptions(await screen.findByLabelText("Clinician"), "clinician-2");
+  await user.click(await screen.findByRole("button", { name: "09:15" }));
+  await user.click(screen.getByRole("button", { name: "Reschedule" }));
+
+  await waitFor(() => expect(postCount(fetchMock)).toBe(1));
+  const posted = fetchMock.mock.calls.find((call) => call[1]?.method === "POST");
+  expect(JSON.parse(String(posted?.[1]?.body))).toEqual({
+    starts_at: slot.starts_at,
+    clinician_id: "clinician-2",
+  });
 });
 
 test("a taken time asks for another and reloads the times", async () => {

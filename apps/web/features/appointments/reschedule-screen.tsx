@@ -91,11 +91,13 @@ export function RescheduleScreen({
     setIsSubmitting(true);
     setMessage(null);
     try {
+      const body: { starts_at: string; clinician_id?: string } = { starts_at: selected };
+      if (clinicianId !== initialClinicianId) body.clinician_id = clinicianId;
       const response = await fetch(`/api/appointments/${appointmentId}/reschedule`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ clinician_id: clinicianId, starts_at: selected }),
+        body: JSON.stringify(body),
       });
       if (response.ok) {
         const day = wallDate(selected);
