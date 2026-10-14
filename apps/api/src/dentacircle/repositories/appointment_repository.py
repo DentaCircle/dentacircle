@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.orm import Session
 
 from dentacircle.core.tenancy import scoped_select
@@ -35,6 +35,44 @@ class AppointmentRepository:
         An overlap includes a visit that starts before range_start and ends after it.
         """
         statement = (
+            self._joined()
+            .where(
+                Appointment.status != "cancelled",
+                Appointment.ends_at > range_start,
+                Appointment.starts_at < range_end,
+            )
+            .order_by(Appointment.starts_at, Appointment.id)
+        )
+        if clinician_user_id is not None:
+            statement = statement.where(Appointment.clinician_user_id == clinician_user_id)
+        rows = self._session.execute(statement).all()
+        return [
+            (appointment, patient, clinician, appointment_type)
+            for appointment, patient, clinician, appointment_type in rows
+        ]
+
+    def get_detail(
+        self, appointment_id: UUID
+    ) -> tuple[Appointment, Patient, AppUser, AppointmentType] | None:
+        statement = self._joined().where(Appointment.id == appointment_id)
+        row = self._session.execute(statement).one_or_none()
+        if row is None:
+            return None
+        appointment, patient, clinician, appointment_type = row
+        return appointment, patient, clinician, appointment_type
+
+    def get_for_update(self, appointment_id: UUID) -> Appointment | None:
+        """Lock the row so a cancel and a move of the same visit cannot pass each other."""
+        statement = (
+            scoped_select(Appointment, self._clinic_id)
+            .where(Appointment.id == appointment_id)
+            .with_for_update()
+        )
+        return self._session.scalars(statement).one_or_none()
+
+    def _joined(self) -> Select[Appointment, Patient, AppUser, AppointmentType]:
+        """Appointment plus patient, clinician and type. Every table is this clinic's."""
+        return (
             select(Appointment, Patient, AppUser, AppointmentType)
             .join(
                 Patient,
@@ -55,19 +93,8 @@ class AppointmentRepository:
                 Patient.clinic_id == self._clinic_id,
                 AppUser.clinic_id == self._clinic_id,
                 AppointmentType.clinic_id == self._clinic_id,
-                Appointment.status != "cancelled",
-                Appointment.ends_at > range_start,
-                Appointment.starts_at < range_end,
             )
-            .order_by(Appointment.starts_at, Appointment.id)
         )
-        if clinician_user_id is not None:
-            statement = statement.where(Appointment.clinician_user_id == clinician_user_id)
-        rows = self._session.execute(statement).all()
-        return [
-            (appointment, patient, clinician, appointment_type)
-            for appointment, patient, clinician, appointment_type in rows
-        ]
 
     def busy_spans(
         self,

@@ -29,6 +29,8 @@ UPCOMING_LIMIT = 20
 SCHEDULED = "scheduled"
 # Inclusive clinic-local days a calendar list may cover. A week is exactly this.
 CALENDAR_MAX_DAYS = 7
+# The only status the desk may cancel or move. Later statuses belong to the visit flow.
+MOVABLE_STATUSES = (SCHEDULED,)
 
 
 class AppointmentFieldError(Exception):

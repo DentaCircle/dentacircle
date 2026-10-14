@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from dentacircle.domain.appointment import (
+    MOVABLE_STATUSES,
     SCHEDULED,
     UPCOMING_LIMIT,
     AppointmentFieldError,
@@ -35,6 +36,14 @@ from dentacircle.services.clinic_day_service import ClinicNotFoundError
 from dentacircle.services.patient_service import PatientNotFoundError
 
 _EXCLUSION_VIOLATION = "23P01"
+
+
+class AppointmentNotFoundError(Exception):
+    """No appointment with this id in the clinic."""
+
+
+class InvalidStatusError(Exception):
+    """The visit is not scheduled, so it cannot be cancelled or moved."""
 
 
 class SlotTakenError(Exception):
@@ -139,6 +148,48 @@ def list_calendar(
         _calendar_view(appointment, patient, clinician, appointment_type, zone)
         for appointment, patient, clinician, appointment_type in rows
     ]
+
+
+def get_appointment(
+    session: Session,
+    clinic_id: UUID,
+    appointment_id: UUID,
+    now: datetime,
+) -> CalendarItemView:
+    del now
+    zone, _timezone_name, _default_minutes = _clinic_clock(session, clinic_id)
+    return _require_detail(session, clinic_id, appointment_id, zone)
+
+
+def cancel_appointment(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    appointment_id: UUID,
+    now: datetime,
+) -> CalendarItemView:
+    # Cancel does not compare the clock. The argument is here so every appointment
+    # write takes the same `now` the route already has.
+    del now
+    zone, _timezone_name, _default_minutes = _clinic_clock(session, clinic_id)
+    repository = AppointmentRepository(session, clinic_id)
+    row = repository.get_for_update(appointment_id)
+    if row is None:
+        raise AppointmentNotFoundError
+    if row.status not in MOVABLE_STATUSES:
+        raise InvalidStatusError
+    row.status = "cancelled"
+    record(
+        session,
+        clinic_id,
+        actor_user_id,
+        "appointment",
+        row.id,
+        "status_change",
+        changed_fields=["status"],
+    )
+    session.flush()
+    return _require_detail(session, clinic_id, appointment_id, zone)
 
 
 def list_clinicians(session: Session, clinic_id: UUID) -> list[ClinicianView]:
@@ -336,6 +387,19 @@ def _day_bounds(day: date, zone: ZoneInfo) -> tuple[datetime, datetime]:
 
 def _in_zone(moment: datetime, zone: ZoneInfo) -> datetime:
     return moment.astimezone(zone)
+
+
+def _require_detail(
+    session: Session,
+    clinic_id: UUID,
+    appointment_id: UUID,
+    zone: ZoneInfo,
+) -> CalendarItemView:
+    found = AppointmentRepository(session, clinic_id).get_detail(appointment_id)
+    if found is None:
+        raise AppointmentNotFoundError
+    appointment, patient, clinician, appointment_type = found
+    return _calendar_view(appointment, patient, clinician, appointment_type, zone)
 
 
 def _calendar_view(

@@ -17,13 +17,17 @@ from dentacircle.domain.appointment import (
     AppointmentFieldError,
 )
 from dentacircle.services.appointment_service import (
+    AppointmentNotFoundError,
     AppointmentView,
     AvailabilityView,
     CalendarItemView,
+    InvalidStatusError,
     PatientBusyError,
     SlotTakenError,
     book_appointment,
+    cancel_appointment,
     find_availability,
+    get_appointment,
     list_calendar,
     list_upcoming,
 )
@@ -117,6 +121,13 @@ class ErrorResponse(BaseModel):
 
 _BOOK_ERRORS: dict[int | str, dict[str, Any]] = {
     409: {"model": ErrorResponse, "description": "slot_taken or patient_busy"},
+}
+_READ_ERRORS: dict[int | str, dict[str, Any]] = {
+    404: {"model": ErrorResponse, "description": "Not Found"},
+}
+_CANCEL_ERRORS: dict[int | str, dict[str, Any]] = {
+    404: {"model": ErrorResponse, "description": "Not Found"},
+    409: {"model": ErrorResponse, "description": "invalid_status"},
 }
 _UPCOMING_ERRORS: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorResponse, "description": "Not Found"},
@@ -256,6 +267,47 @@ def post_appointment(
         raise HTTPException(status_code=404) from None
     session.commit()
     return _response(created)
+
+
+@router.get("/appointments/{appointment_id}", responses=_READ_ERRORS)
+def get_one_appointment(
+    appointment_id: UUID,
+    user: Annotated[CurrentUser, Depends(can_book)],
+    session: SessionDep,
+) -> CalendarItemResponse:
+    try:
+        found = get_appointment(session, user.clinic.id, appointment_id, datetime.now(UTC))
+    except AppointmentNotFoundError:
+        raise HTTPException(status_code=404) from None
+    except ClinicNotFoundError:
+        raise HTTPException(status_code=404) from None
+    return _calendar_item(found)
+
+
+@router.post("/appointments/{appointment_id}/cancel", responses=_CANCEL_ERRORS)
+def post_cancel_appointment(
+    appointment_id: UUID,
+    user: Annotated[CurrentUser, Depends(can_book)],
+    session: SessionDep,
+) -> CalendarItemResponse:
+    try:
+        cancelled = cancel_appointment(
+            session,
+            user.clinic.id,
+            user.id,
+            appointment_id,
+            datetime.now(UTC),
+        )
+    except AppointmentNotFoundError:
+        raise HTTPException(status_code=404) from None
+    except InvalidStatusError:
+        raise CodedHttpError(
+            409, "invalid_status", "This appointment can no longer be cancelled."
+        ) from None
+    except ClinicNotFoundError:
+        raise HTTPException(status_code=404) from None
+    session.commit()
+    return _calendar_item(cancelled)
 
 
 @router.get("/patients/{patient_id}/appointments", responses=_UPCOMING_ERRORS)
