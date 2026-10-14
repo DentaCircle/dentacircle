@@ -9,6 +9,7 @@ Additive. btree_gist already exists. Downgrade drops only this constraint.
 
 from collections.abc import Sequence
 
+import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0007_patient_overlap"
@@ -18,6 +19,29 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    conflicts = (
+        op.get_bind()
+        .execute(
+            sa.text(
+                "SELECT a.id::text, b.id::text"
+                " FROM appointment AS a"
+                " JOIN appointment AS b"
+                " ON a.clinic_id = b.clinic_id"
+                " AND a.patient_id = b.patient_id"
+                " AND a.id < b.id"
+                " AND tstzrange(a.starts_at, a.ends_at, '[)')"
+                " && tstzrange(b.starts_at, b.ends_at, '[)')"
+                " WHERE a.status NOT IN ('cancelled', 'no_show')"
+                " AND b.status NOT IN ('cancelled', 'no_show')"
+            )
+        )
+        .all()
+    )
+    if conflicts:
+        pairs = "; ".join(f"{left} overlaps {right}" for left, right in conflicts)
+        raise RuntimeError(
+            "Cannot add ex_appointment_patient_no_overlap. Fix these appointments first: " + pairs
+        )
     op.execute(
         "ALTER TABLE appointment ADD CONSTRAINT ex_appointment_patient_no_overlap "
         "EXCLUDE USING gist ("

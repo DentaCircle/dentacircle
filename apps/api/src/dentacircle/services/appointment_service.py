@@ -437,7 +437,10 @@ def _availability_duration(
         found = AppointmentRepository(session, clinic_id).get_detail(reschedule_appointment_id)
         if found is None:
             raise AppointmentFieldError("reschedule_appointment_id", "unknown")
-        return _length_minutes(found[0]), found[0].id, found[0].clinician_user_id
+        appointment = found[0]
+        if appointment.status not in MOVABLE_STATUSES:
+            raise AppointmentFieldError("reschedule_appointment_id", "invalid_status")
+        return _length_minutes(appointment), appointment.id, appointment.clinician_user_id
     if appointment_type_id is None:
         raise AppointmentFieldError("appointment_type_id", "required")
     duration = _duration(_require_type(session, clinic_id, appointment_type_id), default_minutes)

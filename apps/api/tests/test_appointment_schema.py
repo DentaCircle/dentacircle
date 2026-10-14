@@ -3,12 +3,14 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+import psycopg
 import pytest
 from alembic import command
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from dentacircle.core.database import to_psycopg_url, to_sqlalchemy_url
 from tests.test_migrations import _config, _public_tables, _version
 
 _CLINIC = "11111111-1111-1111-1111-111111111111"
@@ -48,6 +50,54 @@ def test_upgrade_downgrade_upgrade(
     command.upgrade(config, "head")
     assert _version(throwaway_database_url) == "0007_patient_overlap"
     assert "appointment" in _public_tables(throwaway_database_url)
+
+
+def test_existing_patient_overlaps_stop_the_migration(
+    throwaway_database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
+    config = _config()
+    command.upgrade(config, "0006_appointments")
+    left = "dddddddd-dddd-dddd-dddd-dddddddddddd"
+    right = "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee"
+    engine = create_engine(to_sqlalchemy_url(throwaway_database_url))
+    with Session(engine) as session:
+        _seed(session)
+        _insert(session, left, _USER, _at(10, 0), _at(10, 30))
+        _insert(session, right, _OTHER_USER, _at(10, 15), _at(10, 45))
+        session.commit()
+    engine.dispose()
+    with pytest.raises(RuntimeError, match="overlaps") as caught:
+        command.upgrade(config, "0007_patient_overlap")
+    assert left in str(caught.value)
+    assert right in str(caught.value)
+    assert _version(throwaway_database_url) == "0006_appointments"
+    assert not _has_patient_overlap(throwaway_database_url)
+
+
+def test_a_cancelled_overlap_does_not_stop_the_migration(
+    throwaway_database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
+    config = _config()
+    command.upgrade(config, "0006_appointments")
+    engine = create_engine(to_sqlalchemy_url(throwaway_database_url))
+    with Session(engine) as session:
+        _seed(session)
+        _insert(session, "dddddddd-dddd-dddd-dddd-dddddddddddd", _USER, _at(10, 0), _at(10, 30))
+        _insert(
+            session,
+            "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+            _OTHER_USER,
+            _at(10, 0),
+            _at(10, 30),
+            status="cancelled",
+        )
+        session.commit()
+    engine.dispose()
+    command.upgrade(config, "0007_patient_overlap")
+    assert _version(throwaway_database_url) == "0007_patient_overlap"
+    assert _has_patient_overlap(throwaway_database_url)
 
 
 def test_overlapping_blocking_rows_fail_and_the_edges_are_allowed(
@@ -155,6 +205,14 @@ def test_a_clinician_from_another_clinic_is_rejected(migrated: str, db_session: 
             _at(10, 0),
             _at(10, 30),
         )
+
+
+def _has_patient_overlap(database_url: str) -> bool:
+    with psycopg.connect(to_psycopg_url(database_url), connect_timeout=5) as connection:
+        row = connection.execute(
+            "SELECT 1 FROM pg_constraint WHERE conname = 'ex_appointment_patient_no_overlap'"
+        ).fetchone()
+    return row is not None
 
 
 def _seed(session: Session) -> None:

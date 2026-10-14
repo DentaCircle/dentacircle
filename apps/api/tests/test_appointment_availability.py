@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from dentacircle.core.database import clear_engine, get_engine
 from dentacircle.domain.appointment import AppointmentFieldError
 from dentacircle.models.app_user import AppUser
+from dentacircle.models.appointment import Appointment
 from dentacircle.models.appointment_type import AppointmentType
 from dentacircle.services.appointment_service import book_appointment, find_availability
 from dentacircle.services.patient_service import register_patient
@@ -70,6 +71,23 @@ def test_moving_keeps_an_inactive_clinicians_times(database: str) -> None:
     assert _START in [slot.starts_at for slot in moved.slots]
     assert caught.value.field == "clinician_id"
     assert caught.value.code == "inactive"
+
+
+def test_a_visit_that_cannot_move_has_no_free_times(database: str) -> None:
+    clinic_id, actor_id, clinician_id, patient_id, type_id = _world()
+    appointment_id = _book(clinic_id, actor_id, patient_id, clinician_id, type_id)
+    with Session(get_engine()) as session:
+        row = session.get(Appointment, appointment_id)
+        assert row is not None
+        row.status = "arrived"
+        session.commit()
+    with Session(get_engine()) as session:
+        with pytest.raises(AppointmentFieldError) as caught:
+            find_availability(
+                session, clinic_id, clinician_id, None, _START.date(), _NOW, appointment_id
+            )
+    assert caught.value.field == "reschedule_appointment_id"
+    assert caught.value.code == "invalid_status"
 
 
 def test_exactly_one_of_type_or_visit_is_required(database: str) -> None:
