@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
-import { getCurrentUser, getHealth, getPatient, getReadiness, listPatients } from "@/lib/api/client";
+import {
+  getCurrentUser,
+  getHealth,
+  getPatient,
+  getReadiness,
+  listAppointments,
+  listPatients,
+} from "@/lib/api/client";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/api/errors";
 
 const marker = "synthetic-marker-raw-body";
@@ -216,6 +223,20 @@ describe("getPatient", () => {
 
     expect(result.ok).toBe(false);
     expect(JSON.stringify(result)).not.toContain(marker);
+  });
+});
+
+describe("listAppointments", () => {
+  test("asks for the range and a clinician", async () => {
+    const fetchMock = stubFetch(jsonResponse(200, []));
+
+    const result = await listAppointments("dc_session=token", "2026-10-12", "2026-10-18", "clinician-1");
+
+    expect(result).toEqual({ ok: true, data: [] });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/appointments?from=2026-10-12&to=2026-10-18&clinician_id=clinician-1",
+      expect.objectContaining({ headers: { cookie: "dc_session=token" } }),
+    );
   });
 });
 

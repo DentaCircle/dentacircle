@@ -80,6 +80,27 @@ export function getClinicDay(cookieHeader: string): Promise<ApiResult<ClinicDayO
   return getJson("/clinic/day", clinicDayData, cookieHeaders(cookieHeader));
 }
 
+export type CalendarVisit = {
+  id: string;
+  starts_at: string;
+  ends_at: string;
+  status: string;
+  patient: { id: string; full_name: string; display_id: string };
+  clinician: { id: string; full_name: string };
+  appointment_type: { id: string; name: string };
+};
+
+export function listAppointments(
+  cookieHeader: string,
+  rangeFrom: string,
+  rangeTo: string,
+  clinicianId: string | null,
+): Promise<ApiResult<CalendarVisit[]>> {
+  const params = new URLSearchParams({ from: rangeFrom, to: rangeTo });
+  if (clinicianId !== null && clinicianId !== "") params.set("clinician_id", clinicianId);
+  return getJson(`/appointments?${params.toString()}`, calendarListData, cookieHeaders(cookieHeader));
+}
+
 export function listUpcomingAppointments(
   cookieHeader: string,
   patientId: string,
@@ -239,6 +260,50 @@ function clinicDayData(value: unknown): ClinicDayOption | null {
   const timezone = stringField(value, "timezone");
   if (timezone === null || timezone === "") return null;
   return { timezone };
+}
+
+function calendarListData(value: unknown): CalendarVisit[] | null {
+  if (!Array.isArray(value)) return null;
+  const rows: CalendarVisit[] = [];
+  for (const item of value) {
+    const visit = calendarVisitData(item);
+    if (visit === null) return null;
+    rows.push(visit);
+  }
+  return rows;
+}
+
+function calendarVisitData(value: unknown): CalendarVisit | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const startsAt = stringField(value, "starts_at");
+  const endsAt = stringField(value, "ends_at");
+  const status = stringField(value, "status");
+  const patient = patientSummaryData(value.patient);
+  const clinician = partyData(value.clinician);
+  const appointmentType = typeNameData(value.appointment_type);
+  if (id === null || startsAt === null || endsAt === null || status === null) return null;
+  if (patient === null || clinician === null || appointmentType === null) return null;
+  return {
+    id,
+    starts_at: startsAt,
+    ends_at: endsAt,
+    status,
+    patient,
+    clinician,
+    appointment_type: appointmentType,
+  };
+}
+
+function patientSummaryData(
+  value: unknown,
+): { id: string; full_name: string; display_id: string } | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const fullName = stringField(value, "full_name");
+  const displayId = stringField(value, "display_id");
+  if (id === null || fullName === null || displayId === null) return null;
+  return { id, full_name: fullName, display_id: displayId };
 }
 
 function upcomingListData(value: unknown): UpcomingVisit[] | null {
