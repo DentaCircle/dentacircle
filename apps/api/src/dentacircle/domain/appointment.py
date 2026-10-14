@@ -89,8 +89,9 @@ def free_slots(
             start = _local_instant(day, clock, zone)
             if start is None:
                 continue
-            end = start + duration
-            if end > close_at or start <= now:
+            # Elapsed minutes, not wall-clock minutes. A DST change must not stretch the visit.
+            end = (start.astimezone(UTC) + duration).astimezone(zone)
+            if end.astimezone(UTC) > close_at.astimezone(UTC) or start <= now:
                 continue
             if any(_overlaps(start, end, span) for span in busy):
                 continue

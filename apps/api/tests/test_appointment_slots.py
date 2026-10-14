@@ -1,6 +1,6 @@
 """Free start times: the grid, breaks, busy spans, now, duration and a daylight-saving day."""
 
-from datetime import date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from dentacircle.domain.appointment import (
@@ -96,6 +96,27 @@ def test_a_skipped_hour_on_a_london_spring_forward_is_absent() -> None:
     assert "02:00" in labels
     two = next(start for start, _end in slots if start.strftime("%H:%M") == "02:00")
     assert two.isoformat() == "2026-03-29T02:00:00+01:00"
+
+
+def test_duration_stays_elapsed_time_across_a_london_fallback() -> None:
+    # 01:00+01:00 plus 60 minutes is the second 01:00, not 02:00.
+    day = date(2026, 10, 25)
+    now = datetime(2026, 10, 24, 12, 0, tzinfo=LONDON)
+    slots = free_slots([OpenInterval(time(0, 30), time(2, 30))], [], 60, day, LONDON, now)
+    start, end = next(pair for pair in slots if pair[0].strftime("%H:%M") == "01:00")
+    assert start.isoformat() == "2026-10-25T01:00:00+01:00"
+    assert end.isoformat() == "2026-10-25T01:00:00+00:00"
+    assert end.astimezone(UTC) - start.astimezone(UTC) == timedelta(minutes=60)
+
+
+def test_a_visit_that_would_pass_close_across_a_spring_forward_is_left_out() -> None:
+    # 00:45+00:00 plus 30 minutes is 02:15+01:00, after a 02:00 close.
+    day = date(2026, 3, 29)
+    now = datetime(2026, 3, 28, 12, 0, tzinfo=LONDON)
+    slots = free_slots([OpenInterval(time(0, 0), time(2, 0))], [], 30, day, LONDON, now)
+    labels = [start.strftime("%H:%M") for start, _end in slots]
+    assert "00:30" in labels
+    assert "00:45" not in labels
 
 
 def test_an_ambiguous_hour_is_offered_once_at_the_first_occurrence() -> None:
