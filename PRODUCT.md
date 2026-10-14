@@ -158,7 +158,8 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   override, and the whole span must fit inside one interval. Back-to-back is allowed (one ends
   10:30, the next may start 10:30). A PostgreSQL exclusion constraint forbids overlapping
   appointments for one clinician; `cancelled` and `no_show` do not block. One patient in two
-  overlapping appointments is refused by a service check only. Inactive patients cannot be
+  overlapping blocking appointments is refused by migration `0007` (gist exclusion, same
+  rules as the clinician constraint). Inactive patients cannot be
   booked. Bookings may be up to 365 days ahead, as a guard against typos. API times are sent in
   the clinic's offset. `receptionist`, `clinician` and `clinic_admin` book, and
   `inventory_admin` does not. `GET /clinicians` lists only id and name of active users holding
@@ -200,7 +201,7 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 through S1.3 are done. `make dev` starts PostgreSQL, applies migrations, and runs
+S0.1 through S1.4 are done. `make dev` starts PostgreSQL, applies migrations, and runs
 the API and the web app. Sign in at `/login`. The browser posts through the `/api` rewrite,
 so `dc_session` stays on the web origin. The dashboard shows the signed-in user's name,
 roles and clinic from `GET /auth/me`. `/` and `/status` require that session. Create a
@@ -210,8 +211,9 @@ Each clinic has a timezone, weekly working hours, a default appointment duration
 appointment types in the database. Everyone signed in can read them with `GET /clinic/day`
 and `GET /appointment-types`. Only `clinic_admin` can change them through the API. There is
 no settings screen yet; README has curl examples. Migration `0003` enables `btree_gist` for
-working-hours overlap; migration `0006` reuses it for clinician appointment overlap. New
-clinics are seeded once; existing clinics were backfilled by the migration.
+working-hours overlap; migrations `0006` and `0007` use it for clinician and patient
+appointment overlap. New clinics are seeded once; existing clinics were backfilled by the
+migration.
 
 Staff with `receptionist`, `clinician` or `clinic_admin` can register patients, open a
 patient from the list, edit name, phone and date of birth, and set `active` or `inactive`.
@@ -227,6 +229,14 @@ The same three roles can book appointments for active patients: `GET /clinicians
 Slots follow clinic hours on a 15-minute grid; the database refuses overlapping visits for one
 clinician. The web book flow is `/patients/[id]/book`; the patient page shows upcoming visits
 and a book link when allowed. A successful booking writes an `appointment` create audit event.
-Reschedule, cancel and calendar views are not built yet (S1.4+).
 
-Next slice: S1.4 calendar.
+The same three roles can open `/calendar` for a day or a Monday–Sunday week (agenda list, up
+to seven clinic-local days), filter by clinician, cancel a `scheduled` visit, and reschedule
+one (keeping patient, type and length). `GET /appointments` lists visits in a range;
+`GET /appointments/{id}`, `POST .../cancel` and `POST .../reschedule` return the same item
+shape. Cancelled visits are hidden on the list; reschedule availability can use the visit id
+so the visit's own span does not block. Cancel and reschedule write audit rows in the same
+transaction. A time-only reschedule may keep an inactive assigned clinician; choosing another
+clinician still requires an active one.
+
+Next slice: S1.5 appointment status flow.
