@@ -56,6 +56,46 @@ export function getPatient(cookieHeader: string, patientId: string): Promise<Api
   return getJson(`/patients/${encodeURIComponent(patientId)}`, patientData, headers);
 }
 
+export type ClinicianOption = { id: string; full_name: string };
+export type AppointmentTypeOption = { id: string; name: string };
+export type ClinicDayOption = { timezone: string };
+export type UpcomingVisit = {
+  id: string;
+  starts_at: string;
+  ends_at: string;
+  status: string;
+  clinician: { id: string; full_name: string };
+  appointment_type: { id: string; name: string };
+};
+
+export function listClinicians(cookieHeader: string): Promise<ApiResult<ClinicianOption[]>> {
+  return getJson("/clinicians", clinicianListData, cookieHeaders(cookieHeader));
+}
+
+export function listAppointmentTypes(cookieHeader: string): Promise<ApiResult<AppointmentTypeOption[]>> {
+  return getJson("/appointment-types", appointmentTypeListData, cookieHeaders(cookieHeader));
+}
+
+export function getClinicDay(cookieHeader: string): Promise<ApiResult<ClinicDayOption>> {
+  return getJson("/clinic/day", clinicDayData, cookieHeaders(cookieHeader));
+}
+
+export function listUpcomingAppointments(
+  cookieHeader: string,
+  patientId: string,
+): Promise<ApiResult<UpcomingVisit[]>> {
+  return getJson(
+    `/patients/${encodeURIComponent(patientId)}/appointments`,
+    upcomingListData,
+    cookieHeaders(cookieHeader),
+  );
+}
+
+function cookieHeaders(cookieHeader: string): HeadersInit | undefined {
+  if (cookieHeader === "") return undefined;
+  return { cookie: cookieHeader };
+}
+
 async function getJson<T>(
   path: string,
   parse: (value: unknown) => T | null,
@@ -166,6 +206,86 @@ function patientData(value: unknown): Patient | null {
     status,
     created_at: createdAt,
   };
+}
+
+function clinicianListData(value: unknown): ClinicianOption[] | null {
+  if (!Array.isArray(value)) return null;
+  const rows: ClinicianOption[] = [];
+  for (const item of value) {
+    if (!isRecord(item)) return null;
+    const id = stringField(item, "id");
+    const fullName = stringField(item, "full_name");
+    if (id === null || fullName === null) return null;
+    rows.push({ id, full_name: fullName });
+  }
+  return rows;
+}
+
+function appointmentTypeListData(value: unknown): AppointmentTypeOption[] | null {
+  if (!Array.isArray(value)) return null;
+  const rows: AppointmentTypeOption[] = [];
+  for (const item of value) {
+    if (!isRecord(item)) return null;
+    const id = stringField(item, "id");
+    const name = stringField(item, "name");
+    if (id === null || name === null) return null;
+    rows.push({ id, name });
+  }
+  return rows;
+}
+
+function clinicDayData(value: unknown): ClinicDayOption | null {
+  if (!isRecord(value)) return null;
+  const timezone = stringField(value, "timezone");
+  if (timezone === null || timezone === "") return null;
+  return { timezone };
+}
+
+function upcomingListData(value: unknown): UpcomingVisit[] | null {
+  if (!Array.isArray(value)) return null;
+  const rows: UpcomingVisit[] = [];
+  for (const item of value) {
+    const visit = upcomingData(item);
+    if (visit === null) return null;
+    rows.push(visit);
+  }
+  return rows;
+}
+
+function upcomingData(value: unknown): UpcomingVisit | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const startsAt = stringField(value, "starts_at");
+  const endsAt = stringField(value, "ends_at");
+  const status = stringField(value, "status");
+  const clinician = partyData(value.clinician);
+  const appointmentType = typeNameData(value.appointment_type);
+  if (id === null || startsAt === null || endsAt === null || status === null) return null;
+  if (clinician === null || appointmentType === null) return null;
+  return {
+    id,
+    starts_at: startsAt,
+    ends_at: endsAt,
+    status,
+    clinician,
+    appointment_type: appointmentType,
+  };
+}
+
+function partyData(value: unknown): { id: string; full_name: string } | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const fullName = stringField(value, "full_name");
+  if (id === null || fullName === null) return null;
+  return { id, full_name: fullName };
+}
+
+function typeNameData(value: unknown): { id: string; name: string } | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const name = stringField(value, "name");
+  if (id === null || name === null) return null;
+  return { id, name };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

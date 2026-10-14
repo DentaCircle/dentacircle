@@ -1,6 +1,7 @@
 """ORM models. Importing this package registers every table on Base.metadata."""
 
 from dentacircle.models.app_user import AppUser
+from dentacircle.models.appointment import Appointment
 from dentacircle.models.appointment_type import AppointmentType
 from dentacircle.models.audit_event import AuditEvent
 from dentacircle.models.auth_session import AuthSession
@@ -12,6 +13,7 @@ from dentacircle.models.working_hours import ClinicWorkingHours
 
 __all__ = [
     "AppUser",
+    "Appointment",
     "AppointmentType",
     "AuditEvent",
     "AuthSession",
