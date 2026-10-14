@@ -1,7 +1,7 @@
 """List clinicians, find free times, book a visit, and list what is coming up."""
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -201,17 +201,19 @@ def find_availability(
     session: Session,
     clinic_id: UUID,
     clinician_id: UUID,
-    appointment_type_id: UUID,
+    appointment_type_id: UUID | None,
     day: date,
     now: datetime,
+    reschedule_appointment_id: UUID | None = None,
 ) -> AvailabilityView:
     zone, timezone_name, default_minutes = _clinic_clock(session, clinic_id)
     _require_clinician(session, clinic_id, clinician_id)
-    appointment_type = _require_type(session, clinic_id, appointment_type_id)
+    duration, exclude_id = _availability_duration(
+        session, clinic_id, appointment_type_id, reschedule_appointment_id, default_minutes
+    )
     problem = date_problem(day, zone, now)
     if problem is not None:
         raise AppointmentFieldError("date", problem)
-    duration = _duration(appointment_type, default_minutes)
     intervals = _intervals(session, clinic_id, day)
     if not intervals:
         return AvailabilityView(
@@ -228,6 +230,7 @@ def find_availability(
             span_start=day_start,
             span_end=day_end,
             clinician_user_id=clinician_id,
+            exclude_appointment_id=exclude_id,
         )
     ]
     slots = free_slots(intervals, busy, duration, day, zone, now)
@@ -238,6 +241,71 @@ def find_availability(
         duration_minutes=duration,
         slots=[SlotView(_in_zone(start, zone), _in_zone(end, zone)) for start, end in slots],
     )
+
+
+def reschedule_appointment(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    appointment_id: UUID,
+    starts_at: datetime,
+    clinician_id: UUID | None,
+    now: datetime,
+) -> CalendarItemView:
+    zone, _timezone_name, _default_minutes = _clinic_clock(session, clinic_id)
+    repository = AppointmentRepository(session, clinic_id)
+    row = repository.get_for_update(appointment_id)
+    if row is None:
+        raise AppointmentNotFoundError
+    if row.status not in MOVABLE_STATUSES:
+        raise InvalidStatusError
+    if starts_at.tzinfo is None or starts_at.utcoffset() is None:
+        raise AppointmentFieldError("starts_at", "timezone_naive")
+    clinician = (
+        _require_clinician(session, clinic_id, clinician_id)
+        if clinician_id is not None
+        else _kept_clinician(session, clinic_id, row.clinician_user_id)
+    )
+    if same_instant(starts_at, row.starts_at) and clinician.id == row.clinician_user_id:
+        raise AppointmentFieldError("starts_at", "unchanged")
+    duration = _length_minutes(row)
+    local_day = starts_at.astimezone(zone).date()
+    intervals = _intervals(session, clinic_id, local_day)
+    reason = unavailable_reason(intervals, duration, local_day, zone, now, starts_at)
+    if reason is not None:
+        raise AppointmentFieldError("starts_at", reason)
+    offered = free_slots(intervals, [], duration, local_day, zone, now)
+    start, end = next(slot for slot in offered if same_instant(slot[0], starts_at))
+    patient_busy = repository.busy_spans(
+        span_start=start,
+        span_end=end,
+        patient_id=row.patient_id,
+        exclude_appointment_id=row.id,
+    )
+    if patient_busy:
+        raise PatientBusyError
+    changed = ["starts_at", "ends_at"]
+    if clinician.id != row.clinician_user_id:
+        changed.append("clinician_user_id")
+    row.starts_at = start
+    row.ends_at = end
+    row.clinician_user_id = clinician.id
+    record(
+        session,
+        clinic_id,
+        actor_user_id,
+        "appointment",
+        row.id,
+        "update",
+        changed_fields=changed,
+    )
+    try:
+        session.flush()
+    except IntegrityError as exc:
+        if _is_exclusion(exc):
+            raise SlotTakenError from None
+        raise
+    return _require_detail(session, clinic_id, appointment_id, zone)
 
 
 def book_appointment(
@@ -353,6 +421,39 @@ def _require_type(session: Session, clinic_id: UUID, type_id: UUID) -> Appointme
     if not row.is_active:
         raise AppointmentFieldError("appointment_type_id", "inactive")
     return row
+
+
+def _availability_duration(
+    session: Session,
+    clinic_id: UUID,
+    appointment_type_id: UUID | None,
+    reschedule_appointment_id: UUID | None,
+    default_minutes: int,
+) -> tuple[int, UUID | None]:
+    if (appointment_type_id is None) == (reschedule_appointment_id is None):
+        if appointment_type_id is None:
+            raise AppointmentFieldError("appointment_type_id", "required")
+        raise AppointmentFieldError("reschedule_appointment_id", "exclusive")
+    if reschedule_appointment_id is not None:
+        found = AppointmentRepository(session, clinic_id).get_detail(reschedule_appointment_id)
+        if found is None:
+            raise AppointmentFieldError("reschedule_appointment_id", "unknown")
+        return _length_minutes(found[0]), found[0].id
+    if appointment_type_id is None:
+        raise AppointmentFieldError("appointment_type_id", "required")
+    return _duration(_require_type(session, clinic_id, appointment_type_id), default_minutes), None
+
+
+def _length_minutes(row: Appointment) -> int:
+    elapsed = row.ends_at.astimezone(UTC) - row.starts_at.astimezone(UTC)
+    return int(elapsed.total_seconds() // 60)
+
+
+def _kept_clinician(session: Session, clinic_id: UUID, user_id: UUID) -> AppUser:
+    user = UserRepository(session, clinic_id).get(user_id)
+    if user is None:
+        raise RuntimeError("appointment points at a missing clinician")
+    return user
 
 
 def _duration(appointment_type: AppointmentType, default_minutes: int) -> int:

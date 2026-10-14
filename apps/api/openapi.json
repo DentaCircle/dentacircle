@@ -694,6 +694,33 @@
         "title": "PatientUpdate",
         "type": "object"
       },
+      "RescheduleBody": {
+        "additionalProperties": false,
+        "properties": {
+          "clinician_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clinician Id"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "starts_at"
+        ],
+        "title": "RescheduleBody",
+        "type": "object"
+      },
       "SlotResponse": {
         "properties": {
           "ends_at": {
@@ -1183,11 +1210,35 @@
           {
             "in": "query",
             "name": "appointment_type_id",
-            "required": true,
+            "required": false,
             "schema": {
-              "format": "uuid",
-              "title": "Appointment Type Id",
-              "type": "string"
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Appointment Type Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reschedule_appointment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reschedule Appointment Id"
             }
           }
         ],
@@ -1324,6 +1375,76 @@
           }
         },
         "summary": "Post Cancel Appointment"
+      }
+    },
+    "/appointments/{appointment_id}/reschedule": {
+      "post": {
+        "operationId": "post_reschedule_appointment_appointments__appointment_id__reschedule_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appointment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Appointment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RescheduleBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CalendarItemResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "invalid_status, slot_taken or patient_busy"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Reschedule Appointment"
       }
     },
     "/auth/login": {

@@ -103,6 +103,7 @@ class AppointmentRepository:
         span_end: datetime,
         clinician_user_id: UUID | None = None,
         patient_id: UUID | None = None,
+        exclude_appointment_id: UUID | None = None,
     ) -> list[tuple[datetime, datetime]]:
         """Blocking visits that overlap [span_start, span_end). Half-open, like the constraint."""
         if clinician_user_id is None and patient_id is None:
@@ -116,6 +117,8 @@ class AppointmentRepository:
             statement = statement.where(Appointment.clinician_user_id == clinician_user_id)
         if patient_id is not None:
             statement = statement.where(Appointment.patient_id == patient_id)
+        if exclude_appointment_id is not None:
+            statement = statement.where(Appointment.id != exclude_appointment_id)
         statement = statement.order_by(Appointment.starts_at, Appointment.id)
         rows = self._session.scalars(statement)
         return [(row.starts_at, row.ends_at) for row in rows]

@@ -30,6 +30,7 @@ from dentacircle.services.appointment_service import (
     get_appointment,
     list_calendar,
     list_upcoming,
+    reschedule_appointment,
 )
 from dentacircle.services.auth_service import CurrentUser
 from dentacircle.services.clinic_day_service import ClinicNotFoundError
@@ -96,6 +97,20 @@ class AppointmentResponse(BaseModel):
     appointment_type: TypeNameResponse
 
 
+class RescheduleBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    starts_at: datetime
+    clinician_id: UUID | None = None
+
+    @field_validator("starts_at")
+    @classmethod
+    def require_offset(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise PydanticCustomError("timezone_naive", "invalid")
+        return value
+
+
 class SlotResponse(BaseModel):
     starts_at: datetime
     ends_at: datetime
@@ -128,6 +143,10 @@ _READ_ERRORS: dict[int | str, dict[str, Any]] = {
 _CANCEL_ERRORS: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorResponse, "description": "Not Found"},
     409: {"model": ErrorResponse, "description": "invalid_status"},
+}
+_MOVE_ERRORS: dict[int | str, dict[str, Any]] = {
+    404: {"model": ErrorResponse, "description": "Not Found"},
+    409: {"model": ErrorResponse, "description": "invalid_status, slot_taken or patient_busy"},
 }
 _UPCOMING_ERRORS: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorResponse, "description": "Not Found"},
@@ -220,7 +239,8 @@ def get_availability(
     session: SessionDep,
     day: Annotated[date, Query(alias="date")],
     clinician_id: UUID,
-    appointment_type_id: UUID,
+    appointment_type_id: Annotated[UUID | None, Query()] = None,
+    reschedule_appointment_id: Annotated[UUID | None, Query()] = None,
 ) -> AvailabilityResponse:
     try:
         found = find_availability(
@@ -230,6 +250,7 @@ def get_availability(
             appointment_type_id,
             day,
             datetime.now(UTC),
+            reschedule_appointment_id,
         )
     except AppointmentFieldError as exc:
         raise _field_error(exc, "query") from None
@@ -308,6 +329,43 @@ def post_cancel_appointment(
         raise HTTPException(status_code=404) from None
     session.commit()
     return _calendar_item(cancelled)
+
+
+@router.post("/appointments/{appointment_id}/reschedule", responses=_MOVE_ERRORS)
+def post_reschedule_appointment(
+    appointment_id: UUID,
+    body: RescheduleBody,
+    user: Annotated[CurrentUser, Depends(can_book)],
+    session: SessionDep,
+) -> CalendarItemResponse:
+    try:
+        moved = reschedule_appointment(
+            session,
+            user.clinic.id,
+            user.id,
+            appointment_id,
+            body.starts_at,
+            body.clinician_id,
+            datetime.now(UTC),
+        )
+    except AppointmentFieldError as exc:
+        raise _field_error(exc, "body") from None
+    except AppointmentNotFoundError:
+        raise HTTPException(status_code=404) from None
+    except InvalidStatusError:
+        raise CodedHttpError(
+            409, "invalid_status", "This appointment can no longer be moved."
+        ) from None
+    except SlotTakenError:
+        raise CodedHttpError(409, "slot_taken", "That time was just taken.") from None
+    except PatientBusyError:
+        raise CodedHttpError(
+            409, "patient_busy", "That patient already has an appointment then."
+        ) from None
+    except ClinicNotFoundError:
+        raise HTTPException(status_code=404) from None
+    session.commit()
+    return _calendar_item(moved)
 
 
 @router.get("/patients/{patient_id}/appointments", responses=_UPCOMING_ERRORS)
