@@ -90,6 +90,17 @@ export type CalendarVisit = {
   appointment_type: { id: string; name: string };
 };
 
+export function getAppointment(
+  cookieHeader: string,
+  appointmentId: string,
+): Promise<ApiResult<CalendarVisit>> {
+  return getJson(
+    `/appointments/${encodeURIComponent(appointmentId)}`,
+    calendarVisitData,
+    cookieHeaders(cookieHeader),
+  );
+}
+
 export function listAppointments(
   cookieHeader: string,
   rangeFrom: string,
