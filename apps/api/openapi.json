@@ -227,6 +227,57 @@
         "title": "AvailabilityResponse",
         "type": "object"
       },
+      "CalendarItemResponse": {
+        "properties": {
+          "appointment_type": {
+            "$ref": "#/components/schemas/TypeNameResponse"
+          },
+          "clinician": {
+            "$ref": "#/components/schemas/PartyResponse"
+          },
+          "ends_at": {
+            "format": "date-time",
+            "title": "Ends At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientSummaryResponse"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "scheduled",
+              "arrived",
+              "in_progress",
+              "completed",
+              "cancelled",
+              "no_show"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "starts_at",
+          "ends_at",
+          "status",
+          "patient",
+          "clinician",
+          "appointment_type"
+        ],
+        "title": "CalendarItemResponse",
+        "type": "object"
+      },
       "ClinicDayBody": {
         "properties": {
           "default_appointment_minutes": {
@@ -572,6 +623,30 @@
           "status"
         ],
         "title": "PatientStatusUpdate",
+        "type": "object"
+      },
+      "PatientSummaryResponse": {
+        "properties": {
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "full_name",
+          "display_id"
+        ],
+        "title": "PatientSummaryResponse",
         "type": "object"
       },
       "PatientUpdate": {
@@ -965,6 +1040,75 @@
       }
     },
     "/appointments": {
+      "get": {
+        "operationId": "get_appointments_appointments_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "From",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "To",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "clinician_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Clinician Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CalendarItemResponse"
+                  },
+                  "title": "Response Get Appointments Appointments Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Appointments"
+      },
       "post": {
         "operationId": "post_appointment_appointments_post",
         "requestBody": {

@@ -164,6 +164,13 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   `inventory_admin` does not. `GET /clinicians` lists only id and name of active users holding
   `clinician`. No appointment notes yet. Booking writes an `appointment` `create` audit event.
 
+- **Calendar (decided in S1.4):** the desk sees an agenda list for one day or a Monday–Sunday
+  week, not a time grid. A list covers at most seven clinic-local days. Cancelled visits are
+  hidden; no-show stays visible. Only a `scheduled` visit can be cancelled or moved, and there
+  is no cancel reason. Reschedule keeps the patient, the type and the original length, and may
+  change the start and the clinician. The same row is updated. The calendar response includes
+  the patient name for the three roles that can already list patients.
+
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.

@@ -46,7 +46,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** Get Appointments */
+        get: operations["get_appointments_appointments_get"];
         put?: never;
         /** Post Appointment */
         post: operations["post_appointment_appointments_post"];
@@ -368,6 +369,32 @@ export interface components {
             /** Timezone */
             timezone: string;
         };
+        /** CalendarItemResponse */
+        CalendarItemResponse: {
+            appointment_type: components["schemas"]["TypeNameResponse"];
+            clinician: components["schemas"]["PartyResponse"];
+            /**
+             * Ends At
+             * Format: date-time
+             */
+            ends_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            patient: components["schemas"]["PatientSummaryResponse"];
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "scheduled" | "arrived" | "in_progress" | "completed" | "cancelled" | "no_show";
+        };
         /** ClinicDayBody */
         ClinicDayBody: {
             /** Default Appointment Minutes */
@@ -505,6 +532,18 @@ export interface components {
              * @enum {string}
              */
             status: "active" | "inactive";
+        };
+        /** PatientSummaryResponse */
+        PatientSummaryResponse: {
+            /** Display Id */
+            display_id: string;
+            /** Full Name */
+            full_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
         };
         /** PatientUpdate */
         PatientUpdate: {
@@ -727,6 +766,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_appointments_appointments_get: {
+        parameters: {
+            query: {
+                from: string;
+                to: string;
+                clinician_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CalendarItemResponse"][];
                 };
             };
             /** @description Validation Error */

@@ -3,11 +3,15 @@
 from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from dentacircle.core.tenancy import scoped_select
 from dentacircle.domain.appointment import NON_BLOCKING_STATUSES
+from dentacircle.models.app_user import AppUser
 from dentacircle.models.appointment import Appointment
+from dentacircle.models.appointment_type import AppointmentType
+from dentacircle.models.patient import Patient
 
 
 class AppointmentRepository:
@@ -18,6 +22,52 @@ class AppointmentRepository:
     def add(self, appointment: Appointment) -> None:
         appointment.clinic_id = self._clinic_id
         self._session.add(appointment)
+
+    def list_in_range(
+        self,
+        *,
+        range_start: datetime,
+        range_end: datetime,
+        clinician_user_id: UUID | None = None,
+    ) -> list[tuple[Appointment, Patient, AppUser, AppointmentType]]:
+        """Visits that overlap [range_start, range_end), except cancelled, soonest first.
+
+        An overlap includes a visit that starts before range_start and ends after it.
+        """
+        statement = (
+            select(Appointment, Patient, AppUser, AppointmentType)
+            .join(
+                Patient,
+                (Patient.id == Appointment.patient_id) & (Patient.clinic_id == self._clinic_id),
+            )
+            .join(
+                AppUser,
+                (AppUser.id == Appointment.clinician_user_id)
+                & (AppUser.clinic_id == self._clinic_id),
+            )
+            .join(
+                AppointmentType,
+                (AppointmentType.id == Appointment.appointment_type_id)
+                & (AppointmentType.clinic_id == self._clinic_id),
+            )
+            .where(
+                Appointment.clinic_id == self._clinic_id,
+                Patient.clinic_id == self._clinic_id,
+                AppUser.clinic_id == self._clinic_id,
+                AppointmentType.clinic_id == self._clinic_id,
+                Appointment.status != "cancelled",
+                Appointment.ends_at > range_start,
+                Appointment.starts_at < range_end,
+            )
+            .order_by(Appointment.starts_at, Appointment.id)
+        )
+        if clinician_user_id is not None:
+            statement = statement.where(Appointment.clinician_user_id == clinician_user_id)
+        rows = self._session.execute(statement).all()
+        return [
+            (appointment, patient, clinician, appointment_type)
+            for appointment, patient, clinician, appointment_type in rows
+        ]
 
     def busy_spans(
         self,

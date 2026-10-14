@@ -14,14 +14,17 @@ from dentacircle.domain.appointment import (
     AppointmentFieldError,
     BusySpan,
     OpenInterval,
+    calendar_range_problem,
     date_problem,
     free_slots,
     same_instant,
     unavailable_reason,
 )
+from dentacircle.domain.patient import display_id
 from dentacircle.models.app_user import AppUser
 from dentacircle.models.appointment import Appointment
 from dentacircle.models.appointment_type import AppointmentType
+from dentacircle.models.patient import Patient
 from dentacircle.repositories.appointment_repository import AppointmentRepository
 from dentacircle.repositories.appointment_type_repository import AppointmentTypeRepository
 from dentacircle.repositories.clinic_day_repository import ClinicDayRepository
@@ -76,6 +79,24 @@ class TypeNameView:
 
 
 @dataclass(frozen=True)
+class PatientSummaryView:
+    id: UUID
+    full_name: str
+    display_id: str
+
+
+@dataclass(frozen=True)
+class CalendarItemView:
+    id: UUID
+    starts_at: datetime
+    ends_at: datetime
+    status: str
+    patient: PatientSummaryView
+    clinician: PartyView
+    appointment_type: TypeNameView
+
+
+@dataclass(frozen=True)
 class AppointmentView:
     id: UUID
     patient_id: UUID
@@ -84,6 +105,40 @@ class AppointmentView:
     status: str
     clinician: PartyView
     appointment_type: TypeNameView
+
+
+_RANGE_FIELD = {
+    "before_from": "to",
+    "span_too_long": "to",
+    "beyond_horizon": "to",
+}
+
+
+def list_calendar(
+    session: Session,
+    clinic_id: UUID,
+    range_from: date,
+    range_to: date,
+    clinician_id: UUID | None,
+    now: datetime,
+) -> list[CalendarItemView]:
+    zone, _timezone_name, _default_minutes = _clinic_clock(session, clinic_id)
+    problem = calendar_range_problem(range_from, range_to, zone, now)
+    if problem is not None:
+        raise AppointmentFieldError(_RANGE_FIELD[problem], problem)
+    if clinician_id is not None:
+        _require_clinician(session, clinic_id, clinician_id)
+    range_start, _from_end = _day_bounds(range_from, zone)
+    _to_start, range_end = _day_bounds(range_to, zone)
+    rows = AppointmentRepository(session, clinic_id).list_in_range(
+        range_start=range_start,
+        range_end=range_end,
+        clinician_user_id=clinician_id,
+    )
+    return [
+        _calendar_view(appointment, patient, clinician, appointment_type, zone)
+        for appointment, patient, clinician, appointment_type in rows
+    ]
 
 
 def list_clinicians(session: Session, clinic_id: UUID) -> list[ClinicianView]:
@@ -281,6 +336,28 @@ def _day_bounds(day: date, zone: ZoneInfo) -> tuple[datetime, datetime]:
 
 def _in_zone(moment: datetime, zone: ZoneInfo) -> datetime:
     return moment.astimezone(zone)
+
+
+def _calendar_view(
+    row: Appointment,
+    patient: Patient,
+    clinician: AppUser,
+    appointment_type: AppointmentType,
+    zone: ZoneInfo,
+) -> CalendarItemView:
+    return CalendarItemView(
+        id=row.id,
+        starts_at=_in_zone(row.starts_at, zone),
+        ends_at=_in_zone(row.ends_at, zone),
+        status=row.status,
+        patient=PatientSummaryView(
+            id=patient.id,
+            full_name=patient.full_name,
+            display_id=display_id(patient.patient_number),
+        ),
+        clinician=PartyView(id=clinician.id, full_name=clinician.full_name),
+        appointment_type=TypeNameView(id=appointment_type.id, name=appointment_type.name),
+    )
 
 
 def _view(

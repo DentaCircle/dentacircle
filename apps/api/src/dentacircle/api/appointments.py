@@ -19,10 +19,12 @@ from dentacircle.domain.appointment import (
 from dentacircle.services.appointment_service import (
     AppointmentView,
     AvailabilityView,
+    CalendarItemView,
     PatientBusyError,
     SlotTakenError,
     book_appointment,
     find_availability,
+    list_calendar,
     list_upcoming,
 )
 from dentacircle.services.auth_service import CurrentUser
@@ -62,6 +64,22 @@ class PartyResponse(BaseModel):
 class TypeNameResponse(BaseModel):
     id: UUID
     name: str
+
+
+class PatientSummaryResponse(BaseModel):
+    id: UUID
+    full_name: str
+    display_id: str
+
+
+class CalendarItemResponse(BaseModel):
+    id: UUID
+    starts_at: datetime
+    ends_at: datetime
+    status: AppointmentStatus
+    patient: PatientSummaryResponse
+    clinician: PartyResponse
+    appointment_type: TypeNameResponse
 
 
 class AppointmentResponse(BaseModel):
@@ -111,6 +129,24 @@ def _field_error(exc: AppointmentFieldError, where: str) -> RequestValidationErr
     )
 
 
+def _calendar_item(item: CalendarItemView) -> CalendarItemResponse:
+    return CalendarItemResponse(
+        id=item.id,
+        starts_at=item.starts_at,
+        ends_at=item.ends_at,
+        status=_status(item.status),
+        patient=PatientSummaryResponse(
+            id=item.patient.id,
+            full_name=item.patient.full_name,
+            display_id=item.patient.display_id,
+        ),
+        clinician=PartyResponse(id=item.clinician.id, full_name=item.clinician.full_name),
+        appointment_type=TypeNameResponse(
+            id=item.appointment_type.id, name=item.appointment_type.name
+        ),
+    )
+
+
 def _response(item: AppointmentView) -> AppointmentResponse:
     return AppointmentResponse(
         id=item.id,
@@ -141,6 +177,30 @@ def _availability(found: AvailabilityView) -> AvailabilityResponse:
             SlotResponse(starts_at=slot.starts_at, ends_at=slot.ends_at) for slot in found.slots
         ],
     )
+
+
+@router.get("/appointments")
+def get_appointments(
+    user: Annotated[CurrentUser, Depends(can_book)],
+    session: SessionDep,
+    range_from: Annotated[date, Query(alias="from")],
+    range_to: Annotated[date, Query(alias="to")],
+    clinician_id: Annotated[UUID | None, Query()] = None,
+) -> list[CalendarItemResponse]:
+    try:
+        rows = list_calendar(
+            session,
+            user.clinic.id,
+            range_from,
+            range_to,
+            clinician_id,
+            datetime.now(UTC),
+        )
+    except AppointmentFieldError as exc:
+        raise _field_error(exc, "query") from None
+    except ClinicNotFoundError:
+        raise HTTPException(status_code=404) from None
+    return [_calendar_item(row) for row in rows]
 
 
 @router.get("/appointments/availability")
