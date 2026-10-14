@@ -1,8 +1,12 @@
 import { render, screen } from "@testing-library/react";
-import { expect, test } from "vitest";
+import { expect, test, vi } from "vitest";
 
 import { CalendarScreen } from "@/features/calendar/calendar-screen";
 import type { CalendarDay } from "@/features/calendar/day-section";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
 
 const clinicians = [{ id: "clinician-1", label: "Sample Clinician" }];
 
@@ -37,6 +41,11 @@ test("a day lists the visit and hides a scheduled badge", () => {
   expect(screen.getByRole("listitem")).toHaveTextContent("Consultation");
   expect(screen.getByRole("listitem")).toHaveTextContent("Sample Clinician");
   expect(screen.queryByText("Scheduled")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Reschedule" })).toHaveAttribute(
+    "href",
+    "/appointments/visit-1/reschedule",
+  );
+  expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Wed 14 Oct" })).toHaveAttribute("aria-current", "date");
 });
 
@@ -55,6 +64,8 @@ test("a status other than scheduled shows a badge", () => {
   );
 
   expect(screen.getByText("No-show")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Reschedule" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Wed 14 Oct" })).not.toHaveAttribute("aria-current");
 });
 

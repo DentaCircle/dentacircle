@@ -1,6 +1,6 @@
 import { CalendarControls, type ClinicianOption } from "@/features/calendar/controls";
 import { DaySection, type CalendarDay } from "@/features/calendar/day-section";
-import { CALENDAR_NOTICES, type CalendarNotice, type CalendarViewMode } from "@/features/calendar/links";
+import { CALENDAR_NOTICES, calendarHref, type CalendarNotice, type CalendarViewMode } from "@/features/calendar/links";
 
 export type CalendarScreenProps =
   | { status: "forbidden" | "error" }
@@ -32,7 +32,15 @@ export function CalendarScreen(props: CalendarScreenProps) {
             clinicians={props.clinicians}
           />
           {props.days.map((day) => (
-            <DaySection key={day.date} day={day} />
+            <DaySection
+              key={day.date}
+              day={day}
+              returnHref={calendarHref({
+                view: props.view,
+                date: props.date,
+                clinician: props.clinician,
+              })}
+            />
           ))}
         </>
       ) : null}

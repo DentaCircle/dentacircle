@@ -1,13 +1,15 @@
 import { AppointmentRow, type AppointmentRowProps } from "@/features/calendar/appointment-row";
 
+export type CalendarVisitRow = Omit<AppointmentRowProps, "returnHref">;
+
 export type CalendarDay = {
   date: string;
   heading: string;
   isToday: boolean;
-  visits: AppointmentRowProps[];
+  visits: CalendarVisitRow[];
 };
 
-export function DaySection({ day }: { day: CalendarDay }) {
+export function DaySection({ day, returnHref }: { day: CalendarDay; returnHref: string }) {
   return (
     <section className="flex flex-col gap-2">
       <h2 className={day.isToday ? "font-semibold" : "font-medium"} aria-current={day.isToday ? "date" : undefined}>
@@ -16,7 +18,11 @@ export function DaySection({ day }: { day: CalendarDay }) {
       {day.visits.length === 0 ? (
         <p>No appointments.</p>
       ) : (
-        <ul>{day.visits.map((visit) => <AppointmentRow key={visit.id} {...visit} />)}</ul>
+        <ul>
+          {day.visits.map((visit) => (
+            <AppointmentRow key={visit.id} {...visit} returnHref={returnHref} />
+          ))}
+        </ul>
       )}
     </section>
   );
