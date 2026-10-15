@@ -1,3 +1,5 @@
+"use client";
+
 import { Badge } from "@/components/ui/badge";
 import { LabelForm } from "@/features/care/label-form";
 import { CARE_NOTICES, type CareNotice } from "@/features/care/notices";

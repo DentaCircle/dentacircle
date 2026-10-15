@@ -45,6 +45,9 @@ export function LabelForm({
     setFormMessage(null);
     const result = await submit(value);
     if (result.ok) {
+      setValue("");
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
       router.push(careHref(patientId, notice));
       router.refresh();
       return;
