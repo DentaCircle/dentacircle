@@ -1,5 +1,6 @@
-"""List clinicians, find free times, book a visit, and list what is coming up."""
+"""List clinicians, find free times, book a visit, change its status, and list what is coming up."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from uuid import UUID, uuid4
@@ -11,13 +12,18 @@ from sqlalchemy.orm import Session
 from dentacircle.domain.appointment import (
     MOVABLE_STATUSES,
     SCHEDULED,
+    STATUS_TARGET_ROLES,
+    STATUS_TRANSITIONS,
     UPCOMING_LIMIT,
     AppointmentFieldError,
     BusySpan,
     OpenInterval,
+    arrived_day_problem,
     calendar_range_problem,
     date_problem,
     free_slots,
+    may_set_status,
+    no_show_time_problem,
     same_instant,
     unavailable_reason,
 )
@@ -45,7 +51,11 @@ class AppointmentNotFoundError(Exception):
 
 
 class InvalidStatusError(Exception):
-    """The visit is not scheduled, so it cannot be cancelled or moved."""
+    """The visit cannot take this status, or cannot be cancelled or moved."""
+
+
+class ForbiddenStatusError(Exception):
+    """The caller may not set this status."""
 
 
 class SlotTakenError(Exception):
@@ -181,6 +191,43 @@ def cancel_appointment(
     if row.status not in MOVABLE_STATUSES:
         raise InvalidStatusError
     row.status = "cancelled"
+    record(
+        session,
+        clinic_id,
+        actor_user_id,
+        "appointment",
+        row.id,
+        "status_change",
+        changed_fields=["status"],
+    )
+    session.flush()
+    return _require_detail(session, clinic_id, appointment_id, zone)
+
+
+def change_status(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    actor_roles: Sequence[str],
+    appointment_id: UUID,
+    target: str,
+    now: datetime,
+) -> CalendarItemView:
+    """Lock the visit, apply one allowed status move, and write one audit event."""
+    zone, _timezone_name, _default_minutes = _clinic_clock(session, clinic_id)
+    repository = AppointmentRepository(session, clinic_id)
+    row = repository.get_for_update(appointment_id)
+    if row is None:
+        raise AppointmentNotFoundError
+    # A target the caller may not set is refused even when the move is also illegal.
+    if target in STATUS_TARGET_ROLES and not may_set_status(actor_roles, target):
+        raise ForbiddenStatusError
+    if target not in STATUS_TRANSITIONS.get(row.status, frozenset()):
+        raise InvalidStatusError
+    problem = _status_time_problem(target, row.starts_at, zone, now)
+    if problem is not None:
+        raise AppointmentFieldError("status", problem)
+    row.status = target
     record(
         session,
         clinic_id,
@@ -445,6 +492,16 @@ def _availability_duration(
         raise AppointmentFieldError("appointment_type_id", "required")
     duration = _duration(_require_type(session, clinic_id, appointment_type_id), default_minutes)
     return duration, None, None
+
+
+def _status_time_problem(
+    target: str, starts_at: datetime, zone: ZoneInfo, now: datetime
+) -> str | None:
+    if target == "arrived":
+        return arrived_day_problem(starts_at, zone, now)
+    if target == "no_show":
+        return no_show_time_problem(starts_at, now)
+    return None
 
 
 def _length_minutes(row: Appointment) -> int:
