@@ -155,6 +155,7 @@ _CANCEL_ERRORS: dict[int | str, dict[str, Any]] = {
 _STATUS_ERRORS: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorResponse, "description": "Not Found"},
     409: {"model": ErrorResponse, "description": "invalid_status"},
+    422: {"model": ErrorResponse, "description": "validation_error"},
 }
 _MOVE_ERRORS: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorResponse, "description": "Not Found"},

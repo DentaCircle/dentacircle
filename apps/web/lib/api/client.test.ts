@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
+  changeAppointmentStatus,
   getCurrentUser,
   getHealth,
   getPatient,
@@ -237,6 +238,39 @@ describe("listAppointments", () => {
       "http://127.0.0.1:8000/appointments?from=2026-10-12&to=2026-10-18&clinician_id=clinician-1",
       expect.objectContaining({ headers: { cookie: "dc_session=token" } }),
     );
+  });
+});
+
+describe("changeAppointmentStatus", () => {
+  test("posts the target to the same-origin status route", async () => {
+    const fetchMock = stubFetch(jsonResponse(200, {}));
+
+    await expect(changeAppointmentStatus("visit-1", "arrived")).resolves.toEqual({
+      ok: true,
+      data: null,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/appointments/visit-1/status",
+      expect.objectContaining({
+        method: "POST",
+        credentials: "same-origin",
+        body: JSON.stringify({ status: "arrived" }),
+      }),
+    );
+  });
+
+  test("returns a timeout or a network error without throwing", async () => {
+    stubFetch(Promise.reject(new DOMException("timed out", "TimeoutError")));
+    await expect(changeAppointmentStatus("visit-1", "arrived")).resolves.toEqual({
+      ok: false,
+      error: { kind: "timeout", message: "The API did not respond in time." },
+    });
+
+    stubFetch(Promise.reject(new TypeError("failed")));
+    await expect(changeAppointmentStatus("visit-1", "no_show")).resolves.toEqual({
+      ok: false,
+      error: { kind: "network", message: "The API could not be reached." },
+    });
   });
 });
 

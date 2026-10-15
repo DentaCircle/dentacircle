@@ -31,12 +31,15 @@ test("arrived and start send one request at once", async () => {
     await waitFor(() => expect(fetchMock.fn).toHaveBeenCalledTimes(1));
     fetchMock.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) });
     await Promise.all([first, second]);
-    expect(fetchMock.fn).toHaveBeenCalledWith("/api/appointments/visit-1/status", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ status: target }),
-    });
+    expect(fetchMock.fn).toHaveBeenCalledWith(
+      "/api/appointments/visit-1/status",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ status: target }),
+      }),
+    );
     expect(push).toHaveBeenCalledWith(`${HREF}&notice=${target === "arrived" ? "arrived" : "in_progress"}`);
     expect(refresh).toHaveBeenCalled();
     view.unmount();
@@ -96,13 +99,13 @@ test("each failure uses the fixed sentence", async () => {
     { status: 403, body: {}, text: "You do not have access.", reloads: false },
     {
       status: 422,
-      body: { error: { message: "body.status: not_today" } },
+      body: validationBody("body.status: not_today"),
       text: "Arrived can only be set on the day of the visit.",
       reloads: false,
     },
     {
       status: 422,
-      body: { error: { message: "body.status: not_started" } },
+      body: validationBody("body.status: not_started"),
       text: "No-show can only be set after the start time.",
       reloads: false,
     },
@@ -122,6 +125,23 @@ test("each failure uses the fixed sentence", async () => {
     view.unmount();
   }
 });
+
+test("a timeout or a dropped request uses the same sentence", async () => {
+  const user = userEvent.setup();
+  const failures = [new DOMException("timed out", "TimeoutError"), new TypeError("failed")];
+  for (const failure of failures) {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(failure)));
+    const view = render(<StatusButton appointmentId="visit-1" returnHref={HREF} target="arrived" />);
+    await user.click(screen.getByRole("button", { name: "Arrived" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong.");
+    expect(screen.getByRole("button", { name: "Arrived" })).toBeEnabled();
+    view.unmount();
+  }
+});
+
+function validationBody(message: string): { error: { code: string; message: string; request_id: string } } {
+  return { error: { code: "validation_error", message, request_id: "req-1" } };
+}
 
 function pendingFetch(): { fn: ReturnType<typeof vi.fn>; resolve: (value: unknown) => void } {
   let resolveFetch: (value: unknown) => void = () => undefined;

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import type { CalendarNotice } from "@/features/calendar/links";
+import { changeAppointmentStatus } from "@/lib/api/client";
+import type { ApiError } from "@/lib/api/errors";
 
 export type StatusTarget = "arrived" | "in_progress" | "completed" | "no_show";
 
@@ -48,27 +50,18 @@ export function StatusButton({
     isSubmittingRef.current = true;
     setIsSubmitting(true);
     setMessage(null);
-    try {
-      const response = await fetch(`/api/appointments/${appointmentId}/status`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ status: target }),
-      });
-      if (response.ok) {
-        router.push(withNotice(returnHref, NOTICES[target]));
-        router.refresh();
-        return;
-      }
-      if (response.status === 409) {
-        router.push(withNotice(returnHref, "changed"));
-        router.refresh();
-        return;
-      }
-      setMessage(await failureMessage(response));
-    } catch {
-      setMessage("Something went wrong.");
+    const result = await changeAppointmentStatus(appointmentId, target);
+    if (result.ok) {
+      router.push(withNotice(returnHref, NOTICES[target]));
+      router.refresh();
+      return;
     }
+    if (result.error.kind === "api" && result.error.status === 409) {
+      router.push(withNotice(returnHref, "changed"));
+      router.refresh();
+      return;
+    }
+    setMessage(failureMessage(result.error));
     isSubmittingRef.current = false;
     setIsSubmitting(false);
   }
@@ -114,26 +107,16 @@ export function StatusButton({
   );
 }
 
-async function failureMessage(response: Response): Promise<string> {
-  if (response.status === 403) return "You do not have access.";
-  if (response.status === 422) {
-    const detail = await readValidationMessage(response);
-    if (detail.includes("not_today")) return "Arrived can only be set on the day of the visit.";
-    if (detail.includes("not_started")) return "No-show can only be set after the start time.";
+function failureMessage(error: ApiError): string {
+  if (error.kind !== "api") return "Something went wrong.";
+  if (error.status === 403) return "You do not have access.";
+  if (error.status === 422 && error.message.includes("not_today")) {
+    return "Arrived can only be set on the day of the visit.";
+  }
+  if (error.status === 422 && error.message.includes("not_started")) {
+    return "No-show can only be set after the start time.";
   }
   return "Something went wrong.";
-}
-
-async function readValidationMessage(response: Response): Promise<string> {
-  try {
-    const body: unknown = await response.json();
-    if (typeof body !== "object" || body === null || !("error" in body)) return "";
-    const error = body.error;
-    if (typeof error !== "object" || error === null || !("message" in error)) return "";
-    return typeof error.message === "string" ? error.message : "";
-  } catch {
-    return "";
-  }
 }
 
 function withNotice(href: string, notice: string): string {

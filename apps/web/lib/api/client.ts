@@ -112,6 +112,17 @@ export function listAppointments(
   return getJson(`/appointments?${params.toString()}`, calendarListData, cookieHeaders(cookieHeader));
 }
 
+export type AppointmentStatusTarget = "arrived" | "in_progress" | "completed" | "no_show";
+
+export function changeAppointmentStatus(
+  appointmentId: string,
+  status: AppointmentStatusTarget,
+): Promise<ApiResult<null>> {
+  return postSameOrigin(`/api/appointments/${encodeURIComponent(appointmentId)}/status`, {
+    status,
+  });
+}
+
 export function listUpcomingAppointments(
   cookieHeader: string,
   patientId: string,
@@ -146,6 +157,27 @@ async function getJson<T>(
     const data = parse(await readJson(response));
     if (data === null) return { ok: false, error: genericApiError(response.status) };
     return { ok: true, data };
+  } catch (error) {
+    if (isTimeoutError(error)) {
+      return { ok: false, error: { kind: "timeout", message: TIMEOUT_ERROR_MESSAGE } };
+    }
+    return { ok: false, error: { kind: "network", message: NETWORK_ERROR_MESSAGE } };
+  }
+}
+
+async function postSameOrigin(path: string, body: unknown): Promise<ApiResult<null>> {
+  try {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      return { ok: false, error: parseErrorBody(response.status, await readJson(response)) };
+    }
+    return { ok: true, data: null };
   } catch (error) {
     if (isTimeoutError(error)) {
       return { ok: false, error: { kind: "timeout", message: TIMEOUT_ERROR_MESSAGE } };

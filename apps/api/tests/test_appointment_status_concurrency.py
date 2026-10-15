@@ -1,7 +1,7 @@
 """Two sessions on one visit: the row lock lets one status change win."""
 
 import threading
-import time
+from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from uuid import UUID
@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from alembic import command
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
@@ -46,19 +46,24 @@ def database(throwaway_database_url: str, monkeypatch: pytest.MonkeyPatch) -> st
 def test_two_of_the_same_move_yield_one_success(database: str) -> None:
     clinic_id, actor_id, appointment_id = _world()
     engine = _engine(database)
+    both_waiting, stop = _for_update_gate(engine, needed=2)
 
     def once(_worker: int) -> str:
         with Session(engine) as session:
             try:
                 change_status(session, clinic_id, actor_id, _ROLES, appointment_id, "arrived", _NOW)
+                assert both_waiting.wait(timeout=5)
                 session.commit()
             except InvalidStatusError:
                 return "invalid"
             return "changed"
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        results = list(pool.map(once, (1, 2)))
-    engine.dispose()
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = list(pool.map(once, (1, 2)))
+    finally:
+        stop()
+        engine.dispose()
     assert sorted(results) == ["changed", "invalid"]
     with Session(get_engine()) as session:
         row = session.get(Appointment, appointment_id)
@@ -95,18 +100,19 @@ def _race(
     other: str,
 ) -> list[str]:
     engine = _engine(database)
-    locked = threading.Event()
+    holding = threading.Event()
+    competitor_waiting, stop = _for_update_gate(engine, needed=1, after=holding)
 
     def change() -> str:
         with Session(engine) as session:
             change_status(session, clinic_id, actor_id, _ROLES, appointment_id, "arrived", _NOW)
-            locked.set()
-            time.sleep(0.4)
+            holding.set()
+            assert competitor_waiting.wait(timeout=5)
             session.commit()
         return "changed"
 
     def compete() -> str:
-        assert locked.wait(timeout=5)
+        assert holding.wait(timeout=5)
         with Session(engine) as session:
             try:
                 if other == "cancel":
@@ -120,12 +126,47 @@ def _race(
                 return "invalid"
             return "other"
 
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        first = pool.submit(change)
-        second = pool.submit(compete)
-        results = [first.result(timeout=10), second.result(timeout=10)]
-    engine.dispose()
-    return results
+    try:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first = pool.submit(change)
+            second = pool.submit(compete)
+            return [first.result(timeout=10), second.result(timeout=10)]
+    finally:
+        stop()
+        engine.dispose()
+
+
+def _for_update_gate(
+    engine: Engine, *, needed: int, after: threading.Event | None = None
+) -> tuple[threading.Event, Callable[[], None]]:
+    """Signal once `needed` appointment row locks have been requested.
+
+    `after`, when set, ignores locks taken before that event. The status change
+    waits on the signal, so it commits only after the other session is blocked
+    on SELECT FOR UPDATE.
+    """
+    ready = threading.Event()
+    seen = 0
+    guard = threading.Lock()
+
+    def before_cursor_execute(*args: object) -> None:
+        nonlocal seen
+        if after is not None and not after.is_set():
+            return
+        statement = args[2]
+        if not isinstance(statement, str) or "for update" not in statement.lower():
+            return
+        with guard:
+            seen += 1
+            if seen >= needed:
+                ready.set()
+
+    event.listen(engine, "before_cursor_execute", before_cursor_execute)
+
+    def stop() -> None:
+        event.remove(engine, "before_cursor_execute", before_cursor_execute)
+
+    return ready, stop
 
 
 def _engine(database: str) -> Engine:
