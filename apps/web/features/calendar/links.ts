@@ -10,7 +10,8 @@ export type CalendarNotice =
   | "arrived"
   | "in_progress"
   | "completed"
-  | "no_show";
+  | "no_show"
+  | "changed";
 
 export const CALENDAR_NOTICES: Record<CalendarNotice, string> = {
   cancelled: "Appointment cancelled.",
@@ -19,6 +20,7 @@ export const CALENDAR_NOTICES: Record<CalendarNotice, string> = {
   in_progress: "Marked in progress.",
   completed: "Marked completed.",
   no_show: "Marked no-show.",
+  changed: "This appointment's status has already changed.",
 };
 
 const CALENDAR_NOTICE_NAMES: readonly CalendarNotice[] = [
@@ -28,6 +30,7 @@ const CALENDAR_NOTICE_NAMES: readonly CalendarNotice[] = [
   "in_progress",
   "completed",
   "no_show",
+  "changed",
 ];
 
 export function isCalendarNotice(value: string | undefined): value is CalendarNotice {

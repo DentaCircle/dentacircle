@@ -81,10 +81,18 @@ test("yes on a confirmed action sends one request", async () => {
   expect(refresh).toHaveBeenCalled();
 });
 
+test("a conflict reloads with the status-changed notice", async () => {
+  const user = userEvent.setup();
+  vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: false, status: 409, json: () => Promise.resolve({}) })));
+  render(<StatusButton appointmentId="visit-1" returnHref={HREF} target="arrived" />);
+  await user.click(screen.getByRole("button", { name: "Arrived" }));
+  await waitFor(() => expect(push).toHaveBeenCalledWith(`${HREF}&notice=changed`));
+  expect(refresh).toHaveBeenCalled();
+});
+
 test("each failure uses the fixed sentence", async () => {
   const user = userEvent.setup();
   const cases = [
-    { status: 409, body: {}, text: "This appointment's status has already changed.", reloads: true },
     { status: 403, body: {}, text: "You do not have access.", reloads: false },
     {
       status: 422,

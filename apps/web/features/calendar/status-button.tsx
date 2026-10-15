@@ -60,7 +60,11 @@ export function StatusButton({
         router.refresh();
         return;
       }
-      if (response.status === 409) router.refresh();
+      if (response.status === 409) {
+        router.push(withNotice(returnHref, "changed"));
+        router.refresh();
+        return;
+      }
       setMessage(await failureMessage(response));
     } catch {
       setMessage("Something went wrong.");
@@ -111,7 +115,6 @@ export function StatusButton({
 }
 
 async function failureMessage(response: Response): Promise<string> {
-  if (response.status === 409) return "This appointment's status has already changed.";
   if (response.status === 403) return "You do not have access.";
   if (response.status === 422) {
     const detail = await readValidationMessage(response);

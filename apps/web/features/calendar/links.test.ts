@@ -18,7 +18,7 @@ test("a bad view, date, clinician or notice falls back without an error", () => 
 });
 
 test("the four status notices are kept and any other notice is ignored", () => {
-  for (const notice of ["arrived", "in_progress", "completed", "no_show"] as const) {
+  for (const notice of ["arrived", "in_progress", "completed", "no_show", "changed"] as const) {
     expect(readCalendarQuery({ notice }, "2026-10-14", clinicians).notice).toBe(notice);
   }
   expect(readCalendarQuery({ notice: "booked" }, "2026-10-14", clinicians).notice).toBeNull();
