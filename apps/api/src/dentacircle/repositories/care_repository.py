@@ -35,7 +35,10 @@ class CareRepository:
         statement = (
             scoped_select(CareItem, self._clinic_id).where(CareItem.id == item_id).with_for_update()
         )
-        return self._session.scalars(statement).one_or_none()
+        return self._session.scalars(
+            statement,
+            execution_options={"populate_existing": True},
+        ).one_or_none()
 
     def list_plans(self, patient_id: UUID) -> list[CarePlan]:
         statement = (
