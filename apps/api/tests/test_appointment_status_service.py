@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from dentacircle.core.database import clear_engine, get_engine
+from dentacircle.domain.appointment import AppointmentFieldError
 from dentacircle.models.appointment import Appointment
 from dentacircle.models.appointment_type import AppointmentType
 from dentacircle.models.audit_event import AuditEvent
@@ -18,7 +19,6 @@ from dentacircle.models.clinic import Clinic
 from dentacircle.repositories.appointment_repository import AppointmentRepository
 from dentacircle.repositories.audit_repository import AuditRepository
 from dentacircle.services.appointment_service import (
-    AppointmentFieldError,
     InvalidStatusError,
     SlotTakenError,
     book_appointment,

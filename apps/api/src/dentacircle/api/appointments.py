@@ -21,11 +21,13 @@ from dentacircle.services.appointment_service import (
     AppointmentView,
     AvailabilityView,
     CalendarItemView,
+    ForbiddenStatusError,
     InvalidStatusError,
     PatientBusyError,
     SlotTakenError,
     book_appointment,
     cancel_appointment,
+    change_status,
     find_availability,
     get_appointment,
     list_calendar,
@@ -97,6 +99,12 @@ class AppointmentResponse(BaseModel):
     appointment_type: TypeNameResponse
 
 
+class StatusBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: Literal["arrived", "in_progress", "completed", "no_show"]
+
+
 class RescheduleBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -144,6 +152,10 @@ _CANCEL_ERRORS: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorResponse, "description": "Not Found"},
     409: {"model": ErrorResponse, "description": "invalid_status"},
 }
+_STATUS_ERRORS: dict[int | str, dict[str, Any]] = {
+    404: {"model": ErrorResponse, "description": "Not Found"},
+    409: {"model": ErrorResponse, "description": "invalid_status"},
+}
 _MOVE_ERRORS: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorResponse, "description": "Not Found"},
     409: {"model": ErrorResponse, "description": "invalid_status, slot_taken or patient_busy"},
@@ -151,6 +163,21 @@ _MOVE_ERRORS: dict[int | str, dict[str, Any]] = {
 _UPCOMING_ERRORS: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorResponse, "description": "Not Found"},
 }
+
+
+def _require_visit(
+    appointment_id: UUID,
+    user: Annotated[CurrentUser, Depends(can_book)],
+    session: SessionDep,
+) -> UUID:
+    """404 before the body is read, so a missing visit is not a validation error."""
+    try:
+        get_appointment(session, user.clinic.id, appointment_id, datetime.now(UTC))
+    except AppointmentNotFoundError:
+        raise HTTPException(status_code=404) from None
+    except ClinicNotFoundError:
+        raise HTTPException(status_code=404) from None
+    return appointment_id
 
 
 def _field_error(exc: AppointmentFieldError, where: str) -> RequestValidationError:
@@ -329,6 +356,39 @@ def post_cancel_appointment(
         raise HTTPException(status_code=404) from None
     session.commit()
     return _calendar_item(cancelled)
+
+
+@router.post("/appointments/{appointment_id}/status", responses=_STATUS_ERRORS)
+def post_appointment_status(
+    appointment_id: Annotated[UUID, Depends(_require_visit)],
+    body: StatusBody,
+    user: Annotated[CurrentUser, Depends(can_book)],
+    session: SessionDep,
+) -> CalendarItemResponse:
+    try:
+        changed = change_status(
+            session,
+            user.clinic.id,
+            user.id,
+            user.roles,
+            appointment_id,
+            body.status,
+            datetime.now(UTC),
+        )
+    except AppointmentFieldError as exc:
+        raise _field_error(exc, "body") from None
+    except AppointmentNotFoundError:
+        raise HTTPException(status_code=404) from None
+    except ForbiddenStatusError:
+        raise HTTPException(status_code=403) from None
+    except InvalidStatusError:
+        raise CodedHttpError(
+            409, "invalid_status", "This appointment's status has already changed."
+        ) from None
+    except ClinicNotFoundError:
+        raise HTTPException(status_code=404) from None
+    session.commit()
+    return _calendar_item(changed)
 
 
 @router.post("/appointments/{appointment_id}/reschedule", responses=_MOVE_ERRORS)
