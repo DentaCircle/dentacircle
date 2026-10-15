@@ -118,9 +118,48 @@ export function changeAppointmentStatus(
   appointmentId: string,
   status: AppointmentStatusTarget,
 ): Promise<ApiResult<null>> {
-  return postSameOrigin(`/api/appointments/${encodeURIComponent(appointmentId)}/status`, {
-    status,
-  });
+  return sendJson("POST", `/api/appointments/${encodeURIComponent(appointmentId)}/status`, { status });
+}
+
+export type CareItemStatus = "planned" | "started" | "completed" | "cancelled";
+export type CareStatusTarget = "started" | "completed" | "cancelled";
+export type CareItem = {
+  id: string;
+  name: string;
+  status: CareItemStatus;
+  created_at: string;
+};
+export type CarePlan = {
+  id: string;
+  patient_id: string;
+  title: string;
+  created_at: string;
+  is_open: boolean;
+  items: CareItem[];
+};
+
+export function listCarePlans(cookieHeader: string, patientId: string): Promise<ApiResult<CarePlan[]>> {
+  return getJson(
+    `/patients/${encodeURIComponent(patientId)}/care-plans`,
+    carePlanListData,
+    cookieHeaders(cookieHeader),
+  );
+}
+
+export function createCarePlan(patientId: string, title: string): Promise<ApiResult<null>> {
+  return sendJson("POST", `/api/patients/${encodeURIComponent(patientId)}/care-plans`, { title });
+}
+
+export function addCareItem(planId: string, name: string): Promise<ApiResult<null>> {
+  return sendJson("POST", `/api/care-plans/${encodeURIComponent(planId)}/items`, { name });
+}
+
+export function renameCareItem(itemId: string, name: string): Promise<ApiResult<null>> {
+  return sendJson("PATCH", `/api/care-items/${encodeURIComponent(itemId)}`, { name });
+}
+
+export function changeCareItemStatus(itemId: string, status: CareStatusTarget): Promise<ApiResult<null>> {
+  return sendJson("POST", `/api/care-items/${encodeURIComponent(itemId)}/status`, { status });
 }
 
 export function listUpcomingAppointments(
@@ -165,10 +204,10 @@ async function getJson<T>(
   }
 }
 
-async function postSameOrigin(path: string, body: unknown): Promise<ApiResult<null>> {
+async function sendJson(method: "POST" | "PATCH", path: string, body: unknown): Promise<ApiResult<null>> {
   try {
     const response = await fetch(path, {
-      method: "POST",
+      method,
       headers: { "content-type": "application/json" },
       credentials: "same-origin",
       body: JSON.stringify(body),
@@ -394,6 +433,47 @@ function typeNameData(value: unknown): { id: string; name: string } | null {
   const name = stringField(value, "name");
   if (id === null || name === null) return null;
   return { id, name };
+}
+
+function carePlanListData(value: unknown): CarePlan[] | null {
+  if (!Array.isArray(value)) return null;
+  const plans: CarePlan[] = [];
+  for (const item of value) {
+    const plan = carePlanData(item);
+    if (plan === null) return null;
+    plans.push(plan);
+  }
+  return plans;
+}
+
+function carePlanData(value: unknown): CarePlan | null {
+  if (!isRecord(value) || !Array.isArray(value.items)) return null;
+  const id = stringField(value, "id");
+  const patientId = stringField(value, "patient_id");
+  const title = stringField(value, "title");
+  const createdAt = stringField(value, "created_at");
+  if (id === null || patientId === null || title === null || createdAt === null) return null;
+  if (typeof value.is_open !== "boolean") return null;
+  const items: CareItem[] = [];
+  for (const entry of value.items) {
+    const item = careItemData(entry);
+    if (item === null) return null;
+    items.push(item);
+  }
+  return { id, patient_id: patientId, title, created_at: createdAt, is_open: value.is_open, items };
+}
+
+function careItemData(value: unknown): CareItem | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const name = stringField(value, "name");
+  const createdAt = stringField(value, "created_at");
+  const status = value.status;
+  if (id === null || name === null || createdAt === null) return null;
+  if (status !== "planned" && status !== "started" && status !== "completed" && status !== "cancelled") {
+    return null;
+  }
+  return { id, name, status, created_at: createdAt };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

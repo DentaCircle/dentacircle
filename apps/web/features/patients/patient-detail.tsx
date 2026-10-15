@@ -48,6 +48,11 @@ export function PatientDetail({
           {status === "ready" && patient !== null ? patient.fullName : "Patient"}
         </h1>
         <div className="flex gap-3 text-sm">
+          {status === "ready" && patient !== null ? (
+            <Button asChild variant="outline" size="sm">
+              <Link href={`/patients/${patient.id}/care`}>Care</Link>
+            </Button>
+          ) : null}
           {status === "ready" && patient !== null && canBook && patient.status === "active" ? (
             <Button asChild variant="outline" size="sm">
               <Link href={`/patients/${patient.id}/book`}>Book appointment</Link>

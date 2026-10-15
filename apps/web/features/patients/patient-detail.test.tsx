@@ -44,6 +44,10 @@ test("shows the patient, an edit link and a status button", () => {
   expect(screen.getByText("1990-04-05")).toBeInTheDocument();
   expect(screen.getByText("Active")).toBeInTheDocument();
   expect(screen.getByText("2026-10-08")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Care" })).toHaveAttribute(
+    "href",
+    "/patients/00000000-0000-4000-8000-000000000010/care",
+  );
   expect(screen.getByRole("link", { name: "Book appointment" })).toHaveAttribute(
     "href",
     "/patients/00000000-0000-4000-8000-000000000010/book",
@@ -74,6 +78,7 @@ test("hides edit and the status button when the role cannot edit", () => {
   );
 
   expect(screen.getByText("Active")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Care" })).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Book appointment" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Mark inactive" })).not.toBeInTheDocument();
