@@ -1,11 +1,12 @@
 export type NavItem = {
-  href: "/" | "/patients" | "/status";
+  href: "/" | "/patients" | "/calendar" | "/status";
   label: string;
 };
 
 export const navItems = [
   { href: "/", label: "Dashboard" },
   { href: "/patients", label: "Patients" },
+  { href: "/calendar", label: "Calendar" },
   { href: "/status", label: "Status" },
 ] as const satisfies readonly NavItem[];
 

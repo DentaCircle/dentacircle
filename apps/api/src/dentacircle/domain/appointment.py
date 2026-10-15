@@ -27,6 +27,10 @@ SLOT_STEP_MINUTES = 15
 HORIZON_DAYS = 365
 UPCOMING_LIMIT = 20
 SCHEDULED = "scheduled"
+# Inclusive clinic-local days a calendar list may cover. A week is exactly this.
+CALENDAR_MAX_DAYS = 7
+# The only status the desk may cancel or move. Later statuses belong to the visit flow.
+MOVABLE_STATUSES = (SCHEDULED,)
 
 
 class AppointmentFieldError(Exception):
@@ -52,6 +56,23 @@ class BusySpan:
 
     starts_at: datetime
     ends_at: datetime
+
+
+def calendar_range_problem(start: date, end: date, zone: ZoneInfo, now: datetime) -> str | None:
+    """Why this inclusive clinic-local range cannot be listed. None when it can.
+
+    Past dates are allowed. `end` may not be more than HORIZON_DAYS after clinic-today,
+    and the inclusive span may not exceed CALENDAR_MAX_DAYS.
+    """
+    _require_aware(now)
+    if end < start:
+        return "before_from"
+    if (end - start).days + 1 > CALENDAR_MAX_DAYS:
+        return "span_too_long"
+    today = now.astimezone(zone).date()
+    if end > today + timedelta(days=HORIZON_DAYS):
+        return "beyond_horizon"
+    return None
 
 
 def date_problem(day: date, zone: ZoneInfo, now: datetime) -> str | None:

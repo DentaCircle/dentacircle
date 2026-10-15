@@ -20,6 +20,14 @@ test("patients stays current on the new-patient page", () => {
   expect(screen.getByRole("link", { name: "Dashboard" })).not.toHaveAttribute("aria-current");
 });
 
+test("calendar is current on the calendar page", () => {
+  path.value = "/calendar";
+  render(<MainNav />);
+
+  expect(screen.getByRole("link", { name: "Calendar" })).toHaveAttribute("href", "/calendar");
+  expect(screen.getByRole("link", { name: "Calendar" })).toHaveAttribute("aria-current", "page");
+});
+
 test("patients stays current on the detail and edit pages", () => {
   path.value = "/patients/00000000-0000-4000-8000-000000000010";
   const { rerender } = render(<MainNav />);
