@@ -172,6 +172,14 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   change the start and the clinician. The same row is updated. The calendar response includes
   the patient name for the three roles that can already list patients.
 
+- **Appointment status (decided in S1.5):** a visit moves only `scheduled` to `arrived` or
+  `no_show`, then `arrived` to `in_progress`, then `in_progress` to `completed`. There is no
+  undo. `receptionist`, `clinician` and `clinic_admin` may mark arrived and no-show. Only
+  `clinician` and `clinic_admin` may start or complete. Arrived is only on the clinic-local
+  day of the visit. No-show is only at or after the start. One route,
+  `POST /appointments/{id}/status`, writes one `status_change` audit row. Cancel stays on
+  `/cancel` and still applies to `scheduled` only.
+
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.
@@ -239,4 +247,11 @@ so the visit's own span does not block. Cancel and reschedule write audit rows i
 transaction. A time-only reschedule may keep an inactive assigned clinician; choosing another
 clinician still requires an active one.
 
-Next slice: S1.5 appointment status flow.
+The same three roles can mark a visit arrived or no-show from the calendar; only a clinician or
+clinic_admin can start or complete it. Arrived is allowed only on the visit's clinic-local day;
+no-show only at or after the start. `POST /appointments/{id}/status` applies one allowed move,
+locks the row, and writes a `status_change` audit event in the same transaction. No-show frees
+the slot for booking; arrived, in progress and completed keep it blocked. Cancel stays on
+`/cancel` for scheduled visits only.
+
+Next slice: S2.1 care plan, care items and care sessions.

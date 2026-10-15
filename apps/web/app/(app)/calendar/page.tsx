@@ -1,4 +1,4 @@
-import { canBookAppointments } from "@/features/appointments/access";
+import { canAdvanceAppointments, canBookAppointments } from "@/features/appointments/access";
 import { clinicToday } from "@/features/appointments/wall-time";
 import { buildDays } from "@/features/calendar/build-days";
 import { CalendarScreen } from "@/features/calendar/calendar-screen";
@@ -51,6 +51,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       clinicians={clinicians.data.map((row) => ({ id: row.id, label: row.full_name }))}
       days={days}
       notice={query.notice}
+      canAdvance={canAdvanceAppointments(user.roles)}
     />
   );
 }

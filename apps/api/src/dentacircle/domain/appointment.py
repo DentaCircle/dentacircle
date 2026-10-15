@@ -31,6 +31,23 @@ SCHEDULED = "scheduled"
 CALENDAR_MAX_DAYS = 7
 # The only status the desk may cancel or move. Later statuses belong to the visit flow.
 MOVABLE_STATUSES = (SCHEDULED,)
+# Targets of POST /appointments/{id}/status. Cancel is not one of them.
+STATUS_TARGETS = ("arrived", "in_progress", "completed", "no_show")
+# From-status to the targets a visit may take next. Every other pair is refused.
+STATUS_TRANSITIONS: dict[str, frozenset[str]] = {
+    "scheduled": frozenset(("arrived", "no_show")),
+    "arrived": frozenset(("in_progress",)),
+    "in_progress": frozenset(("completed",)),
+    "completed": frozenset(),
+    "cancelled": frozenset(),
+    "no_show": frozenset(),
+}
+STATUS_TARGET_ROLES: dict[str, frozenset[str]] = {
+    "arrived": frozenset(APPOINTMENT_ROLES),
+    "no_show": frozenset(APPOINTMENT_ROLES),
+    "in_progress": frozenset(("clinician", "clinic_admin")),
+    "completed": frozenset(("clinician", "clinic_admin")),
+}
 
 
 class AppointmentFieldError(Exception):
@@ -156,6 +173,32 @@ def unavailable_reason(
 
 def same_instant(left: datetime, right: datetime) -> bool:
     return left.astimezone(UTC) == right.astimezone(UTC)
+
+
+def may_set_status(roles: Sequence[str], target: str) -> bool:
+    """True when one of `roles` may set this target. Unknown targets are refused."""
+    allowed = STATUS_TARGET_ROLES.get(target)
+    if allowed is None:
+        return False
+    return any(role in allowed for role in roles)
+
+
+def arrived_day_problem(starts_at: datetime, zone: ZoneInfo, now: datetime) -> str | None:
+    """`not_today` unless the visit starts on the clinic-local date of `now`."""
+    _require_aware(now)
+    _require_aware(starts_at)
+    if starts_at.astimezone(zone).date() != now.astimezone(zone).date():
+        return "not_today"
+    return None
+
+
+def no_show_time_problem(starts_at: datetime, now: datetime) -> str | None:
+    """`not_started` while `now` is before the visit starts. Equal instants are allowed."""
+    _require_aware(now)
+    _require_aware(starts_at)
+    if now < starts_at:
+        return "not_started"
+    return None
 
 
 def _require_aware(moment: datetime) -> None:

@@ -13,6 +13,7 @@ export type CalendarScreenProps =
       clinicians: ClinicianOption[];
       days: CalendarDay[];
       notice: CalendarNotice | null;
+      canAdvance: boolean;
     };
 
 export function CalendarScreen(props: CalendarScreenProps) {
@@ -35,6 +36,7 @@ export function CalendarScreen(props: CalendarScreenProps) {
             <DaySection
               key={day.date}
               day={day}
+              canAdvance={props.canAdvance}
               returnHref={calendarHref({
                 view: props.view,
                 date: props.date,

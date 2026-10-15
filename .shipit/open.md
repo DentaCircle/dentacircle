@@ -1,5 +1,8 @@
 # Open items
 
+- **Appointment status undo.** A mistaken arrived, no-show, start or complete cannot be reversed
+  from the calendar. Next action: a small slice if the desk needs it; otherwise leave until care
+  sessions (S2.1) clarify what "undo" should mean clinically.
 - **`get_or_create_clinic` matches by display name.** The name is not unique, not trimmed,
   and case-sensitive. Fine for one dev clinic; fragile for multi-clinic provisioning. Next
   action: decide in a later slice whether `create-user` should take `--clinic-id` or a
