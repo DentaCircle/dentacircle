@@ -247,4 +247,11 @@ so the visit's own span does not block. Cancel and reschedule write audit rows i
 transaction. A time-only reschedule may keep an inactive assigned clinician; choosing another
 clinician still requires an active one.
 
-Next slice: S1.5 appointment status flow.
+The same three roles can mark a visit arrived or no-show from the calendar; only a clinician or
+clinic_admin can start or complete it. Arrived is allowed only on the visit's clinic-local day;
+no-show only at or after the start. `POST /appointments/{id}/status` applies one allowed move,
+locks the row, and writes a `status_change` audit event in the same transaction. No-show frees
+the slot for booking; arrived, in progress and completed keep it blocked. Cancel stays on
+`/cancel` for scheduled visits only.
+
+Next slice: S2.1 care plan, care items and care sessions.
