@@ -31,6 +31,7 @@ test("a day lists the visit and hides a scheduled badge", () => {
       clinician={null}
       clinicians={clinicians}
       notice={null}
+      canAdvance={false}
       days={[day("2026-10-14", "Wed 14 Oct", true, [scheduled])]}
     />,
   );
@@ -46,6 +47,8 @@ test("a day lists the visit and hides a scheduled badge", () => {
     "/appointments/visit-1/reschedule",
   );
   expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Arrived" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "No-show" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Wed 14 Oct" })).toHaveAttribute("aria-current", "date");
 });
 
@@ -59,6 +62,7 @@ test("a status other than scheduled shows a badge", () => {
       clinician={null}
       clinicians={clinicians}
       notice={null}
+      canAdvance={false}
       days={[day("2026-10-14", "Wed 14 Oct", false, [{ ...scheduled, status: "no_show" }])]}
     />,
   );
@@ -67,6 +71,40 @@ test("a status other than scheduled shows a badge", () => {
   expect(screen.queryByRole("link", { name: "Reschedule" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Cancel" })).not.toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Wed 14 Oct" })).not.toHaveAttribute("aria-current");
+});
+
+test("start is shown only when the viewer may advance the visit", () => {
+  const arrived = { ...scheduled, status: "arrived" };
+  const { rerender } = render(
+    <CalendarScreen
+      status="ready"
+      view="day"
+      date="2026-10-14"
+      today="2026-10-14"
+      clinician={null}
+      clinicians={clinicians}
+      notice={null}
+      canAdvance
+      days={[day("2026-10-14", "Wed 14 Oct", true, [arrived])]}
+    />,
+  );
+  expect(screen.getByText("Arrived")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Start" })).toBeInTheDocument();
+
+  rerender(
+    <CalendarScreen
+      status="ready"
+      view="day"
+      date="2026-10-14"
+      today="2026-10-14"
+      clinician={null}
+      clinicians={clinicians}
+      notice={null}
+      canAdvance={false}
+      days={[day("2026-10-14", "Wed 14 Oct", true, [arrived])]}
+    />,
+  );
+  expect(screen.queryByRole("button", { name: "Start" })).not.toBeInTheDocument();
 });
 
 test("an empty day says there are no appointments", () => {
@@ -79,6 +117,7 @@ test("an empty day says there are no appointments", () => {
       clinician={null}
       clinicians={clinicians}
       notice={null}
+      canAdvance={false}
       days={[day("2026-10-14", "Wed 14 Oct", true, [])]}
     />,
   );
@@ -99,6 +138,7 @@ test("a week shows every day and marks today", () => {
       clinician="clinician-1"
       clinicians={clinicians}
       notice={null}
+      canAdvance={false}
       days={days}
     />,
   );
@@ -139,6 +179,7 @@ test("a known notice is shown and an access or load failure replaces the list", 
       clinician={null}
       clinicians={clinicians}
       notice="cancelled"
+      canAdvance={false}
       days={[]}
     />,
   );

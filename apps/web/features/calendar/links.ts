@@ -4,12 +4,35 @@ import { isIsoDate, mondayOfWeek } from "@/features/calendar/dates";
 
 export type CalendarViewMode = "day" | "week";
 
-export type CalendarNotice = "cancelled" | "rescheduled";
+export type CalendarNotice =
+  | "cancelled"
+  | "rescheduled"
+  | "arrived"
+  | "in_progress"
+  | "completed"
+  | "no_show";
 
 export const CALENDAR_NOTICES: Record<CalendarNotice, string> = {
   cancelled: "Appointment cancelled.",
   rescheduled: "Appointment rescheduled.",
+  arrived: "Marked arrived.",
+  in_progress: "Marked in progress.",
+  completed: "Marked completed.",
+  no_show: "Marked no-show.",
 };
+
+const CALENDAR_NOTICE_NAMES: readonly CalendarNotice[] = [
+  "cancelled",
+  "rescheduled",
+  "arrived",
+  "in_progress",
+  "completed",
+  "no_show",
+];
+
+export function isCalendarNotice(value: string | undefined): value is CalendarNotice {
+  return CALENDAR_NOTICE_NAMES.some((notice) => notice === value);
+}
 
 export type CalendarQuery = {
   view: CalendarViewMode;
@@ -27,7 +50,7 @@ export function readCalendarQuery(
   const date = params.date !== undefined && isIsoDate(params.date) ? params.date : today;
   const clinician =
     params.clinician !== undefined && clinicianIds.includes(params.clinician) ? params.clinician : null;
-  const notice = params.notice === "cancelled" || params.notice === "rescheduled" ? params.notice : null;
+  const notice = isCalendarNotice(params.notice) ? params.notice : null;
   return { view, date, clinician, notice };
 }
 

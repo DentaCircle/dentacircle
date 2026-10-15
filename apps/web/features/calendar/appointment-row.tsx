@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
 import { CancelButton } from "@/features/calendar/cancel-button";
+import { StatusButton } from "@/features/calendar/status-button";
 
 const STATUS_LABELS: Record<string, string> = {
   arrived: "Arrived",
@@ -20,6 +21,7 @@ export type AppointmentRowProps = {
   typeName: string;
   clinicianName: string;
   status: string;
+  canAdvance: boolean;
   returnHref: string;
 };
 
@@ -31,6 +33,7 @@ export function AppointmentRow({
   typeName,
   clinicianName,
   status,
+  canAdvance,
   id,
   returnHref,
 }: AppointmentRowProps) {
@@ -47,7 +50,15 @@ export function AppointmentRow({
         <>
           <Link href={`/appointments/${id}/reschedule`}>Reschedule</Link>
           <CancelButton appointmentId={id} returnHref={returnHref} />
+          <StatusButton appointmentId={id} returnHref={returnHref} target="arrived" />
+          <StatusButton appointmentId={id} returnHref={returnHref} target="no_show" />
         </>
+      ) : null}
+      {status === "arrived" && canAdvance ? (
+        <StatusButton appointmentId={id} returnHref={returnHref} target="in_progress" />
+      ) : null}
+      {status === "in_progress" && canAdvance ? (
+        <StatusButton appointmentId={id} returnHref={returnHref} target="completed" />
       ) : null}
     </li>
   );
