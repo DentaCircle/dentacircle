@@ -60,6 +60,9 @@ export function AppointmentRow({
       {status === "in_progress" && canAdvance ? (
         <StatusButton appointmentId={id} returnHref={returnHref} target="completed" />
       ) : null}
+      {status === "arrived" || status === "in_progress" || status === "completed" ? (
+        <Link href={`/appointments/${id}/care`}>Care session</Link>
+      ) : null}
     </li>
   );
 }

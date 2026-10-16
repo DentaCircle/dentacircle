@@ -162,6 +162,42 @@ export function changeCareItemStatus(itemId: string, status: CareStatusTarget): 
   return sendJson("POST", `/api/care-items/${encodeURIComponent(itemId)}/status`, { status });
 }
 
+export type CareSessionResult = "started" | "completed";
+export type CareSessionItem = {
+  care_item_id: string;
+  name: string;
+  plan_title: string;
+  status: CareSessionResult;
+};
+export type CareSession = {
+  id: string;
+  appointment_id: string;
+  patient_id: string;
+  recorded_by_name: string;
+  created_at: string;
+  items: CareSessionItem[];
+};
+
+export function getCareSession(
+  cookieHeader: string,
+  appointmentId: string,
+): Promise<ApiResult<{ session: CareSession | null }>> {
+  return getJson(
+    `/appointments/${encodeURIComponent(appointmentId)}/care-session`,
+    careSessionEnvelope,
+    cookieHeaders(cookieHeader),
+  );
+}
+
+export function recordCareSession(
+  appointmentId: string,
+  items: { care_item_id: string; status: CareSessionResult }[],
+): Promise<ApiResult<null>> {
+  return sendJson("POST", `/api/appointments/${encodeURIComponent(appointmentId)}/care-session`, {
+    items,
+  });
+}
+
 export function listUpcomingAppointments(
   cookieHeader: string,
   patientId: string,
@@ -433,6 +469,58 @@ function typeNameData(value: unknown): { id: string; name: string } | null {
   const name = stringField(value, "name");
   if (id === null || name === null) return null;
   return { id, name };
+}
+
+function careSessionEnvelope(value: unknown): { session: CareSession | null } | null {
+  if (!isRecord(value) || !("session" in value)) return null;
+  if (value.session === null) return { session: null };
+  const session = careSessionData(value.session);
+  if (session === null) return null;
+  return { session };
+}
+
+function careSessionData(value: unknown): CareSession | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const appointmentId = stringField(value, "appointment_id");
+  const patientId = stringField(value, "patient_id");
+  const recordedByName = stringField(value, "recorded_by_name");
+  const createdAt = stringField(value, "created_at");
+  if (!Array.isArray(value.items)) return null;
+  if (
+    id === null ||
+    appointmentId === null ||
+    patientId === null ||
+    recordedByName === null ||
+    createdAt === null
+  ) {
+    return null;
+  }
+  const items: CareSessionItem[] = [];
+  for (const item of value.items) {
+    const line = careSessionItemData(item);
+    if (line === null) return null;
+    items.push(line);
+  }
+  return {
+    id,
+    appointment_id: appointmentId,
+    patient_id: patientId,
+    recorded_by_name: recordedByName,
+    created_at: createdAt,
+    items,
+  };
+}
+
+function careSessionItemData(value: unknown): CareSessionItem | null {
+  if (!isRecord(value)) return null;
+  const careItemId = stringField(value, "care_item_id");
+  const name = stringField(value, "name");
+  const planTitle = stringField(value, "plan_title");
+  const status = stringField(value, "status");
+  if (careItemId === null || name === null || planTitle === null) return null;
+  if (status !== "started" && status !== "completed") return null;
+  return { care_item_id: careItemId, name, plan_title: planTitle, status };
 }
 
 function carePlanListData(value: unknown): CarePlan[] | null {
