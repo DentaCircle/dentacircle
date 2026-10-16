@@ -95,6 +95,8 @@ test("each failure shows the matching notice", async () => {
     await waitFor(() =>
       expect(push).toHaveBeenCalledWith(`/appointments/visit-1/care?notice=${item.notice}`),
     );
+    expect(screen.queryByRole("button", { name: "Yes" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save care session" })).toBeDisabled();
     view.unmount();
   }
 });

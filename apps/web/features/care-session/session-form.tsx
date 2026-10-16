@@ -56,6 +56,10 @@ export function SessionForm({
     }
     const failure = sessionFailure(result.error);
     if (failure.kind === "reload") {
+      setChoices({});
+      setIsConfirming(false);
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
       router.push(careSessionHref(appointmentId, failure.notice));
       router.refresh();
       return;

@@ -52,7 +52,7 @@ export function CareSessionScreen({
       {status === "ready" && visit !== null ? <Visit visit={visit} /> : null}
       {status === "ready" && session !== null ? <Recorded session={session} /> : null}
       {status === "ready" && session === null && canRecord && openPlans.length > 0 ? (
-        <SessionForm appointmentId={appointmentId} plans={openPlans} />
+        <SessionForm key={formKey(openPlans)} appointmentId={appointmentId} plans={openPlans} />
       ) : null}
       {status === "ready" && session === null && canRecord && openPlans.length === 0 ? (
         <p>
@@ -63,6 +63,12 @@ export function CareSessionScreen({
       {status === "ready" && session === null && !canRecord ? <p>No care session recorded.</p> : null}
     </section>
   );
+}
+
+function formKey(plans: OpenCarePlan[]): string {
+  return plans
+    .map((plan) => `${plan.id}:${plan.items.map((item) => `${item.id}:${item.status}`).join(",")}`)
+    .join("|");
 }
 
 function Visit({ visit }: { visit: VisitSummary }) {
