@@ -285,4 +285,12 @@ an inactive patient; existing items can still be finished. Migration `0008` adds
 `care_item`. Open versus finished on a plan is computed from its items. There is no undo for
 care item status. The web care page does not rename plan titles yet, though the API can.
 
-Next slice: S2.1b care sessions against an arrived or in-progress visit.
+A clinician or clinic admin can record one care session on an arrived or in-progress visit
+from the calendar. The session lists the items marked started or completed, and those items
+move through the same status rules. Reception can read the session. Saving it does not
+complete the visit, and a missed item stays on the care page rather than being added later.
+Migration `0009` adds `care_session` and `care_session_item`, plus unique `(id, clinic_id)`
+on `appointment` and `care_item`. For S2.2 and S2.3, session completion means the visit is
+completed.
+
+Next slice: S2.2 incomplete care, detected from open items and written into the patient's follow-up.

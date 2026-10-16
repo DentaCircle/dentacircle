@@ -1,8 +1,8 @@
 # Open items
 
 - **Appointment status undo.** A mistaken arrived, no-show, start or complete cannot be reversed
-  from the calendar. Next action: a small slice if the desk needs it; otherwise leave until
-  care sessions clarify what "undo" should mean clinically.
+  from the calendar. Care sessions do not undo the visit either. Next action: a small slice
+  if the desk needs it.
 - **Care item status undo.** A mistaken start, complete or cancel on a care item cannot be
   reversed. Next action: same as appointment status undo, or a paired slice if the desk asks.
 - **`get_or_create_clinic` matches by display name.** The name is not unique, not trimmed,
