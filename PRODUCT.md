@@ -192,6 +192,16 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   status method serves the manual route now and the care session in S2.1b. Audit rows use
   entity types `care_plan` and `care_item` and list field names only, never titles or names.
 
+- **Care sessions (decided in S2.1b):** one session per visit, saved in one step. No edit, no
+  second session, no notes and no prescription. It lists care items marked `started` or
+  `completed` on an `arrived` or `in_progress` visit, and those items move through the S2.1a
+  rules in the same step. Saving a session does not complete the visit. A missed item is
+  updated on the care page, and that later change is not added to the session. Any
+  `clinician` or `clinic_admin` may record; `receptionist` may read. For S2.2 and S2.3,
+  "session completion" means the visit is completed. Migration `0009` adds unique
+  `(id, clinic_id)` on `appointment` and `care_item` so a session cannot point at another
+  clinic's visit or item.
+
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.

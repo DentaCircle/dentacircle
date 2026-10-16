@@ -30,7 +30,7 @@ def test_upgrade_downgrade_upgrade(
 ) -> None:
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
-    command.upgrade(config, "head")
+    command.upgrade(config, "0008_care_plans")
     assert _version(throwaway_database_url) == "0008_care_plans"
     assert "care_plan" in _public_tables(throwaway_database_url)
     assert "care_item" in _public_tables(throwaway_database_url)
@@ -56,7 +56,7 @@ def test_upgrade_downgrade_upgrade(
     assert "care_plan" not in tables
     assert "care_item" not in tables
 
-    command.upgrade(config, "head")
+    command.upgrade(config, "0008_care_plans")
     assert _version(throwaway_database_url) == "0008_care_plans"
     assert "care_plan" in _public_tables(throwaway_database_url)
     assert "care_item" in _public_tables(throwaway_database_url)

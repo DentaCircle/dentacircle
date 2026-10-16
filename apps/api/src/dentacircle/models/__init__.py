@@ -7,6 +7,8 @@ from dentacircle.models.audit_event import AuditEvent
 from dentacircle.models.auth_session import AuthSession
 from dentacircle.models.care_item import CareItem
 from dentacircle.models.care_plan import CarePlan
+from dentacircle.models.care_session import CareSession
+from dentacircle.models.care_session_item import CareSessionItem
 from dentacircle.models.clinic import Clinic
 from dentacircle.models.patient import Patient
 from dentacircle.models.patient_number_counter import PatientNumberCounter
@@ -21,6 +23,8 @@ __all__ = [
     "AuthSession",
     "CareItem",
     "CarePlan",
+    "CareSession",
+    "CareSessionItem",
     "Clinic",
     "ClinicWorkingHours",
     "Patient",
