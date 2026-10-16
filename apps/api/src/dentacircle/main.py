@@ -10,6 +10,7 @@ from starlette.types import Receive, Scope, Send
 from dentacircle.api.appointment_types import router as appointment_types_router
 from dentacircle.api.appointments import router as appointments_router
 from dentacircle.api.auth import router as auth_router
+from dentacircle.api.care import router as care_router
 from dentacircle.api.clinic_day import router as clinic_day_router
 from dentacircle.api.clinicians import router as clinicians_router
 from dentacircle.api.health import router as health_router
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
     application.include_router(patients_router)
     application.include_router(clinicians_router)
     application.include_router(appointments_router)
+    application.include_router(care_router)
     return application
 
 

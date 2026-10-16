@@ -180,6 +180,18 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   `POST /appointments/{id}/status`, writes one `status_change` audit row. Cancel stays on
   `/cancel` and still applies to `scheduled` only.
 
+- **Care plan and items (decided in S2.1a):** S2.1 is split into S2.1a (plan and items) and
+  S2.1b (care sessions). A patient has care plans, a plan has care items, and an item is a
+  free-text service name (up to 200 characters) with no notes, tooth, cost or catalog. Item
+  statuses are `planned`, `started`, `completed`, `cancelled`. Allowed moves: `planned` to
+  any of the other three, `started` to `completed` or `cancelled`. Completed and cancelled
+  are final, with no undo. A plan has no stored status: it is open while any item is planned
+  or started. `clinician` and `clinic_admin` write. `receptionist` may read, because the
+  coordinator queue needs unfinished care. `inventory_admin` has no access. No new care for
+  an inactive patient, but its open items can still be renamed, finished or cancelled. One
+  status method serves the manual route now and the care session in S2.1b. Audit rows use
+  entity types `care_plan` and `care_item` and list field names only, never titles or names.
+
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.
@@ -254,4 +266,13 @@ locks the row, and writes a `status_change` audit event in the same transaction.
 the slot for booking; arrived, in progress and completed keep it blocked. Cancel stays on
 `/cancel` for scheduled visits only.
 
-Next slice: S2.1 care plan, care items and care sessions.
+A patient can have care plans; each plan has care items with a free-text service name and a
+status of planned, started, completed or cancelled. `clinician` and `clinic_admin` create plans
+and items, rename them, and move items through the allowed transitions with
+`POST /care-items/{id}/status`. `receptionist` can read plans on `GET /patients/{id}/care-plans`
+and on `/patients/[id]/care`. `inventory_admin` gets 403. New plans and items are refused for
+an inactive patient; existing items can still be finished. Migration `0008` adds `care_plan` and
+`care_item`. Open versus finished on a plan is computed from its items. There is no undo for
+care item status. The web care page does not rename plan titles yet, though the API can.
+
+Next slice: S2.1b care sessions against an arrived or in-progress visit.

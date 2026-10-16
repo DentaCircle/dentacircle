@@ -3,7 +3,7 @@
 The tracker. Phases are made of slices. A slice is one reviewable change, about half a day
 to a day of work, with a visible result. Tick a slice only after `/ship-seal`.
 
-**Now:** S2.1 (not started). M1 reached 2026-10-06.
+**Now:** S2.1b (not started). M1 reached 2026-10-06.
 
 Milestones are demoable. Each one is a real stopping point.
 
@@ -32,7 +32,8 @@ Milestones are demoable. Each one is a real stopping point.
 
 ## Phase 2: Care, follow-ups, recalls (M3)
 
-- [ ] S2.1 Care plan, care items, care sessions (recorded against an arrived or in progress appointment)
+- [x] S2.1a Care plan and care items: plan per patient, items with planned, started, completed and cancelled, audit events
+- [ ] S2.1b Care sessions, recorded against an arrived or in progress appointment, moving items through the S2.1a status method
 - [ ] S2.2 Incomplete care: detect it and create or update the patient's follow-up, so it feeds the one coordinator queue instead of a second list
 - [ ] S2.3 Follow-ups: manual create, plus auto-create on session completion only when care is unfinished or the clinician sets a due date
 - [ ] S2.4 Coordinator queue: follow-ups with due and overdue calculated from the date, mark contacted, book from the queue
@@ -88,7 +89,8 @@ analytics, supplier management.
 - Simulated messaging is in Phase 5. Until then, "patient contacted" in S2.4 is a manual
   status the coordinator sets.
 - S1.4 and S2.1 are the slices most likely to be too big. Split them when the brief is
-  written if the acceptance criteria do not fit one review.
+  written if the acceptance criteria do not fit one review. S2.1 was split into S2.1a
+  and S2.1b for that reason.
 - Lab work in S3.3 uses pending, collected, ready and cancelled. Ready is what puts the
   patient back on the follow-up queue. The spec's longer status list can wait.
 - The spec's 220 to 300 hour estimate is optimistic. Track actual hours per slice for the
