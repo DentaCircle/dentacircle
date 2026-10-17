@@ -2,6 +2,7 @@
 
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from dentacircle.core.tenancy import scoped_select
@@ -55,5 +56,17 @@ class CareRepository:
             scoped_select(CareItem, self._clinic_id)
             .where(CareItem.care_plan_id.in_(plan_ids))
             .order_by(CareItem.created_at.asc(), CareItem.id.asc())
+        )
+        return list(self._session.scalars(statement))
+
+    def list_item_statuses(self, patient_id: UUID) -> list[str]:
+        """Every item status on this patient's plans, including items never put in a session."""
+        statement = (
+            select(CareItem.status)
+            .join(
+                CarePlan,
+                (CarePlan.id == CareItem.care_plan_id) & (CarePlan.clinic_id == self._clinic_id),
+            )
+            .where(CareItem.clinic_id == self._clinic_id, CarePlan.patient_id == patient_id)
         )
         return list(self._session.scalars(statement))

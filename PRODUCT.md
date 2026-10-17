@@ -202,6 +202,15 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   `(id, clinic_id)` on `appointment` and `care_item` so a session cannot point at another
   clinic's visit or item.
 
+- **Incomplete care (decided in S2.2):** S2.2 owns the `follow_up` table. S2.3 is manual
+  create and the clinician-set due date on completion. A follow-up is written only when a
+  visit moves to `completed` and the patient is active with a `planned` or `started` item
+  on any plan, whether or not that visit has a care session. `due_on` is the clinic-local
+  completion date plus 7 days. An existing open follow-up keeps its status and due date;
+  only `appointment_id` moves to the visit just completed. An inactive patient still
+  completes, and no follow-up is written. A follow-up stays open when the care is later
+  finished, until a coordinator closes it.
+
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.

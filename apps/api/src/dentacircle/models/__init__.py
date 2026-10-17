@@ -10,6 +10,7 @@ from dentacircle.models.care_plan import CarePlan
 from dentacircle.models.care_session import CareSession
 from dentacircle.models.care_session_item import CareSessionItem
 from dentacircle.models.clinic import Clinic
+from dentacircle.models.follow_up import FollowUp
 from dentacircle.models.patient import Patient
 from dentacircle.models.patient_number_counter import PatientNumberCounter
 from dentacircle.models.user_role import UserRole
@@ -27,6 +28,7 @@ __all__ = [
     "CareSessionItem",
     "Clinic",
     "ClinicWorkingHours",
+    "FollowUp",
     "Patient",
     "PatientNumberCounter",
     "UserRole",

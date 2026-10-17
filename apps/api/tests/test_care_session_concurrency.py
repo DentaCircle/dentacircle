@@ -225,7 +225,7 @@ def _for_update_gate(
                 stopped.wait(0.02)
                 continue
             with checker.connect() as connection:
-                waiting = connection.execute(
+                waiting: int = connection.execute(
                     text(
                         """
                         SELECT count(*)
