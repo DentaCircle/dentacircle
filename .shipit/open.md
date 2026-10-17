@@ -1,5 +1,9 @@
 # Open items
 
+- **Follow-up stays open after the care is finished.** Completing the last planned item
+  does not close the follow-up. It sits until someone marks it completed or cancelled.
+  S2.4 covers contacted and booking, not this. Next action: decide in S2.4, or a small
+  follow-on, whether finishing the last open item closes the follow-up.
 - **Appointment status undo.** A mistaken arrived, no-show, start or complete cannot be reversed
   from the calendar. Care sessions do not undo the visit either. Next action: a small slice
   if the desk needs it.
