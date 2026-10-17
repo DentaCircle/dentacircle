@@ -138,6 +138,27 @@ export type CarePlan = {
   items: CareItem[];
 };
 
+export type FollowUpStatus = "scheduled" | "contacted" | "booked";
+export type FollowUp = {
+  id: string;
+  patient_id: string;
+  appointment_id: string;
+  status: FollowUpStatus;
+  due_on: string;
+  created_at: string;
+};
+
+export function getFollowUp(
+  cookieHeader: string,
+  patientId: string,
+): Promise<ApiResult<{ follow_up: FollowUp | null }>> {
+  return getJson(
+    `/patients/${encodeURIComponent(patientId)}/follow-up`,
+    followUpEnvelope,
+    cookieHeaders(cookieHeader),
+  );
+}
+
 export function listCarePlans(cookieHeader: string, patientId: string): Promise<ApiResult<CarePlan[]>> {
   return getJson(
     `/patients/${encodeURIComponent(patientId)}/care-plans`,
@@ -521,6 +542,36 @@ function careSessionItemData(value: unknown): CareSessionItem | null {
   if (careItemId === null || name === null || planTitle === null) return null;
   if (status !== "started" && status !== "completed") return null;
   return { care_item_id: careItemId, name, plan_title: planTitle, status };
+}
+
+function followUpEnvelope(value: unknown): { follow_up: FollowUp | null } | null {
+  if (!isRecord(value) || !("follow_up" in value)) return null;
+  if (value.follow_up === null) return { follow_up: null };
+  const followUp = followUpData(value.follow_up);
+  if (followUp === null) return null;
+  return { follow_up: followUp };
+}
+
+function followUpData(value: unknown): FollowUp | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const patientId = stringField(value, "patient_id");
+  const appointmentId = stringField(value, "appointment_id");
+  const dueOn = stringField(value, "due_on");
+  const createdAt = stringField(value, "created_at");
+  const status = value.status;
+  if (id === null || patientId === null || appointmentId === null || dueOn === null || createdAt === null) {
+    return null;
+  }
+  if (status !== "scheduled" && status !== "contacted" && status !== "booked") return null;
+  return {
+    id,
+    patient_id: patientId,
+    appointment_id: appointmentId,
+    status,
+    due_on: dueOn,
+    created_at: createdAt,
+  };
 }
 
 function carePlanListData(value: unknown): CarePlan[] | null {
