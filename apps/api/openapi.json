@@ -485,6 +485,73 @@
         "title": "ErrorResponse",
         "type": "object"
       },
+      "FollowUpBody": {
+        "properties": {
+          "appointment_id": {
+            "format": "uuid",
+            "title": "Appointment Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "patient_id": {
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "scheduled",
+              "contacted",
+              "booked"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "patient_id",
+          "appointment_id",
+          "status",
+          "due_on",
+          "created_at"
+        ],
+        "title": "FollowUpBody",
+        "type": "object"
+      },
+      "FollowUpResponse": {
+        "properties": {
+          "follow_up": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FollowUpBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "follow_up"
+        ],
+        "title": "FollowUpResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -2763,6 +2830,56 @@
           }
         },
         "summary": "Post Care Plan"
+      }
+    },
+    "/patients/{patient_id}/follow-up": {
+      "get": {
+        "operationId": "get_follow_up_patients__patient_id__follow_up_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowUpResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Follow Up"
       }
     },
     "/patients/{patient_id}/status": {
