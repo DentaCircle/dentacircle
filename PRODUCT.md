@@ -299,7 +299,15 @@ from the calendar. The session lists the items marked started or completed, and 
 move through the same status rules. Reception can read the session. Saving it does not
 complete the visit, and a missed item stays on the care page rather than being added later.
 Migration `0009` adds `care_session` and `care_session_item`, plus unique `(id, clinic_id)`
-on `appointment` and `care_item`. For S2.2 and S2.3, session completion means the visit is
-completed.
+on `appointment` and `care_item`. Completing a visit is separate from saving a care session.
 
-Next slice: S2.2 incomplete care, detected from open items and written into the patient's follow-up.
+When a visit moves to `completed` and the patient is active with a planned or started item on
+any plan, the API creates or updates one open follow-up in the same transaction: status
+`scheduled`, `due_on` seven clinic-local days after completion, `appointment_id` on the visit
+just completed. An existing open follow-up keeps its status and due date; only the visit link
+moves. `GET /patients/{id}/follow-up` returns the open row or null for clinician, receptionist
+and clinic_admin. `/patients/[id]/care` shows the due date and badge above the plans.
+`inventory_admin` still gets 403. Migration `0010` adds `follow_up`. Finishing the last care
+item does not close the follow-up.
+
+Next slice: S2.3 manual follow-up create and a clinician-set due date on completion.
