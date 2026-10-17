@@ -48,6 +48,10 @@ test("each status shows the actions for that role", () => {
         if (expected.includes(name)) expect(control).toBeInTheDocument();
         else expect(control).not.toBeInTheDocument();
       }
+      const care = screen.queryByRole("link", { name: "Care session" });
+      const showsCare = status === "arrived" || status === "in_progress" || status === "completed";
+      if (showsCare) expect(care).toHaveAttribute("href", "/appointments/visit-1/care");
+      else expect(care).not.toBeInTheDocument();
       unmount();
     }
   }

@@ -9,6 +9,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Text,
+    UniqueConstraint,
     text,
 )
 from sqlalchemy.dialects.postgresql import ExcludeConstraint
@@ -25,6 +26,7 @@ _STATUSES = ", ".join(f"'{status}'" for status in APPOINTMENT_STATUSES)
 class Appointment(ClinicScoped, Base):
     __tablename__ = "appointment"
     __table_args__ = (
+        UniqueConstraint("id", "clinic_id", name="uq_appointment_id_clinic_id"),
         CheckConstraint("ends_at > starts_at", name="ends_after_start"),
         CheckConstraint(f"status IN ({_STATUSES})", name="status_known"),
         ForeignKeyConstraint(

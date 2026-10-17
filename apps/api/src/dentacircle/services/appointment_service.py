@@ -39,6 +39,7 @@ from dentacircle.repositories.patient_repository import PatientRepository
 from dentacircle.repositories.user_repository import UserRepository
 from dentacircle.services.audit_service import record
 from dentacircle.services.clinic_day_service import ClinicNotFoundError
+from dentacircle.services.follow_up_service import record_incomplete_care
 from dentacircle.services.patient_service import PatientNotFoundError
 
 _EXCLUSION_VIOLATION = "23P01"
@@ -213,7 +214,11 @@ def change_status(
     target: str,
     now: datetime,
 ) -> CalendarItemView:
-    """Lock the visit, apply one allowed status move, and write one audit event."""
+    """Lock the visit, apply one allowed status move, and write one audit event.
+
+    Completing the visit may also create or update a follow-up in this same transaction.
+    The patient row is locked only after this visit row.
+    """
     zone, _timezone_name, _default_minutes = _clinic_clock(session, clinic_id)
     repository = AppointmentRepository(session, clinic_id)
     row = repository.get_for_update(appointment_id)
@@ -237,6 +242,8 @@ def change_status(
         "status_change",
         changed_fields=["status"],
     )
+    if target == "completed":
+        record_incomplete_care(session, clinic_id, actor_user_id, row, zone, now)
     session.flush()
     return _require_detail(session, clinic_id, appointment_id, zone)
 

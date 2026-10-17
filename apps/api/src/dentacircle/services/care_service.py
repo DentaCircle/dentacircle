@@ -178,6 +178,22 @@ def change_item_status(
     row = CareRepository(session, clinic_id).get_item_for_update(item_id)
     if row is None:
         raise CareNotFoundError
+    move_locked_item(session, clinic_id, actor_user_id, row, target)
+    session.refresh(row)
+    return _item_view(row)
+
+
+def move_locked_item(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    row: CareItem,
+    target: str,
+) -> None:
+    """Apply one allowed move to an item row the caller already locked, and audit it.
+
+    Care sessions call this so the transition table and the status audit exist once.
+    """
     if not can_move(row.status, target):
         raise InvalidStatusError
     row.status = target
@@ -191,8 +207,6 @@ def change_item_status(
         changed_fields=["status"],
     )
     session.flush()
-    session.refresh(row)
-    return _item_view(row)
 
 
 def _require_active_patient(session: Session, clinic_id: UUID, patient_id: UUID) -> None:

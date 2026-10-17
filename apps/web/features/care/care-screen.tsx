@@ -1,11 +1,24 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { FollowUpLine } from "@/features/care/follow-up-line";
 import { LabelForm } from "@/features/care/label-form";
 import { CARE_NOTICES, type CareNotice } from "@/features/care/notices";
 import { RenameItem } from "@/features/care/rename-item";
 import { StatusButton } from "@/features/care/status-button";
-import { addCareItem, createCarePlan, type CareItem, type CareItemStatus, type CarePlan } from "@/lib/api/client";
+import {
+  addCareItem,
+  createCarePlan,
+  type CareItem,
+  type CareItemStatus,
+  type CarePlan,
+  type FollowUp,
+} from "@/lib/api/client";
+
+export type FollowUpLoad =
+  | { status: "hidden" }
+  | { status: "ready"; followUp: FollowUp | null }
+  | { status: "error" };
 
 const STATUS_LABELS: Record<CareItemStatus, string> = {
   planned: "Planned",
@@ -20,13 +33,18 @@ export type CareScreenProps = {
   plans: CarePlan[];
   canWrite: boolean;
   notice: CareNotice | null;
+  followUp: FollowUpLoad;
 };
 
-export function CareScreen({ status, patientId, plans, canWrite, notice }: CareScreenProps) {
+export function CareScreen({ status, patientId, plans, canWrite, notice, followUp }: CareScreenProps) {
   return (
     <section className="flex max-w-lg flex-col gap-6">
       <h1 className="text-2xl font-semibold">Care</h1>
       {notice === null ? null : <p role="status">{CARE_NOTICES[notice]}</p>}
+      {followUp.status === "error" ? <p role="alert">Follow-up could not be loaded.</p> : null}
+      {followUp.status === "ready" && followUp.followUp !== null ? (
+        <FollowUpLine followUp={followUp.followUp} />
+      ) : null}
       {status === "not-found" ? <p role="alert">Not found.</p> : null}
       {status === "forbidden" ? <p role="alert">You do not have access.</p> : null}
       {status === "error" ? <p role="alert">Care could not be loaded.</p> : null}

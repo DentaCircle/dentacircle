@@ -485,6 +485,73 @@
         "title": "ErrorResponse",
         "type": "object"
       },
+      "FollowUpBody": {
+        "properties": {
+          "appointment_id": {
+            "format": "uuid",
+            "title": "Appointment Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "patient_id": {
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "scheduled",
+              "contacted",
+              "booked"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "patient_id",
+          "appointment_id",
+          "status",
+          "due_on",
+          "created_at"
+        ],
+        "title": "FollowUpBody",
+        "type": "object"
+      },
+      "FollowUpResponse": {
+        "properties": {
+          "follow_up": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FollowUpBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "follow_up"
+        ],
+        "title": "FollowUpResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -790,6 +857,25 @@
         "title": "PatientUpdate",
         "type": "object"
       },
+      "RecordBody": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SessionItemBody"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "RecordBody",
+        "type": "object"
+      },
       "RescheduleBody": {
         "additionalProperties": false,
         "properties": {
@@ -815,6 +901,127 @@
           "starts_at"
         ],
         "title": "RescheduleBody",
+        "type": "object"
+      },
+      "SessionEnvelope": {
+        "properties": {
+          "session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SessionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "session"
+        ],
+        "title": "SessionEnvelope",
+        "type": "object"
+      },
+      "SessionItemBody": {
+        "additionalProperties": false,
+        "properties": {
+          "care_item_id": {
+            "format": "uuid",
+            "title": "Care Item Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "started",
+              "completed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "care_item_id",
+          "status"
+        ],
+        "title": "SessionItemBody",
+        "type": "object"
+      },
+      "SessionItemResponse": {
+        "properties": {
+          "care_item_id": {
+            "format": "uuid",
+            "title": "Care Item Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "plan_title": {
+            "title": "Plan Title",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "started",
+              "completed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "care_item_id",
+          "name",
+          "plan_title",
+          "status"
+        ],
+        "title": "SessionItemResponse",
+        "type": "object"
+      },
+      "SessionResponse": {
+        "properties": {
+          "appointment_id": {
+            "format": "uuid",
+            "title": "Appointment Id",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SessionItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "patient_id": {
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "recorded_by_name": {
+            "title": "Recorded By Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "appointment_id",
+          "patient_id",
+          "recorded_by_name",
+          "created_at",
+          "items"
+        ],
+        "title": "SessionResponse",
         "type": "object"
       },
       "SlotResponse": {
@@ -1526,6 +1733,124 @@
           }
         },
         "summary": "Post Cancel Appointment"
+      }
+    },
+    "/appointments/{appointment_id}/care-session": {
+      "get": {
+        "operationId": "get_care_session_appointments__appointment_id__care_session_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appointment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Appointment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionEnvelope"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Care Session"
+      },
+      "post": {
+        "operationId": "post_care_session_appointments__appointment_id__care_session_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appointment_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Appointment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RecordBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "invalid_status, session_exists, or item_changed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "summary": "Post Care Session"
       }
     },
     "/appointments/{appointment_id}/reschedule": {
@@ -2505,6 +2830,56 @@
           }
         },
         "summary": "Post Care Plan"
+      }
+    },
+    "/patients/{patient_id}/follow-up": {
+      "get": {
+        "operationId": "get_follow_up_patients__patient_id__follow_up_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowUpResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Follow Up"
       }
     },
     "/patients/{patient_id}/status": {

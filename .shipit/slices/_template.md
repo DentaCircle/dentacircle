@@ -33,6 +33,10 @@ Choices that need the developer's call before building, and anything risky.
 
 Commands to run, tests to add, and what needs a human to look at it.
 
+Visual proof: list the screenshots the builder must take (one line each, with the state it
+shows). They go in `.shipit/proof/<slice>/` and into the PR. For an API-only slice, list the
+sample requests and responses instead.
+
 ## Review packet (filled in by /ship-build)
 
 Files in review order, decisions made, unsure points, check results, click-through steps.

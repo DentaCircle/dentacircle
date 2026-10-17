@@ -1,9 +1,9 @@
 import { canReadCare, canWriteCare } from "@/features/care/access";
-import { CareScreen, type CareScreenProps } from "@/features/care/care-screen";
+import { CareScreen, type CareScreenProps, type FollowUpLoad } from "@/features/care/care-screen";
 import { isCareNotice } from "@/features/care/notices";
 import { requireUser } from "@/features/auth/current-user";
 import { sessionCookieHeader } from "@/features/patients/session";
-import { listCarePlans } from "@/lib/api/client";
+import { getFollowUp, listCarePlans } from "@/lib/api/client";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +18,25 @@ export default async function CarePage({ params, searchParams }: CarePageProps) 
   const notice = isCareNotice(query.notice) ? query.notice : null;
   const user = await requireUser();
   if (!canReadCare(user.roles)) {
-    return <CareScreen status="forbidden" patientId={id} plans={[]} canWrite={false} notice={null} />;
+    return (
+      <CareScreen
+        status="forbidden"
+        patientId={id}
+        plans={[]}
+        canWrite={false}
+        notice={null}
+        followUp={{ status: "hidden" }}
+      />
+    );
   }
-  const result = await listCarePlans(await sessionCookieHeader(), id);
+  const cookieHeader = await sessionCookieHeader();
+  const result = await listCarePlans(cookieHeader, id);
   if (!result.ok) {
-    return <CareScreen {...failureProps(result.error)} patientId={id} notice={null} />;
+    return (
+      <CareScreen {...failureProps(result.error)} patientId={id} notice={null} followUp={{ status: "hidden" }} />
+    );
   }
+  const followUp = await getFollowUp(cookieHeader, id);
   return (
     <CareScreen
       status="ready"
@@ -31,8 +44,16 @@ export default async function CarePage({ params, searchParams }: CarePageProps) 
       plans={result.data}
       canWrite={canWriteCare(user.roles)}
       notice={notice}
+      followUp={followUpLoad(followUp)}
     />
   );
+}
+
+function followUpLoad(
+  result: Awaited<ReturnType<typeof getFollowUp>>,
+): FollowUpLoad {
+  if (!result.ok) return { status: "error" };
+  return { status: "ready", followUp: result.data.follow_up };
 }
 
 function failureProps(error: {

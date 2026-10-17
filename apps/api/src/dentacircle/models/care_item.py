@@ -2,7 +2,15 @@
 
 from uuid import UUID
 
-from sqlalchemy import CheckConstraint, ForeignKeyConstraint, Index, String, Text, text
+from sqlalchemy import (
+    CheckConstraint,
+    ForeignKeyConstraint,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from dentacircle.core.database import Base
@@ -15,6 +23,7 @@ _STATUSES = ", ".join(f"'{status}'" for status in CARE_ITEM_STATUSES)
 class CareItem(ClinicScoped, Base):
     __tablename__ = "care_item"
     __table_args__ = (
+        UniqueConstraint("id", "clinic_id", name="uq_care_item_id_clinic_id"),
         CheckConstraint(f"status IN ({_STATUSES})", name="status_known"),
         ForeignKeyConstraint(
             ["care_plan_id", "clinic_id"],

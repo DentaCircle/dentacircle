@@ -138,6 +138,27 @@ export type CarePlan = {
   items: CareItem[];
 };
 
+export type FollowUpStatus = "scheduled" | "contacted" | "booked";
+export type FollowUp = {
+  id: string;
+  patient_id: string;
+  appointment_id: string;
+  status: FollowUpStatus;
+  due_on: string;
+  created_at: string;
+};
+
+export function getFollowUp(
+  cookieHeader: string,
+  patientId: string,
+): Promise<ApiResult<{ follow_up: FollowUp | null }>> {
+  return getJson(
+    `/patients/${encodeURIComponent(patientId)}/follow-up`,
+    followUpEnvelope,
+    cookieHeaders(cookieHeader),
+  );
+}
+
 export function listCarePlans(cookieHeader: string, patientId: string): Promise<ApiResult<CarePlan[]>> {
   return getJson(
     `/patients/${encodeURIComponent(patientId)}/care-plans`,
@@ -160,6 +181,42 @@ export function renameCareItem(itemId: string, name: string): Promise<ApiResult<
 
 export function changeCareItemStatus(itemId: string, status: CareStatusTarget): Promise<ApiResult<null>> {
   return sendJson("POST", `/api/care-items/${encodeURIComponent(itemId)}/status`, { status });
+}
+
+export type CareSessionResult = "started" | "completed";
+export type CareSessionItem = {
+  care_item_id: string;
+  name: string;
+  plan_title: string;
+  status: CareSessionResult;
+};
+export type CareSession = {
+  id: string;
+  appointment_id: string;
+  patient_id: string;
+  recorded_by_name: string;
+  created_at: string;
+  items: CareSessionItem[];
+};
+
+export function getCareSession(
+  cookieHeader: string,
+  appointmentId: string,
+): Promise<ApiResult<{ session: CareSession | null }>> {
+  return getJson(
+    `/appointments/${encodeURIComponent(appointmentId)}/care-session`,
+    careSessionEnvelope,
+    cookieHeaders(cookieHeader),
+  );
+}
+
+export function recordCareSession(
+  appointmentId: string,
+  items: { care_item_id: string; status: CareSessionResult }[],
+): Promise<ApiResult<null>> {
+  return sendJson("POST", `/api/appointments/${encodeURIComponent(appointmentId)}/care-session`, {
+    items,
+  });
 }
 
 export function listUpcomingAppointments(
@@ -433,6 +490,88 @@ function typeNameData(value: unknown): { id: string; name: string } | null {
   const name = stringField(value, "name");
   if (id === null || name === null) return null;
   return { id, name };
+}
+
+function careSessionEnvelope(value: unknown): { session: CareSession | null } | null {
+  if (!isRecord(value) || !("session" in value)) return null;
+  if (value.session === null) return { session: null };
+  const session = careSessionData(value.session);
+  if (session === null) return null;
+  return { session };
+}
+
+function careSessionData(value: unknown): CareSession | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const appointmentId = stringField(value, "appointment_id");
+  const patientId = stringField(value, "patient_id");
+  const recordedByName = stringField(value, "recorded_by_name");
+  const createdAt = stringField(value, "created_at");
+  if (!Array.isArray(value.items)) return null;
+  if (
+    id === null ||
+    appointmentId === null ||
+    patientId === null ||
+    recordedByName === null ||
+    createdAt === null
+  ) {
+    return null;
+  }
+  const items: CareSessionItem[] = [];
+  for (const item of value.items) {
+    const line = careSessionItemData(item);
+    if (line === null) return null;
+    items.push(line);
+  }
+  return {
+    id,
+    appointment_id: appointmentId,
+    patient_id: patientId,
+    recorded_by_name: recordedByName,
+    created_at: createdAt,
+    items,
+  };
+}
+
+function careSessionItemData(value: unknown): CareSessionItem | null {
+  if (!isRecord(value)) return null;
+  const careItemId = stringField(value, "care_item_id");
+  const name = stringField(value, "name");
+  const planTitle = stringField(value, "plan_title");
+  const status = stringField(value, "status");
+  if (careItemId === null || name === null || planTitle === null) return null;
+  if (status !== "started" && status !== "completed") return null;
+  return { care_item_id: careItemId, name, plan_title: planTitle, status };
+}
+
+function followUpEnvelope(value: unknown): { follow_up: FollowUp | null } | null {
+  if (!isRecord(value) || !("follow_up" in value)) return null;
+  if (value.follow_up === null) return { follow_up: null };
+  const followUp = followUpData(value.follow_up);
+  if (followUp === null) return null;
+  return { follow_up: followUp };
+}
+
+function followUpData(value: unknown): FollowUp | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const patientId = stringField(value, "patient_id");
+  const appointmentId = stringField(value, "appointment_id");
+  const dueOn = stringField(value, "due_on");
+  const createdAt = stringField(value, "created_at");
+  const status = value.status;
+  if (id === null || patientId === null || appointmentId === null || dueOn === null || createdAt === null) {
+    return null;
+  }
+  if (status !== "scheduled" && status !== "contacted" && status !== "booked") return null;
+  return {
+    id,
+    patient_id: patientId,
+    appointment_id: appointmentId,
+    status,
+    due_on: dueOn,
+    created_at: createdAt,
+  };
 }
 
 function carePlanListData(value: unknown): CarePlan[] | null {

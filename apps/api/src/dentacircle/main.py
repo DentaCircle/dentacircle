@@ -11,8 +11,10 @@ from dentacircle.api.appointment_types import router as appointment_types_router
 from dentacircle.api.appointments import router as appointments_router
 from dentacircle.api.auth import router as auth_router
 from dentacircle.api.care import router as care_router
+from dentacircle.api.care_sessions import router as care_sessions_router
 from dentacircle.api.clinic_day import router as clinic_day_router
 from dentacircle.api.clinicians import router as clinicians_router
+from dentacircle.api.follow_ups import router as follow_ups_router
 from dentacircle.api.health import router as health_router
 from dentacircle.api.patients import router as patients_router
 from dentacircle.core.config import get_settings
@@ -35,6 +37,8 @@ def create_app() -> FastAPI:
     application.include_router(clinicians_router)
     application.include_router(appointments_router)
     application.include_router(care_router)
+    application.include_router(care_sessions_router)
+    application.include_router(follow_ups_router)
     return application
 
 

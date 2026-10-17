@@ -3,7 +3,7 @@
 The tracker. Phases are made of slices. A slice is one reviewable change, about half a day
 to a day of work, with a visible result. Tick a slice only after `/ship-seal`.
 
-**Now:** S2.1b (not started). M1 reached 2026-10-06.
+**Now:** S2.3 (not started). M1 reached 2026-10-06.
 
 Milestones are demoable. Each one is a real stopping point.
 
@@ -33,9 +33,9 @@ Milestones are demoable. Each one is a real stopping point.
 ## Phase 2: Care, follow-ups, recalls (M3)
 
 - [x] S2.1a Care plan and care items: plan per patient, items with planned, started, completed and cancelled, audit events
-- [ ] S2.1b Care sessions, recorded against an arrived or in progress appointment, moving items through the S2.1a status method
-- [ ] S2.2 Incomplete care: detect it and create or update the patient's follow-up, so it feeds the one coordinator queue instead of a second list
-- [ ] S2.3 Follow-ups: manual create, plus auto-create on session completion only when care is unfinished or the clinician sets a due date
+- [x] S2.1b Care sessions, recorded against an arrived or in progress appointment, moving items through the S2.1a status method
+- [x] S2.2 Incomplete care: detect it and create or update the patient's follow-up, so it feeds the one coordinator queue instead of a second list
+- [ ] S2.3 Follow-ups: manual create, plus the clinician-set due date on completion
 - [ ] S2.4 Coordinator queue: follow-ups with due and overdue calculated from the date, mark contacted, book from the queue
 - [ ] S2.5 Recalls: rules, due date calculation, due list, kept separate from the follow-up queue
 - [ ] S2.6 Patient timeline: one chronological view of everything above

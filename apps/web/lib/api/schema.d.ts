@@ -108,6 +108,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/appointments/{appointment_id}/care-session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Care Session */
+        get: operations["get_care_session_appointments__appointment_id__care_session_get"];
+        put?: never;
+        /** Post Care Session */
+        post: operations["post_care_session_appointments__appointment_id__care_session_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/appointments/{appointment_id}/reschedule": {
         parameters: {
             query?: never;
@@ -401,6 +419,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patients/{patient_id}/follow-up": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Follow Up */
+        get: operations["get_follow_up_patients__patient_id__follow_up_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patients/{patient_id}/status": {
         parameters: {
             query?: never;
@@ -644,6 +679,43 @@ export interface components {
         ErrorResponse: {
             error: components["schemas"]["ErrorBody"];
         };
+        /** FollowUpBody */
+        FollowUpBody: {
+            /**
+             * Appointment Id
+             * Format: uuid
+             */
+            appointment_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Patient Id
+             * Format: uuid
+             */
+            patient_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "scheduled" | "contacted" | "booked";
+        };
+        /** FollowUpResponse */
+        FollowUpResponse: {
+            follow_up: components["schemas"]["FollowUpBody"] | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -757,6 +829,11 @@ export interface components {
             /** Phone */
             phone?: string | null;
         };
+        /** RecordBody */
+        RecordBody: {
+            /** Items */
+            items: components["schemas"]["SessionItemBody"][];
+        };
         /** RescheduleBody */
         RescheduleBody: {
             /** Clinician Id */
@@ -766,6 +843,67 @@ export interface components {
              * Format: date-time
              */
             starts_at: string;
+        };
+        /** SessionEnvelope */
+        SessionEnvelope: {
+            session: components["schemas"]["SessionResponse"] | null;
+        };
+        /** SessionItemBody */
+        SessionItemBody: {
+            /**
+             * Care Item Id
+             * Format: uuid
+             */
+            care_item_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "started" | "completed";
+        };
+        /** SessionItemResponse */
+        SessionItemResponse: {
+            /**
+             * Care Item Id
+             * Format: uuid
+             */
+            care_item_id: string;
+            /** Name */
+            name: string;
+            /** Plan Title */
+            plan_title: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "started" | "completed";
+        };
+        /** SessionResponse */
+        SessionResponse: {
+            /**
+             * Appointment Id
+             * Format: uuid
+             */
+            appointment_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Items */
+            items: components["schemas"]["SessionItemResponse"][];
+            /**
+             * Patient Id
+             * Format: uuid
+             */
+            patient_id: string;
+            /** Recorded By Name */
+            recorded_by_name: string;
         };
         /** SlotResponse */
         SlotResponse: {
@@ -1207,6 +1345,99 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_care_session_appointments__appointment_id__care_session_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_care_session_appointments__appointment_id__care_session_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description invalid_status, session_exists, or item_changed */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
@@ -1966,6 +2197,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_follow_up_patients__patient_id__follow_up_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowUpResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
