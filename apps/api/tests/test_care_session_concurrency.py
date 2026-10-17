@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from alembic import command
-from sqlalchemy import create_engine, event, select
+from sqlalchemy import create_engine, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
@@ -151,7 +151,7 @@ def _race_other_first(
     second: Callable[[Session], object],
     refused: type[Exception],
 ) -> list[str]:
-    return _race(database, first, second, refused, session_first=True)
+    return _race(database, first, second, refused, session_first=False)
 
 
 def _race(
@@ -162,10 +162,13 @@ def _race(
     *,
     session_first: bool,
 ) -> list[str]:
-    del session_first
     engine = _engine(database)
     holding = threading.Event()
-    competitor_waiting, stop = _for_update_gate(engine, needed=1, after=holding)
+    # The visit-completing request must see the session blocked on the visit row.
+    relation = None if session_first else "appointment"
+    competitor_waiting, stop = _for_update_gate(
+        database, needed=1, after=holding, relation=relation
+    )
 
     def lead() -> str:
         with Session(engine) as session:
@@ -196,28 +199,61 @@ def _race(
 
 
 def _for_update_gate(
-    engine: Engine, *, needed: int, after: threading.Event | None = None
+    database: str,
+    *,
+    needed: int,
+    after: threading.Event | None = None,
+    relation: str | None = None,
 ) -> tuple[threading.Event, Callable[[], None]]:
+    """Signal once `needed` row locks are waiting, not merely about to be sent.
+
+    Sending SELECT FOR UPDATE is not the wait. Postgres records the wait in
+    pg_locks with granted false.
+    """
     ready = threading.Event()
-    seen = 0
-    guard = threading.Lock()
+    stopped = threading.Event()
+    checker = create_engine(
+        to_sqlalchemy_url(database),
+        pool_size=1,
+        max_overflow=0,
+        connect_args={"connect_timeout": 5},
+    )
 
-    def before_cursor_execute(*args: object) -> None:
-        nonlocal seen
-        if after is not None and not after.is_set():
-            return
-        statement = args[2]
-        if not isinstance(statement, str) or "for update" not in statement.lower():
-            return
-        with guard:
-            seen += 1
-            if seen >= needed:
+    def watch() -> None:
+        while not stopped.is_set():
+            if after is not None and not after.is_set():
+                stopped.wait(0.02)
+                continue
+            with checker.connect() as connection:
+                waiting = connection.execute(
+                    text(
+                        """
+                        SELECT count(*)
+                        FROM pg_stat_activity AS activity
+                        JOIN pg_locks AS locks ON locks.pid = activity.pid
+                        WHERE NOT locks.granted
+                          AND locks.locktype = 'transactionid'
+                          AND activity.query ILIKE '%for update%'
+                          AND (
+                            CAST(:relation AS text) IS NULL
+                            OR activity.query ILIKE '%' || CAST(:relation AS text) || '%'
+                          )
+                        """
+                    ),
+                    {"relation": relation},
+                ).scalar_one()
+            if waiting >= needed:
                 ready.set()
+                return
+            stopped.wait(0.02)
 
-    event.listen(engine, "before_cursor_execute", before_cursor_execute)
+    watcher = threading.Thread(target=watch, daemon=True)
+    watcher.start()
 
     def stop() -> None:
-        event.remove(engine, "before_cursor_execute", before_cursor_execute)
+        stopped.set()
+        watcher.join(timeout=1)
+        checker.dispose()
 
     return ready, stop
 
