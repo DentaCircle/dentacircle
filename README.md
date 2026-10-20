@@ -56,7 +56,7 @@ curl -b /tmp/dc-cookies -X PUT -H 'Content-Type: application/json' \
   http://127.0.0.1:8000/clinic/day
 ```
 
-That example is Monday to Friday, 09:00 to 18:00, with Saturday and Sunday closed. Add a type with `POST /appointment-types`. A second type with the same name in any case returns 409. Deactivate a type with `PUT /appointment-types/{id}` and `"is_active": false`. Types are not deleted.
+That example is Monday to Friday, 09:00 to 18:00, with Saturday and Sunday closed. Add a type with `POST /appointment-types`. A second type with the same name in any case returns 409. Deactivate a type with `PUT /appointment-types/{id}` and `"is_active": false`. Types are not deleted. `recall_after_months` is optional: leave it out for no recall, or send a whole number from 1 to 60. On `PUT`, leaving it out keeps the current interval, and `null` clears it. New clinics already have Scaling at 6 months.
 
 ```sh
 curl -b /tmp/dc-cookies -X POST -H 'Content-Type: application/json' \

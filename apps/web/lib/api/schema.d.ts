@@ -585,6 +585,8 @@ export interface components {
             duration_minutes?: number | null;
             /** Name */
             name: string;
+            /** Recall After Months */
+            recall_after_months?: number | null;
         };
         /** AppointmentTypeResponse */
         AppointmentTypeResponse: {
@@ -601,6 +603,8 @@ export interface components {
             is_active: boolean;
             /** Name */
             name: string;
+            /** Recall After Months */
+            recall_after_months: number | null;
         };
         /** AppointmentTypeUpdate */
         AppointmentTypeUpdate: {
@@ -610,6 +614,8 @@ export interface components {
             is_active: boolean;
             /** Name */
             name: string;
+            /** Recall After Months */
+            recall_after_months?: number | null;
         };
         /** AvailabilityResponse */
         AvailabilityResponse: {

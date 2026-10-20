@@ -45,7 +45,7 @@ def test_upgrade_downgrade_upgrade(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0012_booked_appointment"
+    assert _version(throwaway_database_url) == "0013_recalls"
     assert "care_session" in _public_tables(throwaway_database_url)
     assert "care_session_item" in _public_tables(throwaway_database_url)
     assert _columns(throwaway_database_url, "care_session") == {
@@ -78,7 +78,7 @@ def test_upgrade_downgrade_upgrade(
     assert not _has_constraint(throwaway_database_url, "uq_care_item_id_clinic_id")
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0012_booked_appointment"
+    assert _version(throwaway_database_url) == "0013_recalls"
     assert "care_session" in _public_tables(throwaway_database_url)
     assert _has_constraint(throwaway_database_url, "uq_appointment_id_clinic_id")
     assert _has_constraint(throwaway_database_url, "uq_care_item_id_clinic_id")

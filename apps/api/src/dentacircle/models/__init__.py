@@ -13,6 +13,7 @@ from dentacircle.models.clinic import Clinic
 from dentacircle.models.follow_up import FollowUp
 from dentacircle.models.patient import Patient
 from dentacircle.models.patient_number_counter import PatientNumberCounter
+from dentacircle.models.recall import Recall
 from dentacircle.models.user_role import UserRole
 from dentacircle.models.working_hours import ClinicWorkingHours
 
@@ -31,5 +32,6 @@ __all__ = [
     "FollowUp",
     "Patient",
     "PatientNumberCounter",
+    "Recall",
     "UserRole",
 ]

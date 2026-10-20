@@ -107,6 +107,19 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "recall_after_months": {
+            "anyOf": [
+              {
+                "maximum": 60.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recall After Months"
           }
         },
         "required": [
@@ -144,12 +157,24 @@
           "name": {
             "title": "Name",
             "type": "string"
+          },
+          "recall_after_months": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recall After Months"
           }
         },
         "required": [
           "id",
           "name",
           "duration_minutes",
+          "recall_after_months",
           "effective_duration_minutes",
           "is_active"
         ],
@@ -180,6 +205,19 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "recall_after_months": {
+            "anyOf": [
+              {
+                "maximum": 60.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recall After Months"
           }
         },
         "required": [

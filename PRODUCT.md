@@ -71,9 +71,9 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
 - **Tenancy:** `clinic_id` on every clinic-owned table from Phase 0. One clinic in the UI,
   no clinic switcher. Cheap now, painful to retrofit.
 - **Follow-ups and recalls:** a completed care session does not always create a follow-up.
-  Unfinished care or a clinician-set date creates one. A recall rule creates a recall.
-  Due and overdue are calculated from the date, never stored. Stored follow-up statuses:
-  scheduled, contacted, booked, completed, cancelled.
+  Unfinished care or a clinician-set date creates one. A recall rule on the appointment
+  type creates a recall. Due and overdue are calculated from the date, never stored.
+  Stored follow-up and recall statuses: scheduled, contacted, booked, completed, cancelled.
 - **One attention queue.** Incomplete care creates or updates a follow-up rather than
   forming a second list, so one patient cannot appear three times. Recalls stay a separate
   list because they are periodic rather than unfinished work.
@@ -364,4 +364,16 @@ queue for the same three roles; a booked visit stays on the calendar. Each row o
 `/follow-ups` has Cancel follow-up with a confirmation. Finishing care still does not close
 a follow-up by itself.
 
-Next slice: S2.5 recalls — rules, due dates, and a list kept separate from the follow-up queue.
+A recall rule lives on the appointment type: empty, or a whole number of months from 1 to 60
+(decided in S2.5). New clinics get Scaling at 6 months, and the migration fills that only
+where an existing Scaling rule is empty. Completing a visit of a rule-enabled type writes
+one open recall for an active patient, dated that many clinic-local months ahead. A later
+rule-enabled visit replaces a scheduled or contacted recall and keeps its status. A booked
+recall stays until that visit is completed, cancelled, a no-show, or the coordinator cancels
+it. Clinician, receptionist, and clinic admin can open `/recalls`. Due lists scheduled and
+contacted rows due today or earlier. All open also shows booked and future rows. The same
+three roles can mark contacted, book the next visit, and cancel. Completing the booked visit
+closes the recall before a new one can be written. Cancelling or no-show on that visit
+returns it to contacted. Recalls stay off the follow-up queue.
+
+Next slice: S2.6 patient timeline — one chronological view of the steps above.

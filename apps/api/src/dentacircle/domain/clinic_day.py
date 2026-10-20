@@ -35,6 +35,7 @@ class DefaultInterval:
 class DefaultAppointmentType:
     name: str
     duration_minutes: int
+    recall_after_months: int | None = None
 
 
 # Monday is 0. Saturday is 5. Sunday is closed.
@@ -44,7 +45,7 @@ DEFAULT_WORKING_HOURS: tuple[DefaultInterval, ...] = tuple(
 
 DEFAULT_APPOINTMENT_TYPES: tuple[DefaultAppointmentType, ...] = (
     DefaultAppointmentType("Consultation", 30),
-    DefaultAppointmentType("Scaling", 30),
+    DefaultAppointmentType("Scaling", 30, 6),
     DefaultAppointmentType("Root canal visit", 60),
     DefaultAppointmentType("Crown visit", 45),
 )
