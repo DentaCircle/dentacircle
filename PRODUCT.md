@@ -222,6 +222,17 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   inactive patient still completes and the date is dropped. Without the date, S2.2 is
   unchanged.
 
+- **Coordinator queue (decided in S2.4):** `GET /follow-ups` lists open follow-ups with a
+  calculated `timing` (`overdue`, `due_today`, `upcoming`) from the clinic-local date. The Due
+  view is `scheduled` and `contacted` rows due today or earlier. All open also shows `booked`
+  and future rows. Follow-ups of inactive patients are hidden. `clinician`, `receptionist` and
+  `clinic_admin` may list, mark contacted (`scheduled` to `contacted`, no undo) and book.
+  Booking from the queue reuses `book_appointment`, may start from `scheduled` or `contacted`,
+  and in one transaction sets `booked` and stores `booked_appointment_id` (additive migration
+  `0012`, composite clinic FK). Closing a follow-up (complete when the booked visit is done,
+  cancel) is not in S2.4. It is S2.4b, to be done before S2.7. Until then a `booked` follow-up
+  stays open.
+
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.
@@ -328,4 +339,13 @@ creates a follow-up even when every care item is finished, and it replaces the d
 existing open follow-up. Migration `0011` allows a null visit. Without a date, completion
 still uses the seven-day rule from S2.2.
 
-Next slice: S2.4 coordinator queue, with due and overdue, mark contacted, and book from the queue.
+Clinician, receptionist, and clinic admin can open `/follow-ups` for the coordinator queue.
+Due (default) lists scheduled and contacted rows due today or earlier, with timing calculated
+from the clinic-local date. All open also shows booked and future rows. Inactive patients are
+hidden. Mark contacted moves scheduled to contacted. Book visit reuses the patient booking
+screen and `POST /follow-ups/{id}/book`, which creates the appointment, sets booked, and
+stores `booked_appointment_id` in one transaction (migration `0012`). `inventory_admin` is
+refused. Closing a follow-up is not in this slice.
+
+Next slice: S2.4b close follow-ups — complete the follow-up when the booked visit is done,
+and cancel from the queue.
