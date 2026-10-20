@@ -1,7 +1,7 @@
 """Create and update one clinic's care plans. Each write records one audit event."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy.orm import Session
@@ -70,6 +70,8 @@ def add_item(
     actor_user_id: UUID,
     plan_id: UUID,
     name: str,
+    *,
+    occurred_at: datetime | None = None,
 ) -> CareItemView:
     cleaned = clean_label(name, "name")
     repository = CareRepository(session, clinic_id)
@@ -80,6 +82,7 @@ def add_item(
     item = CareItem(id=uuid4(), care_plan_id=plan.id, name=cleaned, status="planned")
     repository.add_item(item)
     record(session, clinic_id, actor_user_id, "care_item", item.id, "create", changed_fields=[])
+    moment = occurred_at if occurred_at is not None else datetime.now(UTC)
     record_timeline(
         session,
         clinic_id,
@@ -87,6 +90,7 @@ def add_item(
         plan.patient_id,
         "care_item_added",
         care_item_id=item.id,
+        occurred_at=moment,
     )
     session.flush()
     session.refresh(item)
@@ -183,12 +187,14 @@ def change_item_status(
     actor_user_id: UUID,
     item_id: UUID,
     target: str,
+    *,
+    occurred_at: datetime | None = None,
 ) -> CareItemView:
     """Lock the item, apply one allowed status move, and write one audit event."""
     row = CareRepository(session, clinic_id).get_item_for_update(item_id)
     if row is None:
         raise CareNotFoundError
-    move_locked_item(session, clinic_id, actor_user_id, row, target)
+    move_locked_item(session, clinic_id, actor_user_id, row, target, occurred_at=occurred_at)
     session.refresh(row)
     return _item_view(row)
 
@@ -199,6 +205,8 @@ def move_locked_item(
     actor_user_id: UUID,
     row: CareItem,
     target: str,
+    *,
+    occurred_at: datetime | None = None,
 ) -> None:
     """Apply one allowed move to an item row the caller already locked, and audit it.
 
@@ -219,6 +227,7 @@ def move_locked_item(
     plan = CareRepository(session, clinic_id).get_plan(row.care_plan_id)
     if plan is None:
         raise RuntimeError("care item points at a missing plan")
+    moment = occurred_at if occurred_at is not None else datetime.now(UTC)
     record_timeline(
         session,
         clinic_id,
@@ -226,6 +235,7 @@ def move_locked_item(
         plan.patient_id,
         CARE_ITEM_STATUS_KIND[target],
         care_item_id=row.id,
+        occurred_at=moment,
     )
     session.flush()
 

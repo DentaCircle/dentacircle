@@ -60,7 +60,15 @@ def world() -> World:
             "synthetic-password-marker",
             ["clinician"],
         )
-        patient = register_patient(session, clinic.id, actor.id, "Sample Ada", "9000000001", None)
+        patient = register_patient(
+            session,
+            clinic.id,
+            actor.id,
+            "Sample Ada",
+            "9000000001",
+            None,
+            occurred_at=NOW,
+        )
         types = list(
             session.scalars(select(AppointmentType).where(AppointmentType.clinic_id == clinic.id))
         )

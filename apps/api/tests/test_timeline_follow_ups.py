@@ -137,7 +137,14 @@ def _open_item(clinic: World) -> None:
         plan = create_plan(
             session, clinic.clinic_id, clinic.actor_id, clinic.patient_id, "Sample plan"
         )
-        add_item(session, clinic.clinic_id, clinic.actor_id, plan.id, "Root canal")
+        add_item(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            plan.id,
+            "Root canal",
+            occurred_at=NOW,
+        )
         session.commit()
 
 

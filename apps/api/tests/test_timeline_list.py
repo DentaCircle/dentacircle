@@ -22,7 +22,7 @@ from dentacircle.services.timeline_service import (
     VisitSubject,
     list_timeline,
 )
-from tests.timeline_support import AT_START, book, kinds, later, move, world
+from tests.timeline_support import AT_START, NOW, book, kinds, later, move, world
 
 pytest_plugins = ["tests.timeline_support"]
 
@@ -49,7 +49,14 @@ def test_one_completion_lists_the_new_follow_up_before_the_visit(database: str) 
         plan = create_plan(
             session, clinic.clinic_id, clinic.actor_id, clinic.patient_id, "Sample plan"
         )
-        add_item(session, clinic.clinic_id, clinic.actor_id, plan.id, "Root canal")
+        add_item(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            plan.id,
+            "Root canal",
+            occurred_at=NOW,
+        )
         session.commit()
     visit_id = book(clinic, AT_START)
     move(clinic, visit_id, "arrived")
@@ -77,7 +84,14 @@ def test_a_renamed_item_shows_its_current_name(database: str) -> None:
         plan = create_plan(
             session, clinic.clinic_id, clinic.actor_id, clinic.patient_id, "Sample plan"
         )
-        item = add_item(session, clinic.clinic_id, clinic.actor_id, plan.id, "Scaling")
+        item = add_item(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            plan.id,
+            "Scaling",
+            occurred_at=NOW,
+        )
         session.commit()
         item_id = item.id
     with Session(get_engine()) as session:

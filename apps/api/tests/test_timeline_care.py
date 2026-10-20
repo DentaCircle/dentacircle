@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from dentacircle.core.database import get_engine
 from dentacircle.services.care_service import add_item, change_item_status, create_plan
 from dentacircle.services.care_session_service import record_session
-from tests.timeline_support import AT_START, World, book, kinds, move, world
+from tests.timeline_support import AT_START, NOW, World, book, kinds, move, world
 
 pytest_plugins = ["tests.timeline_support"]
 
@@ -51,6 +51,7 @@ def test_a_session_records_the_item_move_and_the_session(database: str) -> None:
             clinic.actor_id,
             visit_id,
             [(item_id, "completed")],
+            occurred_at=NOW,
         )
         session.commit()
     assert kinds(clinic.clinic_id, clinic.patient_id)[-2:] == [
@@ -64,12 +65,26 @@ def _add_item(clinic: World, name: str) -> UUID:
         plan = create_plan(
             session, clinic.clinic_id, clinic.actor_id, clinic.patient_id, "Sample plan"
         )
-        item = add_item(session, clinic.clinic_id, clinic.actor_id, plan.id, name)
+        item = add_item(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            plan.id,
+            name,
+            occurred_at=NOW,
+        )
         session.commit()
         return item.id
 
 
 def _move_item(clinic: World, item_id: UUID, target: str) -> None:
     with Session(get_engine()) as session:
-        change_item_status(session, clinic.clinic_id, clinic.actor_id, item_id, target)
+        change_item_status(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            item_id,
+            target,
+            occurred_at=NOW,
+        )
         session.commit()
