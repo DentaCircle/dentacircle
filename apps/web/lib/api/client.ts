@@ -222,6 +222,21 @@ export function cancelRecall(recallId: string): Promise<ApiResult<null>> {
   return sendEmpty("POST", `/api/recalls/${encodeURIComponent(recallId)}/cancel`);
 }
 
+export function markRecallContacted(recallId: string): Promise<ApiResult<null>> {
+  return sendEmpty("POST", `/api/recalls/${encodeURIComponent(recallId)}/contacted`);
+}
+
+export function getRecall(
+  cookieHeader: string,
+  recallId: string,
+): Promise<ApiResult<RecallQueueItem>> {
+  return getJson(
+    `/recalls/${encodeURIComponent(recallId)}`,
+    recallQueueItemData,
+    cookieHeaders(cookieHeader),
+  );
+}
+
 export function listRecalls(
   cookieHeader: string,
   page: number,

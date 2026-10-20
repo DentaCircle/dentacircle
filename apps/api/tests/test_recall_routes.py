@@ -18,6 +18,7 @@ def test_recall_routes_declare_their_roles(monkeypatch: pytest.MonkeyPatch) -> N
     assert unmarked_routes(application) == []
     found = _route_roles(application)
     assert found[("GET", "/recalls")] == set(RECALL_ROLES)
+    assert found[("GET", "/recalls/{recall_id}")] == set(RECALL_ROLES)
     assert found[("POST", "/recalls/{recall_id}/contacted")] == set(RECALL_ROLES)
     assert found[("POST", "/recalls/{recall_id}/book")] == set(RECALL_ROLES)
     assert found[("POST", "/recalls/{recall_id}/cancel")] == set(RECALL_ROLES)

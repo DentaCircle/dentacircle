@@ -196,6 +196,27 @@ def test_roles_on_the_list_and_no_session(api: TestClient) -> None:
     assert api.get("/recalls").status_code == 401
 
 
+def test_get_one_open_recall_returns_the_queue_item(api: TestClient) -> None:
+    today = _today()
+    recall_id, _visit = _recall(api, "Sample Ada", "9000000001", today)
+    response = api.get(f"/recalls/{recall_id}", cookies=_cookie(api))
+    assert response.status_code == 200
+    body = response.json()
+    assert body["id"] == recall_id
+    assert body["status"] == "scheduled"
+    assert body["patient"]["full_name"] == "Sample Ada"
+
+
+def test_get_closed_or_missing_recall_is_404(api: TestClient) -> None:
+    today = _today()
+    recall_id, _visit = _recall(api, "Sample Bea", "9000000002", today)
+    cancel = api.post(f"/recalls/{recall_id}/cancel", cookies=_cookie(api))
+    assert cancel.status_code == 204
+    missing = api.get(f"/recalls/{recall_id}", cookies=_cookie(api))
+    assert missing.status_code == 404
+    assert api.get(f"/recalls/{uuid4()}", cookies=_cookie(api)).status_code == 404
+
+
 def test_list_timing_uses_the_clinic_local_day_not_utc(api: TestClient) -> None:
     today = _today()
     recall_id, _visit = _recall(api, "Sample Ada", "9000000001", today)

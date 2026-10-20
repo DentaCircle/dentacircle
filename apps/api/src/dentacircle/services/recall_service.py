@@ -229,6 +229,19 @@ def recall_in_clinic(session: Session, clinic_id: UUID, recall_id: UUID) -> None
         raise RecallNotFoundError
 
 
+def get_recall_queue_item(
+    session: Session,
+    clinic_id: UUID,
+    recall_id: UUID,
+    now: datetime,
+) -> RecallListItem:
+    """One open recall for the book page. Missing, closed, or inactive patient is not found."""
+    recall = RecallRepository(session, clinic_id).get(recall_id)
+    if recall is None or recall.status not in OPEN_RECALL_STATUSES:
+        raise RecallNotFoundError
+    return _require_item(session, clinic_id, recall_id, now)
+
+
 def mark_contacted(
     session: Session,
     clinic_id: UUID,

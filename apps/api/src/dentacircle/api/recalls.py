@@ -34,6 +34,7 @@ from dentacircle.services.recall_service import (
     RecallNotFoundError,
     book_recall,
     cancel_recall,
+    get_recall_queue_item,
     list_recalls,
     mark_contacted,
     recall_in_clinic,
@@ -107,6 +108,9 @@ class ErrorResponse(BaseModel):
 _LIST_ERRORS: dict[int | str, dict[str, Any]] = {
     422: {"model": ErrorResponse, "description": "validation_error"},
 }
+_READ_ERRORS: dict[int | str, dict[str, Any]] = {
+    404: {"model": ErrorResponse, "description": "Not Found"},
+}
 _CONTACTED_ERRORS: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorResponse, "description": "Not Found"},
     409: {"model": ErrorResponse, "description": "invalid_status or patient_inactive"},
@@ -143,6 +147,21 @@ def get_recalls(
         page=found.page,
         page_size=found.page_size,
     )
+
+
+@router.get("/recalls/{recall_id}", responses=_READ_ERRORS)
+def get_recall(
+    recall_id: UUID,
+    user: Annotated[CurrentUser, Depends(can_use)],
+    session: SessionDep,
+) -> RecallItemBody:
+    try:
+        item = get_recall_queue_item(session, user.clinic.id, recall_id, datetime.now(UTC))
+    except RecallNotFoundError:
+        raise HTTPException(status_code=404) from None
+    except ClinicNotFoundError:
+        raise HTTPException(status_code=404) from None
+    return _item_body(item)
 
 
 def _recall_for_write(

@@ -6,10 +6,9 @@ import { canUseRecallQueue } from "@/features/recalls/access";
 import { RecallBookPage } from "@/features/recalls/book-page";
 import {
   getClinicDay,
+  getRecall,
   listAppointmentTypes,
   listClinicians,
-  listRecalls,
-  type RecallQueueItem,
 } from "@/lib/api/client";
 
 export const dynamic = "force-dynamic";
@@ -25,10 +24,17 @@ export default async function RecallBookRoute({ params }: RecallBookRouteProps) 
     return <RecallBookPage status="forbidden" />;
   }
   const cookie = await sessionCookieHeader();
-  const found = await findQueueItem(cookie, id);
-  if (found === "forbidden") return <RecallBookPage status="forbidden" />;
-  if (found === "error") return <RecallBookPage status="error" />;
-  if (found === null || found.status === "booked") {
+  const found = await getRecall(cookie, id);
+  if (!found.ok) {
+    if (found.error.kind === "api" && found.error.status === 403) {
+      return <RecallBookPage status="forbidden" />;
+    }
+    if (found.error.kind === "api" && found.error.status === 404) {
+      return <RecallBookPage status="closed" />;
+    }
+    return <RecallBookPage status="error" />;
+  }
+  if (found.data.status === "booked") {
     return <RecallBookPage status="closed" />;
   }
   const [clinicians, types, day] = await Promise.all([
@@ -48,30 +54,10 @@ export default async function RecallBookRoute({ params }: RecallBookRouteProps) 
   return (
     <RecallBookPage
       status="ready"
-      recallId={found.id}
+      recallId={found.data.id}
       today={today}
       clinicians={clinicians.data.map((row) => ({ id: row.id, label: row.full_name }))}
       types={types.data.map((row) => ({ id: row.id, label: row.name }))}
     />
   );
-}
-
-async function findQueueItem(
-  cookie: string,
-  recallId: string,
-): Promise<RecallQueueItem | null | "error" | "forbidden"> {
-  let page = 1;
-  for (;;) {
-    const listed = await listRecalls(cookie, page, "all", 100);
-    if (!listed.ok) {
-      if (listed.error.kind === "api" && listed.error.status === 403) return "forbidden";
-      return "error";
-    }
-    const match = listed.data.items.find((item) => item.id === recallId);
-    if (match !== undefined) return match;
-    if (listed.data.items.length === 0 || page * listed.data.page_size >= listed.data.total) {
-      return null;
-    }
-    page += 1;
-  }
 }

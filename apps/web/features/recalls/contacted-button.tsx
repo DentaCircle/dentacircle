@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { recallsHref, type QueueNotice } from "@/features/recalls/links";
-import type { RecallQueueView } from "@/lib/api/client";
+import { markRecallContacted, type RecallQueueView } from "@/lib/api/client";
 
 export function ContactedButton({
   recallId,
@@ -21,26 +21,38 @@ export function ContactedButton({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  function clearSubmissionState() {
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
+  }
+
   async function onClick() {
     if (isSubmittingRef.current) return;
     isSubmittingRef.current = true;
     setIsSubmitting(true);
     setMessage(null);
     try {
-      const response = await fetch(`/api/recalls/${encodeURIComponent(recallId)}/contacted`, {
-        method: "POST",
-        credentials: "same-origin",
-      });
-      if (response.ok) {
+      const result = await markRecallContacted(recallId);
+      if (result.ok) {
+        clearSubmissionState();
         go("contacted");
         return;
       }
-      if (response.status === 409) {
+      if (
+        result.error.kind === "api" &&
+        result.error.status === 409 &&
+        result.error.code === "invalid_status"
+      ) {
+        clearSubmissionState();
         go("changed");
         return;
       }
-      if (response.status === 403) {
+      if (result.error.kind === "api" && result.error.code === "patient_inactive") {
+        setMessage("This patient is inactive.");
+      } else if (result.error.kind === "api" && result.error.status === 403) {
         setMessage("You do not have access.");
+      } else if (result.error.kind === "network" || result.error.kind === "timeout") {
+        setMessage("Could not reach the server.");
       } else {
         setMessage("Something went wrong.");
       }

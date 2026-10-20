@@ -3682,6 +3682,56 @@
         "summary": "Get Recalls"
       }
     },
+    "/recalls/{recall_id}": {
+      "get": {
+        "operationId": "get_recall_recalls__recall_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "recall_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Recall Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RecallItemBody"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Recall"
+      }
+    },
     "/recalls/{recall_id}/book": {
       "post": {
         "operationId": "post_book_recalls__recall_id__book_post",
