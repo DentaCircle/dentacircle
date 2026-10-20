@@ -25,6 +25,7 @@ from dentacircle.domain.follow_up import (
     needs_follow_up,
 )
 from dentacircle.domain.patient import display_id
+from dentacircle.domain.timeline import FOLLOW_UP_MOVE_KIND
 from dentacircle.models.appointment import Appointment
 from dentacircle.models.follow_up import FollowUp
 from dentacircle.models.patient import Patient
@@ -35,6 +36,7 @@ from dentacircle.repositories.patient_repository import PatientRepository
 from dentacircle.services.audit_service import record
 from dentacircle.services.clinic_day_service import ClinicNotFoundError
 from dentacircle.services.patient_service import PatientNotFoundError
+from dentacircle.services.timeline_service import record as record_timeline
 
 if TYPE_CHECKING:
     from dentacircle.services.appointment_service import AppointmentView
@@ -100,6 +102,19 @@ class FollowUpQueuePage:
     page_size: int
 
 
+def _lock_patient(session: Session, clinic_id: UUID, patient_id: UUID) -> Patient:
+    """Lock the patient row without flushing a pending timeline insert.
+
+    That insert references the patient. Flushing it first takes a key share lock
+    and waits behind another transaction that already holds the row.
+    """
+    with session.no_autoflush:
+        patient = PatientRepository(session, clinic_id).get(patient_id, lock=True)
+    if patient is None:
+        raise RuntimeError("visit points at a missing patient")
+    return patient
+
+
 def record_incomplete_care(
     session: Session,
     clinic_id: UUID,
@@ -117,9 +132,7 @@ def record_incomplete_care(
     seven-day rule still applies, and only when the patient is active with an open item.
     An inactive patient still has the booked follow-up closed, and gets no new row.
     """
-    patient = PatientRepository(session, clinic_id).get(appointment.patient_id, lock=True)
-    if patient is None:
-        raise RuntimeError("visit points at a missing patient")
+    patient = _lock_patient(session, clinic_id, appointment.patient_id)
     complete_booked_follow_up(session, clinic_id, actor_user_id, appointment)
     if due_on is not None:
         if patient.status != "active":
@@ -170,6 +183,14 @@ def _save_dated_follow_up(
             "create",
             changed_fields=[],
         )
+        record_timeline(
+            session,
+            clinic_id,
+            actor_user_id,
+            patient_id,
+            "follow_up_created",
+            follow_up_id=follow_up.id,
+        )
         return
     existing.appointment_id = appointment_id
     changed = ["appointment_id"]
@@ -184,6 +205,14 @@ def _save_dated_follow_up(
         existing.id,
         "update",
         changed_fields=changed,
+    )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        patient_id,
+        "follow_up_updated",
+        follow_up_id=existing.id,
     )
 
 
@@ -224,6 +253,14 @@ def create_manual_follow_up(
         follow_up.id,
         "create",
         changed_fields=[],
+    )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        patient.id,
+        "follow_up_created",
+        follow_up_id=follow_up.id,
     )
     try:
         session.flush()
@@ -306,9 +343,7 @@ def release_booked_follow_up(
     The patient lock is taken here, then the follow-up. `due_on` and the visit id stay.
     A visit that is not the booked visit does nothing.
     """
-    patient = PatientRepository(session, clinic_id).get(appointment.patient_id, lock=True)
-    if patient is None:
-        raise RuntimeError("visit points at a missing patient")
+    _lock_patient(session, clinic_id, appointment.patient_id)
     _move_booked_follow_up(session, clinic_id, actor_user_id, appointment.id, "contacted")
 
 
@@ -333,6 +368,14 @@ def cancel_follow_up(
         row.id,
         "status_change",
         changed_fields=["status"],
+    )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        row.patient_id,
+        "follow_up_cancelled",
+        follow_up_id=row.id,
     )
 
 
@@ -359,6 +402,14 @@ def _move_booked_follow_up(
         "status_change",
         changed_fields=["status"],
     )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        row.patient_id,
+        FOLLOW_UP_MOVE_KIND[status],
+        follow_up_id=row.id,
+    )
     session.flush()
 
 
@@ -384,6 +435,14 @@ def mark_contacted(
         row.id,
         "status_change",
         changed_fields=["status"],
+    )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        row.patient_id,
+        "follow_up_contacted",
+        follow_up_id=row.id,
     )
     today = now.astimezone(_zone(session, clinic_id)).date()
     return _queue_item(row, patient, today)
@@ -427,6 +486,14 @@ def book_follow_up(
         row.id,
         "status_change",
         changed_fields=["status", "booked_appointment_id"],
+    )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        row.patient_id,
+        "follow_up_booked",
+        follow_up_id=row.id,
     )
     return appointment
 

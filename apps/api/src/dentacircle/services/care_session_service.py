@@ -21,6 +21,7 @@ from dentacircle.repositories.care_repository import CareRepository
 from dentacircle.repositories.care_session_repository import CareSessionRepository
 from dentacircle.services.audit_service import record
 from dentacircle.services.care_service import move_locked_item
+from dentacircle.services.timeline_service import record as record_timeline
 
 
 class CareSessionNotFoundError(Exception):
@@ -121,6 +122,14 @@ def record_session(
         row.id,
         "create",
         changed_fields=[],
+    )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        appointment.patient_id,
+        "care_session_recorded",
+        care_session_id=row.id,
     )
     session.flush()
     session.refresh(row)

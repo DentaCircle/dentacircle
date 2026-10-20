@@ -22,6 +22,7 @@ from dentacircle.domain.recall import (
     recall_due_on,
     recall_timing,
 )
+from dentacircle.domain.timeline import RECALL_MOVE_KIND
 from dentacircle.models.appointment import Appointment
 from dentacircle.models.appointment_type import AppointmentType
 from dentacircle.models.patient import Patient
@@ -32,9 +33,23 @@ from dentacircle.repositories.patient_repository import PatientRepository
 from dentacircle.repositories.recall_repository import RecallRepository
 from dentacircle.services.audit_service import record
 from dentacircle.services.clinic_day_service import ClinicNotFoundError
+from dentacircle.services.timeline_service import record as record_timeline
 
 if TYPE_CHECKING:
     from dentacircle.services.appointment_service import AppointmentView
+
+
+def _lock_patient(session: Session, clinic_id: UUID, patient_id: UUID) -> Patient:
+    """Lock the patient row without flushing a pending timeline insert.
+
+    That insert references the patient. Flushing it first takes a key share lock
+    and waits behind another transaction that already holds the row.
+    """
+    with session.no_autoflush:
+        patient = PatientRepository(session, clinic_id).get(patient_id, lock=True)
+    if patient is None:
+        raise RuntimeError("visit points at a missing patient")
+    return patient
 
 
 def record_recall(
@@ -51,9 +66,7 @@ def record_recall(
     A type with no interval writes nothing. An inactive patient still closes a booked
     recall and gets no new row. A booked recall for a different visit is left alone.
     """
-    patient = PatientRepository(session, clinic_id).get(appointment.patient_id, lock=True)
-    if patient is None:
-        raise RuntimeError("visit points at a missing patient")
+    patient = _lock_patient(session, clinic_id, appointment.patient_id)
     _move_booked_recall(session, clinic_id, actor_user_id, appointment.id, "completed")
     appointment_type = AppointmentTypeRepository(session, clinic_id).get(
         appointment.appointment_type_id
@@ -85,6 +98,14 @@ def record_recall(
             "create",
             changed_fields=[],
         )
+        record_timeline(
+            session,
+            clinic_id,
+            actor_user_id,
+            patient.id,
+            "recall_created",
+            recall_id=recall.id,
+        )
         return
     if existing.status not in MOVABLE_RECALL_STATUSES:
         return
@@ -100,6 +121,14 @@ def record_recall(
         "update",
         changed_fields=["appointment_type_id", "source_appointment_id", "due_on"],
     )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        patient.id,
+        "recall_updated",
+        recall_id=existing.id,
+    )
 
 
 def release_booked_recall(
@@ -113,9 +142,7 @@ def release_booked_recall(
     The patient lock is taken here, then the recall. `due_on` and the visit id stay.
     A visit that is not the booked visit does nothing.
     """
-    patient = PatientRepository(session, clinic_id).get(appointment.patient_id, lock=True)
-    if patient is None:
-        raise RuntimeError("visit points at a missing patient")
+    _lock_patient(session, clinic_id, appointment.patient_id)
     _move_booked_recall(session, clinic_id, actor_user_id, appointment.id, "contacted")
 
 
@@ -139,6 +166,14 @@ def _move_booked_recall(
         row.id,
         "status_change",
         changed_fields=["status"],
+    )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        row.patient_id,
+        RECALL_MOVE_KIND[status],
+        recall_id=row.id,
     )
     session.flush()
 
@@ -265,6 +300,14 @@ def mark_contacted(
         "status_change",
         changed_fields=["status"],
     )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        row.patient_id,
+        "recall_contacted",
+        recall_id=row.id,
+    )
     return _require_item(session, clinic_id, row.id, now)
 
 
@@ -307,6 +350,14 @@ def book_recall(
         "status_change",
         changed_fields=["status", "booked_appointment_id"],
     )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        row.patient_id,
+        "recall_booked",
+        recall_id=row.id,
+    )
     return appointment
 
 
@@ -331,6 +382,14 @@ def cancel_recall(
         row.id,
         "status_change",
         changed_fields=["status"],
+    )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        row.patient_id,
+        "recall_cancelled",
+        recall_id=row.id,
     )
 
 

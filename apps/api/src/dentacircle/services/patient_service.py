@@ -22,6 +22,7 @@ from dentacircle.repositories.clinic_day_repository import ClinicDayRepository
 from dentacircle.repositories.patient_repository import PatientRepository
 from dentacircle.services.audit_service import record
 from dentacircle.services.clinic_day_service import ClinicNotFoundError
+from dentacircle.services.timeline_service import record as record_timeline
 
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
@@ -83,6 +84,7 @@ def register_patient(
     )
     repository.add(patient)
     record(session, clinic_id, actor_user_id, "patient", patient.id, "create", changed_fields=[])
+    record_timeline(session, clinic_id, actor_user_id, patient.id, "patient_registered")
     session.flush()
     session.refresh(patient)
     return _view(patient)

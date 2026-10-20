@@ -7,11 +7,13 @@ from uuid import UUID, uuid4
 from sqlalchemy.orm import Session
 
 from dentacircle.domain.care import can_move, can_rename, clean_label, is_open
+from dentacircle.domain.timeline import CARE_ITEM_STATUS_KIND
 from dentacircle.models.care_item import CareItem
 from dentacircle.models.care_plan import CarePlan
 from dentacircle.repositories.care_repository import CareRepository
 from dentacircle.repositories.patient_repository import PatientRepository
 from dentacircle.services.audit_service import record
+from dentacircle.services.timeline_service import record as record_timeline
 
 
 class CareNotFoundError(Exception):
@@ -78,6 +80,14 @@ def add_item(
     item = CareItem(id=uuid4(), care_plan_id=plan.id, name=cleaned, status="planned")
     repository.add_item(item)
     record(session, clinic_id, actor_user_id, "care_item", item.id, "create", changed_fields=[])
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        plan.patient_id,
+        "care_item_added",
+        care_item_id=item.id,
+    )
     session.flush()
     session.refresh(item)
     return _item_view(item)
@@ -205,6 +215,17 @@ def move_locked_item(
         row.id,
         "status_change",
         changed_fields=["status"],
+    )
+    plan = CareRepository(session, clinic_id).get_plan(row.care_plan_id)
+    if plan is None:
+        raise RuntimeError("care item points at a missing plan")
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        plan.patient_id,
+        CARE_ITEM_STATUS_KIND[target],
+        care_item_id=row.id,
     )
     session.flush()
 
