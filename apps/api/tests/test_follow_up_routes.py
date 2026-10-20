@@ -14,7 +14,11 @@ from sqlalchemy.orm import Session
 
 from dentacircle.core.database import get_engine
 from dentacircle.domain.appointment import APPOINTMENT_ROLES
-from dentacircle.domain.follow_up import FOLLOW_UP_CREATE_ROLES, FOLLOW_UP_READ_ROLES
+from dentacircle.domain.follow_up import (
+    FOLLOW_UP_CREATE_ROLES,
+    FOLLOW_UP_QUEUE_ROLES,
+    FOLLOW_UP_READ_ROLES,
+)
 from dentacircle.main import create_app
 from dentacircle.models.app_user import AppUser
 from dentacircle.models.appointment import Appointment
@@ -179,6 +183,7 @@ def test_follow_up_routes_declare_their_roles(monkeypatch: pytest.MonkeyPatch) -
     found = _route_roles(application)
     assert found[("GET", "/patients/{patient_id}/follow-up")] == set(FOLLOW_UP_READ_ROLES)
     assert found[("POST", "/patients/{patient_id}/follow-up")] == set(FOLLOW_UP_CREATE_ROLES)
+    assert found[("GET", "/follow-ups")] == set(FOLLOW_UP_QUEUE_ROLES)
     assert found[("POST", "/appointments/{appointment_id}/status")] == set(APPOINTMENT_ROLES)
 
 

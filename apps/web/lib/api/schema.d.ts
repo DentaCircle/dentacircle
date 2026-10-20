@@ -314,6 +314,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/follow-ups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Follow Ups */
+        get: operations["get_follow_ups_follow_ups_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -718,6 +735,17 @@ export interface components {
              */
             status: "scheduled" | "contacted" | "booked";
         };
+        /** FollowUpListResponse */
+        FollowUpListResponse: {
+            /** Items */
+            items: components["schemas"]["QueueItemBody"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
         /** FollowUpResponse */
         FollowUpResponse: {
             follow_up: components["schemas"]["FollowUpBody"] | null;
@@ -834,6 +862,44 @@ export interface components {
             full_name?: string | null;
             /** Phone */
             phone?: string | null;
+        };
+        /** QueueItemBody */
+        QueueItemBody: {
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            patient: components["schemas"]["QueuePatientBody"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "scheduled" | "contacted" | "booked";
+            /**
+             * Timing
+             * @enum {string}
+             */
+            timing: "overdue" | "due_today" | "upcoming";
+        };
+        /** QueuePatientBody */
+        QueuePatientBody: {
+            /** Display Id */
+            display_id: string;
+            /** Full Name */
+            full_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Phone */
+            phone: string;
         };
         /** RecordBody */
         RecordBody: {
@@ -1899,6 +1965,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ClinicianResponse"][];
+                };
+            };
+        };
+    };
+    get_follow_ups_follow_ups_get: {
+        parameters: {
+            query?: {
+                view?: "due" | "all";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowUpListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

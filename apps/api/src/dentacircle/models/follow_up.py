@@ -37,6 +37,11 @@ class FollowUp(ClinicScoped, Base):
             ["appointment.id", "appointment.clinic_id"],
             name="fk_follow_up_appointment_id_clinic_id",
         ),
+        ForeignKeyConstraint(
+            ["booked_appointment_id", "clinic_id"],
+            ["appointment.id", "appointment.clinic_id"],
+            name="fk_follow_up_booked_appointment_id_clinic_id",
+        ),
         Index(
             "uq_follow_up_open_patient",
             "clinic_id",
@@ -50,6 +55,7 @@ class FollowUp(ClinicScoped, Base):
     id: Mapped[UUID] = mapped_column(primary_key=True)
     patient_id: Mapped[UUID] = mapped_column()
     appointment_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    booked_appointment_id: Mapped[UUID | None] = mapped_column(nullable=True)
     status: Mapped[str] = mapped_column(
         Text, default="scheduled", server_default=text("'scheduled'")
     )

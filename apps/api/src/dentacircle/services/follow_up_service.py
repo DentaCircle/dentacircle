@@ -9,9 +9,18 @@ from psycopg.errors import UniqueViolation
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from dentacircle.domain.follow_up import due_date, due_on_problem, needs_follow_up
+from dentacircle.domain.follow_up import (
+    DUE_QUEUE_STATUSES,
+    OPEN_FOLLOW_UP_STATUSES,
+    due_date,
+    due_on_problem,
+    follow_up_timing,
+    needs_follow_up,
+)
+from dentacircle.domain.patient import display_id
 from dentacircle.models.appointment import Appointment
 from dentacircle.models.follow_up import FollowUp
+from dentacircle.models.patient import Patient
 from dentacircle.repositories.care_repository import CareRepository
 from dentacircle.repositories.clinic_day_repository import ClinicDayRepository
 from dentacircle.repositories.follow_up_repository import FollowUpRepository
@@ -46,6 +55,31 @@ class FollowUpView:
     status: str
     due_on: date
     created_at: datetime
+
+
+@dataclass(frozen=True)
+class FollowUpPatientView:
+    id: UUID
+    display_id: str
+    full_name: str
+    phone: str
+
+
+@dataclass(frozen=True)
+class FollowUpQueueItemView:
+    id: UUID
+    status: str
+    due_on: date
+    timing: str
+    patient: FollowUpPatientView
+
+
+@dataclass(frozen=True)
+class FollowUpQueuePage:
+    items: list[FollowUpQueueItemView]
+    total: int
+    page: int
+    page_size: int
 
 
 def record_incomplete_care(
@@ -190,6 +224,36 @@ def get_open_follow_up(session: Session, clinic_id: UUID, patient_id: UUID) -> F
     return _view(row)
 
 
+def list_follow_ups(
+    session: Session,
+    clinic_id: UUID,
+    view: str,
+    page: int,
+    page_size: int,
+    now: datetime,
+) -> FollowUpQueuePage:
+    """Open follow-ups for this clinic, with timing calculated from clinic-local today."""
+    today = now.astimezone(_zone(session, clinic_id)).date()
+    if view == "due":
+        statuses: frozenset[str] = DUE_QUEUE_STATUSES
+        due_on_on_or_before: date | None = today
+    else:
+        statuses = OPEN_FOLLOW_UP_STATUSES
+        due_on_on_or_before = None
+    rows, total = FollowUpRepository(session, clinic_id).list_queue(
+        statuses,
+        page,
+        page_size,
+        due_on_on_or_before=due_on_on_or_before,
+    )
+    return FollowUpQueuePage(
+        items=[_queue_item(follow_up, patient, today) for follow_up, patient in rows],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
+
+
 def _view(row: FollowUp) -> FollowUpView:
     return FollowUpView(
         id=row.id,
@@ -198,6 +262,21 @@ def _view(row: FollowUp) -> FollowUpView:
         status=row.status,
         due_on=row.due_on,
         created_at=row.created_at,
+    )
+
+
+def _queue_item(row: FollowUp, patient: Patient, today: date) -> FollowUpQueueItemView:
+    return FollowUpQueueItemView(
+        id=row.id,
+        status=row.status,
+        due_on=row.due_on,
+        timing=follow_up_timing(row.due_on, today),
+        patient=FollowUpPatientView(
+            id=patient.id,
+            display_id=display_id(patient.patient_number),
+            full_name=patient.full_name,
+            phone=patient.phone,
+        ),
     )
 
 

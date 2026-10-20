@@ -45,13 +45,14 @@ def test_upgrade_downgrade_upgrade(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0011_null_visit"
+    assert _version(throwaway_database_url) == "0012_booked_appointment"
     assert "follow_up" in _public_tables(throwaway_database_url)
     assert _columns(throwaway_database_url, "follow_up") == {
         "id",
         "clinic_id",
         "patient_id",
         "appointment_id",
+        "booked_appointment_id",
         "status",
         "due_on",
         "created_at",
@@ -65,7 +66,7 @@ def test_upgrade_downgrade_upgrade(
     assert "care_session" in _public_tables(throwaway_database_url)
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0011_null_visit"
+    assert _version(throwaway_database_url) == "0012_booked_appointment"
     assert "follow_up" in _public_tables(throwaway_database_url)
 
 
@@ -138,8 +139,43 @@ def test_appointment_id_is_nullable_and_downgrade_refuses_a_null(
     assert _version(throwaway_database_url) == "0010_follow_ups"
     assert _appointment_nullable(throwaway_database_url) is False
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0011_null_visit"
+    assert _version(throwaway_database_url) == "0012_booked_appointment"
     assert _appointment_nullable(throwaway_database_url) is True
+
+
+def test_booked_appointment_column_upgrades_and_downgrades(
+    throwaway_database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
+    clear_engine()
+    config = _config()
+    command.upgrade(config, "0011_null_visit")
+    assert "booked_appointment_id" not in _columns(throwaway_database_url, "follow_up")
+    command.upgrade(config, "0012_booked_appointment")
+    assert "booked_appointment_id" in _columns(throwaway_database_url, "follow_up")
+    command.downgrade(config, "0011_null_visit")
+    assert "booked_appointment_id" not in _columns(throwaway_database_url, "follow_up")
+    command.upgrade(config, "head")
+    assert "booked_appointment_id" in _columns(throwaway_database_url, "follow_up")
+    assert _version(throwaway_database_url) == "0012_booked_appointment"
+
+
+def test_booked_appointment_cannot_point_outside_its_clinic(
+    migrated: str, db_session: Session
+) -> None:
+    _seed(db_session)
+    db_session.commit()
+    with pytest.raises(IntegrityError):
+        _insert(
+            db_session,
+            _FOLLOW_UP,
+            _CLINIC,
+            _PATIENT,
+            _VISIT,
+            status="booked",
+            due_on=_DUE,
+            booked_appointment_id=_OTHER_VISIT,
+        )
 
 
 def test_a_follow_up_cannot_point_outside_its_clinic(migrated: str, db_session: Session) -> None:
@@ -247,6 +283,7 @@ def _insert(
     visit_id: str | None,
     status: str | None,
     due_on: date,
+    booked_appointment_id: str | None = None,
 ) -> None:
     if status is None:
         session.execute(
@@ -264,11 +301,28 @@ def _insert(
             },
         )
         return
+    if booked_appointment_id is None:
+        session.execute(
+            text(
+                "INSERT INTO follow_up"
+                " (id, clinic_id, patient_id, appointment_id, status, due_on)"
+                " VALUES (:id, :clinic_id, :patient_id, :visit_id, :status, :due_on)"
+            ),
+            {
+                "id": follow_up_id,
+                "clinic_id": clinic_id,
+                "patient_id": patient_id,
+                "visit_id": visit_id,
+                "status": status,
+                "due_on": due_on,
+            },
+        )
+        return
     session.execute(
         text(
             "INSERT INTO follow_up"
-            " (id, clinic_id, patient_id, appointment_id, status, due_on)"
-            " VALUES (:id, :clinic_id, :patient_id, :visit_id, :status, :due_on)"
+            " (id, clinic_id, patient_id, appointment_id, status, due_on, booked_appointment_id)"
+            " VALUES (:id, :clinic_id, :patient_id, :visit_id, :status, :due_on, :booked)"
         ),
         {
             "id": follow_up_id,
@@ -277,6 +331,7 @@ def _insert(
             "visit_id": visit_id,
             "status": status,
             "due_on": due_on,
+            "booked": booked_appointment_id,
         },
     )
 
