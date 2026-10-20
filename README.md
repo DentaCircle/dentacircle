@@ -33,6 +33,8 @@ Python 3.12 is pinned in `apps/api/.python-version`. `uv sync` installs it. Node
 
 `LOG_LEVEL` defaults to `INFO`. Set `LOG_LEVEL=DEBUG` in `.env` on your machine when you need a full traceback. That is for local work with synthetic data.
 
+The M3 click-through, with who signs in and what to click, is in [docs/demo-m3.md](docs/demo-m3.md).
+
 `SESSION_TTL_HOURS` defaults to 12. `COOKIE_SECURE` defaults to true. `.env.example` sets it to false so the session cookie works on `http://localhost`.
 
 ## Hours and appointment types
