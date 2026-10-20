@@ -139,6 +139,91 @@ test("a timeout or a dropped request uses the same sentence", async () => {
   }
 });
 
+test("complete can send a follow-up date, and an empty date sends none", async () => {
+  const user = userEvent.setup();
+  const fetchMock = vi.fn(() => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({}) }));
+  vi.stubGlobal("fetch", fetchMock);
+  const view = render(<StatusButton appointmentId="visit-1" returnHref={HREF} target="completed" />);
+  await user.click(screen.getByRole("button", { name: "Complete" }));
+  expect(screen.getByLabelText("Follow-up date")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Yes" }));
+  await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  expect(fetchMock).toHaveBeenCalledWith(
+    "/api/appointments/visit-1/status",
+    expect.objectContaining({ body: JSON.stringify({ status: "completed" }) }),
+  );
+  view.unmount();
+
+  fetchMock.mockClear();
+  push.mockReset();
+  render(<StatusButton appointmentId="visit-1" returnHref={HREF} target="completed" />);
+  await user.click(screen.getByRole("button", { name: "Complete" }));
+  await user.type(screen.getByLabelText("Follow-up date"), "2026-10-24");
+  await user.click(screen.getByRole("button", { name: "Yes" }));
+  await waitFor(() =>
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/appointments/visit-1/status",
+      expect.objectContaining({
+        body: JSON.stringify({ status: "completed", follow_up_due_on: "2026-10-24" }),
+      }),
+    ),
+  );
+});
+
+test("a bad follow-up date stays in the confirm box", async () => {
+  const user = userEvent.setup();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 422,
+        json: () => Promise.resolve(validationBody("body.follow_up_due_on: before_today")),
+      }),
+    ),
+  );
+  render(<StatusButton appointmentId="visit-1" returnHref={HREF} target="completed" />);
+  await user.click(screen.getByRole("button", { name: "Complete" }));
+  await user.click(screen.getByRole("button", { name: "Yes" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Choose a date from today through the next year.",
+  );
+  expect(screen.getByText("Mark as completed?")).toBeInTheDocument();
+  expect(push).not.toHaveBeenCalled();
+});
+
+test("keep drops a follow-up date error before complete is opened again", async () => {
+  const user = userEvent.setup();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 422,
+        json: () => Promise.resolve(validationBody("body.follow_up_due_on: before_today")),
+      }),
+    ),
+  );
+  render(<StatusButton appointmentId="visit-1" returnHref={HREF} target="completed" />);
+  await user.click(screen.getByRole("button", { name: "Complete" }));
+  await user.click(screen.getByRole("button", { name: "Yes" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Choose a date from today through the next year.",
+  );
+  await user.click(screen.getByRole("button", { name: "Keep" }));
+  await user.click(screen.getByRole("button", { name: "Complete" }));
+  expect(screen.getByText("Mark as completed?")).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
+test("no-show does not ask for a follow-up date", async () => {
+  const user = userEvent.setup();
+  render(<StatusButton appointmentId="visit-1" returnHref={HREF} target="no_show" />);
+  await user.click(screen.getByRole("button", { name: "No-show" }));
+  expect(screen.getByText("Mark as no-show?")).toBeInTheDocument();
+  expect(screen.queryByLabelText("Follow-up date")).not.toBeInTheDocument();
+});
+
 function validationBody(message: string): { error: { code: string; message: string; request_id: string } } {
   return { error: { code: "validation_error", message, request_id: "req-1" } };
 }

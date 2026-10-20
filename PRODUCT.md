@@ -202,14 +202,25 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   `(id, clinic_id)` on `appointment` and `care_item` so a session cannot point at another
   clinic's visit or item.
 
-- **Incomplete care (decided in S2.2):** S2.2 owns the `follow_up` table. S2.3 is manual
-  create and the clinician-set due date on completion. A follow-up is written only when a
-  visit moves to `completed` and the patient is active with a `planned` or `started` item
-  on any plan, whether or not that visit has a care session. `due_on` is the clinic-local
-  completion date plus 7 days. An existing open follow-up keeps its status and due date;
-  only `appointment_id` moves to the visit just completed. An inactive patient still
-  completes, and no follow-up is written. A follow-up stays open when the care is later
-  finished, until a coordinator closes it.
+- **Incomplete care (decided in S2.2):** S2.2 owns the `follow_up` table. A follow-up is
+  written when a visit moves to `completed` and the patient is active with a `planned` or
+  `started` item on any plan, whether or not that visit has a care session. `due_on` is the
+  clinic-local completion date plus 7 days, unless the clinician sets a date (S2.3). An
+  existing open follow-up keeps its status. Without a clinician date, only `appointment_id`
+  moves to the visit just completed. An inactive patient still completes, and no follow-up
+  is written. A follow-up stays open when the care is later finished, until a coordinator
+  closes it.
+
+- **Manual follow-up and clinician date (decided in S2.3):** `follow_up.appointment_id` is
+  nullable so a follow-up can exist with no visit. `clinician`, `receptionist` and
+  `clinic_admin` may `POST /patients/{id}/follow-up` with `{due_on}` for an active patient
+  who has no open follow-up. `due_on` is the clinic-local day of the request through 365
+  days ahead. A second open follow-up is refused. On `POST /appointments/{id}/status` with
+  `status: completed`, an optional `follow_up_due_on` creates or updates the open follow-up
+  to that date and links it to the visit, even when no care item is open. The date replaces
+  an existing open follow-up's date; its status stays. The same date window applies. An
+  inactive patient still completes and the date is dropped. Without the date, S2.2 is
+  unchanged.
 
 ## Open decisions (need the developer's call)
 
@@ -310,4 +321,11 @@ and clinic_admin. `/patients/[id]/care` shows the due date and badge above the p
 `inventory_admin` still gets 403. Migration `0010` adds `follow_up`. Finishing the last care
 item does not close the follow-up.
 
-Next slice: S2.3 manual follow-up create and a clinician-set due date on completion.
+Clinician, receptionist, and clinic admin can create a follow-up by hand on Care when the
+patient is active and has no open follow-up. The date is today through 365 days, clinic-local,
+and the row has no visit. On the calendar, confirming Complete can set that date. The date
+creates a follow-up even when every care item is finished, and it replaces the date on an
+existing open follow-up. Migration `0011` allows a null visit. Without a date, completion
+still uses the seven-day rule from S2.2.
+
+Next slice: S2.4 coordinator queue, with due and overdue, mark contacted, and book from the queue.

@@ -49,7 +49,7 @@ class FollowUp(ClinicScoped, Base):
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     patient_id: Mapped[UUID] = mapped_column()
-    appointment_id: Mapped[UUID] = mapped_column()
+    appointment_id: Mapped[UUID | None] = mapped_column(nullable=True)
     status: Mapped[str] = mapped_column(
         Text, default="scheduled", server_default=text("'scheduled'")
     )

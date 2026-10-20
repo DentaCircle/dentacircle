@@ -103,6 +103,7 @@ class StatusBody(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: Literal["arrived", "in_progress", "completed", "no_show"]
+    follow_up_due_on: date | None = None
 
 
 class RescheduleBody(BaseModel):
@@ -375,6 +376,7 @@ def post_appointment_status(
             appointment_id,
             body.status,
             datetime.now(UTC),
+            follow_up_due_on=body.follow_up_due_on,
         )
     except AppointmentFieldError as exc:
         raise _field_error(exc, "body") from None

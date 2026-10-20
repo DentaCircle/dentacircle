@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import type { CalendarNotice } from "@/features/calendar/links";
 import { changeAppointmentStatus } from "@/lib/api/client";
 import type { ApiError } from "@/lib/api/errors";
@@ -43,6 +45,7 @@ export function StatusButton({
   const [isConfirming, setIsConfirming] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [followUpDueOn, setFollowUpDueOn] = useState("");
   const confirm = CONFIRMS[target] ?? null;
 
   async function onConfirm() {
@@ -50,7 +53,8 @@ export function StatusButton({
     isSubmittingRef.current = true;
     setIsSubmitting(true);
     setMessage(null);
-    const result = await changeAppointmentStatus(appointmentId, target);
+    const dueOn = target === "completed" && followUpDueOn !== "" ? followUpDueOn : undefined;
+    const result = await changeAppointmentStatus(appointmentId, target, dueOn);
     if (result.ok) {
       router.push(withNotice(returnHref, NOTICES[target]));
       router.refresh();
@@ -68,7 +72,14 @@ export function StatusButton({
 
   if (confirm !== null && !isConfirming) {
     return (
-      <Button type="button" variant="outline" onClick={() => setIsConfirming(true)}>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => {
+          setMessage(null);
+          setIsConfirming(true);
+        }}
+      >
         {LABELS[target]}
       </Button>
     );
@@ -76,19 +87,39 @@ export function StatusButton({
 
   if (confirm !== null) {
     return (
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-col gap-2">
         <p>{confirm}</p>
-        <Button type="button" onClick={onConfirm} disabled={isSubmitting}>
-          Yes
-        </Button>
-        <Button type="button" variant="outline" onClick={() => setIsConfirming(false)}>
-          Keep
-        </Button>
-        {message === null ? null : (
-          <p role="alert" className="text-sm text-destructive">
-            {message}
-          </p>
-        )}
+        {target === "completed" ? (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor={`follow-up-${appointmentId}`}>Follow-up date</Label>
+            <Input
+              id={`follow-up-${appointmentId}`}
+              type="date"
+              value={followUpDueOn}
+              onChange={(event) => setFollowUpDueOn(event.target.value)}
+            />
+          </div>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" onClick={onConfirm} disabled={isSubmitting}>
+            Yes
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setMessage(null);
+              setIsConfirming(false);
+            }}
+          >
+            Keep
+          </Button>
+          {message === null ? null : (
+            <p role="alert" className="text-sm text-destructive">
+              {message}
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -115,6 +146,12 @@ function failureMessage(error: ApiError): string {
   }
   if (error.status === 422 && error.message.includes("not_started")) {
     return "No-show can only be set after the start time.";
+  }
+  if (
+    error.status === 422 &&
+    (error.message.includes("before_today") || error.message.includes("beyond_horizon"))
+  ) {
+    return "Choose a date from today through the next year.";
   }
   return "Something went wrong.";
 }

@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from dentacircle.core.database import get_engine
 from dentacircle.domain.appointment import APPOINTMENT_ROLES
-from dentacircle.domain.follow_up import FOLLOW_UP_READ_ROLES
+from dentacircle.domain.follow_up import FOLLOW_UP_CREATE_ROLES, FOLLOW_UP_READ_ROLES
 from dentacircle.main import create_app
 from dentacircle.models.app_user import AppUser
 from dentacircle.models.appointment import Appointment
@@ -138,6 +138,25 @@ def test_every_role_on_the_read_leaves_the_table_unchanged(api: TestClient) -> N
     assert _snapshot() == before
 
 
+def test_get_returns_a_null_appointment_for_a_manual_follow_up(api: TestClient) -> None:
+    patient_id = _patient(api)
+    cookies = _cookie(api, "clinician@x.test")
+    due_on = datetime.now(UTC).astimezone(_ZONE).date() + timedelta(days=2)
+    created = api.post(
+        f"/patients/{patient_id}/follow-up",
+        cookies=cookies,
+        json={"due_on": due_on.isoformat()},
+    )
+    assert created.status_code == 201
+    found = api.get(f"/patients/{patient_id}/follow-up", cookies=cookies)
+    assert found.status_code == 200
+    row = found.json()["follow_up"]
+    assert row["appointment_id"] is None
+    assert row["due_on"] == due_on.isoformat()
+    assert row["status"] == "scheduled"
+    assert set(row) == _FIELDS
+
+
 def test_another_clinic_is_not_found(api: TestClient) -> None:
     own = _patient(api)
     other = _other_patient()
@@ -159,6 +178,7 @@ def test_follow_up_routes_declare_their_roles(monkeypatch: pytest.MonkeyPatch) -
     assert unmarked_routes(application) == []
     found = _route_roles(application)
     assert found[("GET", "/patients/{patient_id}/follow-up")] == set(FOLLOW_UP_READ_ROLES)
+    assert found[("POST", "/patients/{patient_id}/follow-up")] == set(FOLLOW_UP_CREATE_ROLES)
     assert found[("POST", "/appointments/{appointment_id}/status")] == set(APPOINTMENT_ROLES)
 
 

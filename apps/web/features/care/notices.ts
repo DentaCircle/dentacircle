@@ -5,7 +5,8 @@ export type CareNotice =
   | "started"
   | "completed"
   | "cancelled"
-  | "changed";
+  | "changed"
+  | "follow_up_open";
 
 export const CARE_NOTICES: Record<CareNotice, string> = {
   plan_added: "Care plan added.",
@@ -15,6 +16,7 @@ export const CARE_NOTICES: Record<CareNotice, string> = {
   completed: "Marked completed.",
   cancelled: "Item cancelled.",
   changed: "This care item has already changed.",
+  follow_up_open: "Already has an open follow-up.",
 };
 
 const CARE_NOTICE_NAMES: readonly CareNotice[] = [
@@ -25,6 +27,7 @@ const CARE_NOTICE_NAMES: readonly CareNotice[] = [
   "completed",
   "cancelled",
   "changed",
+  "follow_up_open",
 ];
 
 export function isCareNotice(value: string | undefined): value is CareNotice {

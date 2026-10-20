@@ -2,6 +2,7 @@
 
 const CARE_READ_ROLES = ["clinician", "receptionist", "clinic_admin"] as const;
 const CARE_WRITE_ROLES = ["clinician", "clinic_admin"] as const;
+const FOLLOW_UP_CREATE_ROLES = ["clinician", "receptionist", "clinic_admin"] as const;
 
 export function canReadCare(roles: readonly string[]): boolean {
   return roles.some((role) => CARE_READ_ROLES.some((allowed) => allowed === role));
@@ -9,4 +10,8 @@ export function canReadCare(roles: readonly string[]): boolean {
 
 export function canWriteCare(roles: readonly string[]): boolean {
   return roles.some((role) => CARE_WRITE_ROLES.some((allowed) => allowed === role));
+}
+
+export function canCreateFollowUp(roles: readonly string[]): boolean {
+  return roles.some((role) => FOLLOW_UP_CREATE_ROLES.some((allowed) => allowed === role));
 }
