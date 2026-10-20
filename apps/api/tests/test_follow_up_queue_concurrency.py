@@ -3,7 +3,7 @@
 import threading
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -87,7 +87,7 @@ def test_two_books_create_one_appointment(database: str) -> None:
                     actor_id,
                     type_id,
                     starts_at,
-                    datetime.now(UTC),
+                    _NOW,
                 )
             except FollowUpInvalidStatusError:
                 return "conflict"

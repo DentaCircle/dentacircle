@@ -19,6 +19,7 @@ export function BookScreen({
   today,
   submitUrl,
   doneUrl,
+  closedMessage,
 }: {
   patientId?: string;
   types: BookChoice[];
@@ -26,6 +27,7 @@ export function BookScreen({
   today: string;
   submitUrl: string;
   doneUrl: string;
+  closedMessage?: string;
 }) {
   const router = useRouter();
   const isSubmittingRef = useRef(false);
@@ -110,8 +112,11 @@ export function BookScreen({
       }
       const errorBody: unknown = await response.json().catch(() => null);
       const code = errorCode(errorBody);
-      if (response.status === 404 || code === "invalid_status" || code === "patient_inactive") {
-        setIsClosed(true);
+      const isClosedError =
+        response.status === 404 || code === "invalid_status" || code === "patient_inactive";
+      if (isClosedError) {
+        if (closedMessage !== undefined) setIsClosed(true);
+        else setMessage("Something went wrong.");
       } else if (response.status === 409) {
         setSelected(null);
         setMessage("That time was just taken. Pick another.");
@@ -128,8 +133,8 @@ export function BookScreen({
     setIsSubmitting(false);
   }
 
-  if (isClosed) {
-    return <p role="alert">This follow-up is no longer open.</p>;
+  if (isClosed && closedMessage !== undefined) {
+    return <p role="alert">{closedMessage}</p>;
   }
 
   return (

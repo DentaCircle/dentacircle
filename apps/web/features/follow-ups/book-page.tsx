@@ -32,6 +32,7 @@ export function FollowUpBookPage(props: FollowUpBookPageProps) {
           today={props.today}
           submitUrl={`/api/follow-ups/${props.followUpId}/book`}
           doneUrl={followUpsHref("all", 1, "booked")}
+          closedMessage="This follow-up is no longer open."
         />
       ) : null}
     </section>

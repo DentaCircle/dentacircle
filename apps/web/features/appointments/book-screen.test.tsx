@@ -186,6 +186,7 @@ test("an already booked follow-up is replaced with a plain message", async () =>
       today="2026-10-12"
       submitUrl="/api/follow-ups/follow-1/book"
       doneUrl="/follow-ups?view=all&page=1&notice=booked"
+      closedMessage="This follow-up is no longer open."
     />,
   );
   await user.click(await screen.findByRole("button", { name: "09:15" }));
