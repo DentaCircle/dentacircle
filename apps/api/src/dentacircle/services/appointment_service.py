@@ -27,6 +27,7 @@ from dentacircle.domain.appointment import (
     same_instant,
     unavailable_reason,
 )
+from dentacircle.domain.follow_up import due_on_problem
 from dentacircle.domain.patient import display_id
 from dentacircle.models.app_user import AppUser
 from dentacircle.models.appointment import Appointment
@@ -213,6 +214,7 @@ def change_status(
     appointment_id: UUID,
     target: str,
     now: datetime,
+    follow_up_due_on: date | None = None,
 ) -> CalendarItemView:
     """Lock the visit, apply one allowed status move, and write one audit event.
 
@@ -227,6 +229,12 @@ def change_status(
     # A target the caller may not set is refused even when the move is also illegal.
     if target in STATUS_TARGET_ROLES and not may_set_status(actor_roles, target):
         raise ForbiddenStatusError
+    if follow_up_due_on is not None and target != "completed":
+        raise AppointmentFieldError("follow_up_due_on", "only_on_completed")
+    if target == "completed" and follow_up_due_on is not None:
+        problem = due_on_problem(follow_up_due_on, zone, now)
+        if problem is not None:
+            raise AppointmentFieldError("follow_up_due_on", problem)
     if target not in STATUS_TRANSITIONS.get(row.status, frozenset()):
         raise InvalidStatusError
     problem = _status_time_problem(target, row.starts_at, zone, now)
@@ -243,7 +251,9 @@ def change_status(
         changed_fields=["status"],
     )
     if target == "completed":
-        record_incomplete_care(session, clinic_id, actor_user_id, row, zone, now)
+        record_incomplete_care(
+            session, clinic_id, actor_user_id, row, zone, now, due_on=follow_up_due_on
+        )
     session.flush()
     return _require_detail(session, clinic_id, appointment_id, zone)
 

@@ -1,4 +1,4 @@
-import { canReadCare, canWriteCare } from "@/features/care/access";
+import { canCreateFollowUp, canReadCare, canWriteCare } from "@/features/care/access";
 import { CareScreen, type CareScreenProps, type FollowUpLoad } from "@/features/care/care-screen";
 import { isCareNotice } from "@/features/care/notices";
 import { requireUser } from "@/features/auth/current-user";
@@ -24,6 +24,7 @@ export default async function CarePage({ params, searchParams }: CarePageProps) 
         patientId={id}
         plans={[]}
         canWrite={false}
+        canCreateFollowUp={false}
         notice={null}
         followUp={{ status: "hidden" }}
       />
@@ -33,7 +34,13 @@ export default async function CarePage({ params, searchParams }: CarePageProps) 
   const result = await listCarePlans(cookieHeader, id);
   if (!result.ok) {
     return (
-      <CareScreen {...failureProps(result.error)} patientId={id} notice={null} followUp={{ status: "hidden" }} />
+      <CareScreen
+        {...failureProps(result.error)}
+        patientId={id}
+        canCreateFollowUp={false}
+        notice={null}
+        followUp={{ status: "hidden" }}
+      />
     );
   }
   const followUp = await getFollowUp(cookieHeader, id);
@@ -43,6 +50,7 @@ export default async function CarePage({ params, searchParams }: CarePageProps) 
       patientId={id}
       plans={result.data}
       canWrite={canWriteCare(user.roles)}
+      canCreateFollowUp={canCreateFollowUp(user.roles)}
       notice={notice}
       followUp={followUpLoad(followUp)}
     />

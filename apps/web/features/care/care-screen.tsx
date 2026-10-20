@@ -1,6 +1,7 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { FollowUpForm } from "@/features/care/follow-up-form";
 import { FollowUpLine } from "@/features/care/follow-up-line";
 import { LabelForm } from "@/features/care/label-form";
 import { CARE_NOTICES, type CareNotice } from "@/features/care/notices";
@@ -32,11 +33,20 @@ export type CareScreenProps = {
   patientId: string;
   plans: CarePlan[];
   canWrite: boolean;
+  canCreateFollowUp: boolean;
   notice: CareNotice | null;
   followUp: FollowUpLoad;
 };
 
-export function CareScreen({ status, patientId, plans, canWrite, notice, followUp }: CareScreenProps) {
+export function CareScreen({
+  status,
+  patientId,
+  plans,
+  canWrite,
+  canCreateFollowUp,
+  notice,
+  followUp,
+}: CareScreenProps) {
   return (
     <section className="flex max-w-lg flex-col gap-6">
       <h1 className="text-2xl font-semibold">Care</h1>
@@ -44,6 +54,12 @@ export function CareScreen({ status, patientId, plans, canWrite, notice, followU
       {followUp.status === "error" ? <p role="alert">Follow-up could not be loaded.</p> : null}
       {followUp.status === "ready" && followUp.followUp !== null ? (
         <FollowUpLine followUp={followUp.followUp} />
+      ) : null}
+      {status === "ready" &&
+      followUp.status === "ready" &&
+      followUp.followUp === null &&
+      canCreateFollowUp ? (
+        <FollowUpForm patientId={patientId} />
       ) : null}
       {status === "not-found" ? <p role="alert">Not found.</p> : null}
       {status === "forbidden" ? <p role="alert">You do not have access.</p> : null}

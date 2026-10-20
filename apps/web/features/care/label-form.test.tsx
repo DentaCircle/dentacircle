@@ -33,7 +33,7 @@ test("a new plan sends one request and a blank title stays on the field", async 
   const user = userEvent.setup();
   const fetchMock = pendingFetch();
   vi.stubGlobal("fetch", fetchMock.fn);
-  const view = render(<CareScreen status="ready" patientId={patientId} plans={[]} canWrite notice={null} followUp={{ status: "ready", followUp: null }} />);
+  const view = render(<CareScreen status="ready" patientId={patientId} plans={[]} canWrite canCreateFollowUp={false} notice={null} followUp={{ status: "ready", followUp: null }} />);
   await user.type(screen.getByLabelText("Title"), "Sample plan");
   const button = screen.getByRole("button", { name: "New care plan" });
   const first = user.click(button);
@@ -61,7 +61,7 @@ test("a new plan sends one request and a blank title stays on the field", async 
       }),
     ),
   );
-  render(<CareScreen status="ready" patientId={patientId} plans={[]} canWrite notice={null} followUp={{ status: "ready", followUp: null }} />);
+  render(<CareScreen status="ready" patientId={patientId} plans={[]} canWrite canCreateFollowUp={false} notice={null} followUp={{ status: "ready", followUp: null }} />);
   await user.click(screen.getByRole("button", { name: "New care plan" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Enter a title.");
 });
@@ -79,7 +79,7 @@ test("adding an item reports inactive and a rename sends one request", async () 
       }),
     ),
   );
-  const view = render(<CareScreen status="ready" patientId={patientId} plans={[plan]} canWrite notice={null} followUp={{ status: "ready", followUp: null }} />);
+  const view = render(<CareScreen status="ready" patientId={patientId} plans={[plan]} canWrite canCreateFollowUp={false} notice={null} followUp={{ status: "ready", followUp: null }} />);
   await user.type(screen.getByLabelText("Service name"), "Polish");
   await user.click(screen.getByRole("button", { name: "Add item" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("This patient is inactive.");
@@ -88,7 +88,7 @@ test("adding an item reports inactive and a rename sends one request", async () 
 
   const fetchMock = pendingFetch();
   vi.stubGlobal("fetch", fetchMock.fn);
-  render(<CareScreen status="ready" patientId={patientId} plans={[plan]} canWrite notice={null} followUp={{ status: "ready", followUp: null }} />);
+  render(<CareScreen status="ready" patientId={patientId} plans={[plan]} canWrite canCreateFollowUp={false} notice={null} followUp={{ status: "ready", followUp: null }} />);
   await user.click(screen.getByRole("button", { name: "Rename" }));
   await user.type(screen.getByLabelText("Name"), "Polish");
   const rename = screen.getByRole("button", { name: "Rename" });

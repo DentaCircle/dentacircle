@@ -51,7 +51,7 @@ const plans: CarePlan[] = [
 ];
 
 test("an empty page offers a new plan", () => {
-  render(<CareScreen status="ready" patientId={patientId} plans={[]} canWrite notice={null} followUp={noFollowUp} />);
+  render(<CareScreen status="ready" patientId={patientId} plans={[]} canWrite canCreateFollowUp={false} notice={null} followUp={noFollowUp} />);
   expect(screen.getByText("No care plans yet.")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "New care plan" })).toBeInTheDocument();
   expect(screen.getByLabelText("Title")).toBeInTheDocument();
@@ -59,7 +59,7 @@ test("an empty page offers a new plan", () => {
 
 test("plans show items, badges, and writer actions", () => {
   render(
-    <CareScreen status="ready" patientId={patientId} plans={plans} canWrite notice="plan_added" followUp={noFollowUp} />,
+    <CareScreen status="ready" patientId={patientId} plans={plans} canWrite canCreateFollowUp={false} notice="plan_added" followUp={noFollowUp} />,
   );
   expect(screen.getByRole("status")).toHaveTextContent("Care plan added.");
   const titles = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
@@ -80,7 +80,7 @@ test("plans show items, badges, and writer actions", () => {
 
 test("a receptionist sees the plans and no actions", () => {
   render(
-    <CareScreen status="ready" patientId={patientId} plans={plans} canWrite={false} notice={null} followUp={noFollowUp} />,
+    <CareScreen status="ready" patientId={patientId} plans={plans} canWrite={false} canCreateFollowUp={false} notice={null} followUp={noFollowUp} />,
   );
   expect(screen.getByText("Cleaning")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "New care plan" })).not.toBeInTheDocument();
@@ -98,7 +98,7 @@ test("load failures use the fixed sentences", () => {
       status="error"
       patientId={patientId}
       plans={[]}
-      canWrite={false}
+      canWrite={false} canCreateFollowUp={false}
       notice={null}
       followUp={{ status: "hidden" }}
     />,
@@ -109,7 +109,7 @@ test("load failures use the fixed sentences", () => {
       status="forbidden"
       patientId={patientId}
       plans={[]}
-      canWrite={false}
+      canWrite={false} canCreateFollowUp={false}
       notice={null}
       followUp={{ status: "hidden" }}
     />,
@@ -120,7 +120,7 @@ test("load failures use the fixed sentences", () => {
       status="not-found"
       patientId={patientId}
       plans={[]}
-      canWrite={false}
+      canWrite={false} canCreateFollowUp={false}
       notice={null}
       followUp={{ status: "hidden" }}
     />,
@@ -135,6 +135,7 @@ test("an open follow-up is a line and a badge above the plans", () => {
       patientId={patientId}
       plans={plans}
       canWrite
+      canCreateFollowUp
       notice={null}
       followUp={followUp("scheduled", "2026-10-24")}
     />,
@@ -151,7 +152,7 @@ test("an open follow-up is a line and a badge above the plans", () => {
       status="ready"
       patientId={patientId}
       plans={plans}
-      canWrite={false}
+      canWrite={false} canCreateFollowUp={false}
       notice={null}
       followUp={followUp("contacted", "2026-10-24T23:30:00-10:00")}
     />,
@@ -164,7 +165,7 @@ test("an open follow-up is a line and a badge above the plans", () => {
       status="ready"
       patientId={patientId}
       plans={plans}
-      canWrite={false}
+      canWrite={false} canCreateFollowUp={false}
       notice={null}
       followUp={followUp("booked", "2026-01-04")}
     />,
@@ -174,8 +175,53 @@ test("an open follow-up is a line and a badge above the plans", () => {
 });
 
 test("no follow-up shows nothing extra", () => {
-  render(<CareScreen status="ready" patientId={patientId} plans={plans} canWrite={false} notice={null} followUp={noFollowUp} />);
+  render(<CareScreen status="ready" patientId={patientId} plans={plans} canWrite={false} canCreateFollowUp={false} notice={null} followUp={noFollowUp} />);
   expect(screen.queryByText(/Follow-up/)).not.toBeInTheDocument();
+});
+
+test("a receptionist with no follow-up sees the create form and no care actions", () => {
+  render(
+    <CareScreen
+      status="ready"
+      patientId={patientId}
+      plans={plans}
+      canWrite={false}
+      canCreateFollowUp
+      notice={null}
+      followUp={noFollowUp}
+    />,
+  );
+  expect(screen.getByLabelText("Follow-up date")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Create follow-up" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "New care plan" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Start" })).not.toBeInTheDocument();
+});
+
+test("a manual follow-up with no visit shows the same line", () => {
+  render(
+    <CareScreen
+      status="ready"
+      patientId={patientId}
+      plans={plans}
+      canWrite
+      canCreateFollowUp
+      notice={null}
+      followUp={{
+        status: "ready",
+        followUp: {
+          id: "follow-up",
+          patient_id: patientId,
+          appointment_id: null,
+          status: "scheduled",
+          due_on: "2026-10-24",
+          created_at: "2026-10-17T10:00:00+05:30",
+        },
+      }}
+    />,
+  );
+  expect(screen.getByText("Follow-up due 24 Oct 2026")).toBeInTheDocument();
+  expect(screen.getByText("Scheduled")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Create follow-up" })).not.toBeInTheDocument();
 });
 
 test("a follow-up load failure keeps the plans", () => {
@@ -184,7 +230,7 @@ test("a follow-up load failure keeps the plans", () => {
       status="ready"
       patientId={patientId}
       plans={plans}
-      canWrite={false}
+      canWrite={false} canCreateFollowUp={false}
       notice={null}
       followUp={{ status: "error" }}
     />,

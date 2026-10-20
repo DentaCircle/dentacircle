@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from dentacircle.core.database import to_psycopg_url
+from dentacircle.core.database import clear_engine, get_engine, to_psycopg_url
 from tests.test_migrations import _config, _public_tables, _version
 
 _ZONE = ZoneInfo("Asia/Kolkata")
@@ -45,7 +45,7 @@ def test_upgrade_downgrade_upgrade(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0010_follow_ups"
+    assert _version(throwaway_database_url) == "0011_null_visit"
     assert "follow_up" in _public_tables(throwaway_database_url)
     assert _columns(throwaway_database_url, "follow_up") == {
         "id",
@@ -65,7 +65,7 @@ def test_upgrade_downgrade_upgrade(
     assert "care_session" in _public_tables(throwaway_database_url)
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0010_follow_ups"
+    assert _version(throwaway_database_url) == "0011_null_visit"
     assert "follow_up" in _public_tables(throwaway_database_url)
 
 
@@ -105,6 +105,41 @@ def test_one_open_follow_up_per_patient_and_a_closed_one_allows_another(
     )
     db_session.commit()
     _insert(db_session, _SECOND, _CLINIC, _PATIENT, _VISIT, status="booked", due_on=_DUE)
+
+
+def test_appointment_id_is_nullable_and_downgrade_refuses_a_null(
+    throwaway_database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
+    clear_engine()
+    config = _config()
+    command.upgrade(config, "0010_follow_ups")
+    assert _version(throwaway_database_url) == "0010_follow_ups"
+    assert _appointment_nullable(throwaway_database_url) is False
+
+    command.upgrade(config, "0011_null_visit")
+    assert _appointment_nullable(throwaway_database_url) is True
+    with Session(get_engine()) as session:
+        _seed(session)
+        _insert(session, _FOLLOW_UP, _CLINIC, _PATIENT, None, status="scheduled", due_on=_DUE)
+        session.commit()
+    with pytest.raises(RuntimeError, match="no visit"):
+        command.downgrade(config, "0010_follow_ups")
+    assert _version(throwaway_database_url) == "0011_null_visit"
+    assert _appointment_nullable(throwaway_database_url) is True
+
+    with Session(get_engine()) as session:
+        session.execute(
+            text("UPDATE follow_up SET appointment_id = :visit WHERE id = :id"),
+            {"visit": _VISIT, "id": _FOLLOW_UP},
+        )
+        session.commit()
+    command.downgrade(config, "0010_follow_ups")
+    assert _version(throwaway_database_url) == "0010_follow_ups"
+    assert _appointment_nullable(throwaway_database_url) is False
+    command.upgrade(config, "head")
+    assert _version(throwaway_database_url) == "0011_null_visit"
+    assert _appointment_nullable(throwaway_database_url) is True
 
 
 def test_a_follow_up_cannot_point_outside_its_clinic(migrated: str, db_session: Session) -> None:
@@ -209,7 +244,7 @@ def _insert(
     follow_up_id: str,
     clinic_id: str,
     patient_id: str,
-    visit_id: str,
+    visit_id: str | None,
     status: str | None,
     due_on: date,
 ) -> None:
@@ -254,6 +289,17 @@ def _columns(database_url: str, table: str) -> set[str]:
             (table,),
         ).fetchall()
     return {row[0] for row in rows}
+
+
+def _appointment_nullable(database_url: str) -> bool:
+    with psycopg.connect(to_psycopg_url(database_url), connect_timeout=5) as connection:
+        row = connection.execute(
+            "SELECT is_nullable FROM information_schema.columns"
+            " WHERE table_schema = 'public' AND table_name = 'follow_up'"
+            " AND column_name = 'appointment_id'"
+        ).fetchone()
+    assert row is not None
+    return row[0] == "YES"
 
 
 def _has_index(database_url: str, name: str) -> bool:

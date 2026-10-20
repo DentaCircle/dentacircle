@@ -117,8 +117,11 @@ export type AppointmentStatusTarget = "arrived" | "in_progress" | "completed" | 
 export function changeAppointmentStatus(
   appointmentId: string,
   status: AppointmentStatusTarget,
+  followUpDueOn?: string,
 ): Promise<ApiResult<null>> {
-  return sendJson("POST", `/api/appointments/${encodeURIComponent(appointmentId)}/status`, { status });
+  const body: { status: AppointmentStatusTarget; follow_up_due_on?: string } = { status };
+  if (followUpDueOn !== undefined && followUpDueOn !== "") body.follow_up_due_on = followUpDueOn;
+  return sendJson("POST", `/api/appointments/${encodeURIComponent(appointmentId)}/status`, body);
 }
 
 export type CareItemStatus = "planned" | "started" | "completed" | "cancelled";
@@ -142,11 +145,15 @@ export type FollowUpStatus = "scheduled" | "contacted" | "booked";
 export type FollowUp = {
   id: string;
   patient_id: string;
-  appointment_id: string;
+  appointment_id: string | null;
   status: FollowUpStatus;
   due_on: string;
   created_at: string;
 };
+
+export function createFollowUp(patientId: string, dueOn: string): Promise<ApiResult<null>> {
+  return sendJson("POST", `/api/patients/${encodeURIComponent(patientId)}/follow-up`, { due_on: dueOn });
+}
 
 export function getFollowUp(
   cookieHeader: string,
@@ -556,13 +563,12 @@ function followUpData(value: unknown): FollowUp | null {
   if (!isRecord(value)) return null;
   const id = stringField(value, "id");
   const patientId = stringField(value, "patient_id");
-  const appointmentId = stringField(value, "appointment_id");
   const dueOn = stringField(value, "due_on");
   const createdAt = stringField(value, "created_at");
   const status = value.status;
-  if (id === null || patientId === null || appointmentId === null || dueOn === null || createdAt === null) {
-    return null;
-  }
+  const appointmentId = value.appointment_id;
+  if (appointmentId !== null && typeof appointmentId !== "string") return null;
+  if (id === null || patientId === null || dueOn === null || createdAt === null) return null;
   if (status !== "scheduled" && status !== "contacted" && status !== "booked") return null;
   return {
     id,
