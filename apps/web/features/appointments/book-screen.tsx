@@ -17,11 +17,15 @@ export function BookScreen({
   types,
   clinicians,
   today,
+  submitUrl,
+  doneUrl,
 }: {
-  patientId: string;
+  patientId?: string;
   types: BookChoice[];
   clinicians: BookChoice[];
   today: string;
+  submitUrl: string;
+  doneUrl: string;
 }) {
   const router = useRouter();
   const isSubmittingRef = useRef(false);
@@ -32,6 +36,7 @@ export function BookScreen({
   const [timesState, setTimesState] = useState<TimesState>("loading");
   const [selected, setSelected] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [isClosed, setIsClosed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -86,23 +91,28 @@ export function BookScreen({
     setIsSubmitting(true);
     setMessage(null);
     try {
-      const response = await fetch("/api/appointments", {
+      const payload: Record<string, string> = {
+        clinician_id: clinicianId,
+        appointment_type_id: typeId,
+        starts_at: selected,
+      };
+      if (patientId !== undefined) payload.patient_id = patientId;
+      const response = await fetch(submitUrl, {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({
-          patient_id: patientId,
-          clinician_id: clinicianId,
-          appointment_type_id: typeId,
-          starts_at: selected,
-        }),
+        body: JSON.stringify(payload),
       });
       if (response.ok) {
-        router.push(`/patients/${patientId}?booked=1`);
+        router.push(doneUrl);
         router.refresh();
         return;
       }
-      if (response.status === 409) {
+      const errorBody: unknown = await response.json().catch(() => null);
+      const code = errorCode(errorBody);
+      if (response.status === 404 || code === "invalid_status" || code === "patient_inactive") {
+        setIsClosed(true);
+      } else if (response.status === 409) {
         setSelected(null);
         setMessage("That time was just taken. Pick another.");
         setReloadKey((current) => current + 1);
@@ -116,6 +126,10 @@ export function BookScreen({
     }
     isSubmittingRef.current = false;
     setIsSubmitting(false);
+  }
+
+  if (isClosed) {
+    return <p role="alert">This follow-up is no longer open.</p>;
   }
 
   return (
@@ -165,5 +179,12 @@ export function BookScreen({
       </Button>
     </form>
   );
+}
+
+function errorCode(body: unknown): string | null {
+  if (typeof body !== "object" || body === null || !("error" in body)) return null;
+  const error = body.error;
+  if (typeof error !== "object" || error === null || !("code" in error)) return null;
+  return typeof error.code === "string" ? error.code : null;
 }
 

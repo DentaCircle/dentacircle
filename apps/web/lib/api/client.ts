@@ -142,6 +142,8 @@ export type CarePlan = {
 };
 
 export type FollowUpStatus = "scheduled" | "contacted" | "booked";
+export type FollowUpTiming = "overdue" | "due_today" | "upcoming";
+export type FollowUpQueueView = "due" | "all";
 export type FollowUp = {
   id: string;
   patient_id: string;
@@ -149,6 +151,19 @@ export type FollowUp = {
   status: FollowUpStatus;
   due_on: string;
   created_at: string;
+};
+export type FollowUpQueueItem = {
+  id: string;
+  status: FollowUpStatus;
+  due_on: string;
+  timing: FollowUpTiming;
+  patient: { id: string; display_id: string; full_name: string; phone: string };
+};
+export type FollowUpQueuePage = {
+  items: FollowUpQueueItem[];
+  total: number;
+  page: number;
+  page_size: number;
 };
 
 export function createFollowUp(patientId: string, dueOn: string): Promise<ApiResult<null>> {
@@ -164,6 +179,20 @@ export function getFollowUp(
     followUpEnvelope,
     cookieHeaders(cookieHeader),
   );
+}
+
+export function listFollowUps(
+  cookieHeader: string,
+  page: number,
+  view: FollowUpQueueView = "due",
+  pageSize = 20,
+): Promise<ApiResult<FollowUpQueuePage>> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+    view,
+  });
+  return getJson(`/follow-ups?${params.toString()}`, followUpQueuePageData, cookieHeaders(cookieHeader));
 }
 
 export function listCarePlans(cookieHeader: string, patientId: string): Promise<ApiResult<CarePlan[]>> {
@@ -557,6 +586,46 @@ function followUpEnvelope(value: unknown): { follow_up: FollowUp | null } | null
   const followUp = followUpData(value.follow_up);
   if (followUp === null) return null;
   return { follow_up: followUp };
+}
+
+function followUpQueuePageData(value: unknown): FollowUpQueuePage | null {
+  if (!isRecord(value) || !Array.isArray(value.items)) return null;
+  const page = numberField(value, "page");
+  const pageSize = numberField(value, "page_size");
+  const total = numberField(value, "total");
+  if (page === null || pageSize === null || total === null) return null;
+  const items: FollowUpQueueItem[] = [];
+  for (const item of value.items) {
+    const row = followUpQueueItemData(item);
+    if (row === null) return null;
+    items.push(row);
+  }
+  return { items, page, page_size: pageSize, total };
+}
+
+function followUpQueueItemData(value: unknown): FollowUpQueueItem | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const dueOn = stringField(value, "due_on");
+  const status = value.status;
+  const timing = value.timing;
+  const patient = followUpQueuePatientData(value.patient);
+  if (id === null || dueOn === null || patient === null) return null;
+  if (status !== "scheduled" && status !== "contacted" && status !== "booked") return null;
+  if (timing !== "overdue" && timing !== "due_today" && timing !== "upcoming") return null;
+  return { id, status, due_on: dueOn, timing, patient };
+}
+
+function followUpQueuePatientData(
+  value: unknown,
+): { id: string; display_id: string; full_name: string; phone: string } | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const displayId = stringField(value, "display_id");
+  const fullName = stringField(value, "full_name");
+  const phone = stringField(value, "phone");
+  if (id === null || displayId === null || fullName === null || phone === null) return null;
+  return { id, display_id: displayId, full_name: fullName, phone };
 }
 
 function followUpData(value: unknown): FollowUp | null {
