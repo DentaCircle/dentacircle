@@ -299,7 +299,7 @@ def _appointment_nullable(database_url: str) -> bool:
             " AND column_name = 'appointment_id'"
         ).fetchone()
     assert row is not None
-    return row[0] == "YES"
+    return str(row[0]) == "YES"
 
 
 def _has_index(database_url: str, name: str) -> bool:

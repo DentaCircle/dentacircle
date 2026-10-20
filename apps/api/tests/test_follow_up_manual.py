@@ -69,7 +69,8 @@ def test_create_returns_a_scheduled_follow_up_with_no_visit(api: TestClient) -> 
         actor_id = actor.id
         events = AuditRepository(session, actor.clinic_id).list_for_entity("follow_up", stored_id)
         recorded = [
-            (event.action, list(event.changed_fields), event.actor_user_id) for event in events
+            (event.action, list(event.changed_fields or []), event.actor_user_id)
+            for event in events
         ]
     assert recorded == [("create", [], actor_id)]
     assert _audit_count() == before + 1
@@ -90,7 +91,7 @@ def test_due_on_must_be_today_through_one_year(api: TestClient) -> None:
         assert response.json()["follow_up"]["due_on"] == due_on.isoformat()
 
     before = _snapshot()
-    cases = (
+    cases: tuple[tuple[dict[str, str], str], ...] = (
         ({"due_on": (today - timedelta(days=1)).isoformat()}, "before_today"),
         ({"due_on": (today + timedelta(days=366)).isoformat()}, "beyond_horizon"),
         ({}, "missing"),

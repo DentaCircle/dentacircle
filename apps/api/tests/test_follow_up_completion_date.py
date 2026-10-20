@@ -3,6 +3,7 @@
 from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
 from datetime import tzinfo as TzInfo
+from typing import Self
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -14,7 +15,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from dentacircle.core.database import clear_engine, get_engine
-from dentacircle.domain.appointment import STATUS_TARGETS
+from dentacircle.domain.appointment import STATUS_TARGETS, AppointmentFieldError
 from dentacircle.models.appointment import Appointment
 from dentacircle.models.appointment_type import AppointmentType
 from dentacircle.models.audit_event import AuditEvent
@@ -22,7 +23,6 @@ from dentacircle.models.follow_up import FollowUp
 from dentacircle.repositories.audit_repository import AuditRepository
 from dentacircle.repositories.follow_up_repository import FollowUpRepository
 from dentacircle.services.appointment_service import (
-    AppointmentFieldError,
     ForbiddenStatusError,
     InvalidStatusError,
     book_appointment,
@@ -64,11 +64,22 @@ class _FrozenNow(datetime):
     """18:00 in Asia/Kolkata, so morning visits are arrived-today and already started."""
 
     @classmethod
-    def now(cls, tz: TzInfo | None = None) -> datetime:
+    def now(cls, tz: TzInfo | None = None) -> Self:
         fixed = datetime(2026, 10, 17, 12, 30, tzinfo=UTC)
         if tz is None:
-            return fixed.replace(tzinfo=None)
-        return fixed.astimezone(tz)
+            fixed = fixed.replace(tzinfo=None)
+        else:
+            fixed = fixed.astimezone(tz)
+        return cls(
+            fixed.year,
+            fixed.month,
+            fixed.day,
+            fixed.hour,
+            fixed.minute,
+            fixed.second,
+            fixed.microsecond,
+            tzinfo=fixed.tzinfo,
+        )
 
 
 def test_a_date_creates_a_follow_up_with_no_open_items(database: str) -> None:
