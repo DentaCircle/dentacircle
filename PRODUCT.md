@@ -364,8 +364,8 @@ queue for the same three roles; a booked visit stays on the calendar. Each row o
 `/follow-ups` has Cancel follow-up with a confirmation. Finishing care still does not close
 a follow-up by itself.
 
-A recall rule lives on the appointment type: empty, or a whole number of months from 1 to 60
-(decided in S2.5). New clinics get Scaling at 6 months, and the migration fills that only
+A recall rule lives on the appointment type: empty, or a whole number of months from 1 to 60.
+New clinics get Scaling at 6 months, and migration `0013` fills that only
 where an existing Scaling rule is empty. Completing a visit of a rule-enabled type writes
 one open recall for an active patient, dated that many clinic-local months ahead. A later
 rule-enabled visit replaces a scheduled or contacted recall and keeps its status. A booked
