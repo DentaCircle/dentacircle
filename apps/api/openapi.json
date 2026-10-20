@@ -2709,6 +2709,59 @@
         "summary": "Post Book"
       }
     },
+    "/follow-ups/{follow_up_id}/cancel": {
+      "post": {
+        "operationId": "post_cancel_follow_ups__follow_up_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "follow_up_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Follow Up Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "invalid_status or patient_inactive"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Cancel"
+      }
+    },
     "/follow-ups/{follow_up_id}/contacted": {
       "post": {
         "operationId": "post_contacted_follow_ups__follow_up_id__contacted_post",

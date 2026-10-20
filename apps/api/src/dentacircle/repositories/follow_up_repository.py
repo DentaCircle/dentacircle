@@ -37,6 +37,18 @@ class FollowUpRepository:
         )
         return self._session.scalars(statement).one_or_none()
 
+    def get_booked_for_appointment(
+        self, appointment_id: UUID, *, lock: bool = False
+    ) -> FollowUp | None:
+        """The booked follow-up whose visit is this one, or none."""
+        statement = scoped_select(FollowUp, self._clinic_id).where(
+            FollowUp.booked_appointment_id == appointment_id,
+            FollowUp.status == "booked",
+        )
+        if lock:
+            statement = statement.with_for_update().execution_options(populate_existing=True)
+        return self._session.scalars(statement).one_or_none()
+
     def list_queue(
         self,
         statuses: Collection[str],

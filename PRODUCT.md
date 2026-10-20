@@ -229,9 +229,17 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   `clinic_admin` may list, mark contacted (`scheduled` to `contacted`, no undo) and book.
   Booking from the queue reuses `book_appointment`, may start from `scheduled` or `contacted`,
   and in one transaction sets `booked` and stores `booked_appointment_id` (additive migration
-  `0012`, composite clinic FK). Closing a follow-up (complete when the booked visit is done,
-  cancel) is not in S2.4. It is S2.4b, to be done before S2.7. Until then a `booked` follow-up
-  stays open.
+  `0012`, composite clinic FK). Closing a follow-up is S2.4b.
+
+- **Closing follow-ups (decided in S2.4b):** completing the visit stored in
+  `booked_appointment_id` of a `booked` follow-up sets it to `completed`, before S2.2 runs,
+  so S2.2 and S2.3 can then create a new follow-up. This happens even for an inactive
+  patient. Cancelling or no-show on that visit releases the follow-up to `contacted`
+  (`due_on` and `booked_appointment_id` kept), so the patient returns to the Due view.
+  Reschedule changes nothing. `POST /follow-ups/{id}/cancel` (204, no body, no reason, no
+  undo) works from `scheduled`, `contacted` or `booked`, for the same three roles, and
+  leaves a booked visit on the calendar. Finishing care never closes a follow-up by itself;
+  the coordinator cancels it. No migration.
 
 ## Open decisions (need the developer's call)
 
@@ -345,7 +353,15 @@ from the clinic-local date. All open also shows booked and future rows. Inactive
 hidden. Mark contacted moves scheduled to contacted. Book visit reuses the patient booking
 screen and `POST /follow-ups/{id}/book`, which creates the appointment, sets booked, and
 stores `booked_appointment_id` in one transaction (migration `0012`). `inventory_admin` is
-refused. Closing a follow-up is not in this slice.
+refused.
 
-Next slice: S2.4b close follow-ups — complete the follow-up when the booked visit is done,
-and cancel from the queue.
+Completing the visit stored in `booked_appointment_id` closes that `booked` follow-up to
+`completed` in the same transaction, before S2.2 can write a new open row. Cancelling or
+no-show on that visit releases the follow-up to `contacted` with `due_on` and
+`booked_appointment_id` kept, so Due can show the patient again. Reschedule leaves the row
+booked. `POST /follow-ups/{id}/cancel` (204, no body) closes any open follow-up from the
+queue for the same three roles; a booked visit stays on the calendar. Each row on
+`/follow-ups` has Cancel follow-up with a confirmation. Finishing care still does not close
+a follow-up by itself.
+
+Next slice: S2.5 recalls — rules, due dates, and a list kept separate from the follow-up queue.
