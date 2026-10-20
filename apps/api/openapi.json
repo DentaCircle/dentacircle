@@ -555,6 +555,64 @@
         "title": "FollowUpBody",
         "type": "object"
       },
+      "FollowUpBookBody": {
+        "additionalProperties": false,
+        "properties": {
+          "appointment_type_id": {
+            "format": "uuid",
+            "title": "Appointment Type Id",
+            "type": "string"
+          },
+          "clinician_id": {
+            "format": "uuid",
+            "title": "Clinician Id",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "clinician_id",
+          "appointment_type_id",
+          "starts_at"
+        ],
+        "title": "FollowUpBookBody",
+        "type": "object"
+      },
+      "FollowUpListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/QueueItemBody"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "FollowUpListResponse",
+        "type": "object"
+      },
       "FollowUpResponse": {
         "properties": {
           "follow_up": {
@@ -877,6 +935,79 @@
           }
         },
         "title": "PatientUpdate",
+        "type": "object"
+      },
+      "QueueItemBody": {
+        "properties": {
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "patient": {
+            "$ref": "#/components/schemas/QueuePatientBody"
+          },
+          "status": {
+            "enum": [
+              "scheduled",
+              "contacted",
+              "booked"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "timing": {
+            "enum": [
+              "overdue",
+              "due_today",
+              "upcoming"
+            ],
+            "title": "Timing",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "due_on",
+          "timing",
+          "patient"
+        ],
+        "title": "QueueItemBody",
+        "type": "object"
+      },
+      "QueuePatientBody": {
+        "properties": {
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_id",
+          "full_name",
+          "phone"
+        ],
+        "title": "QueuePatientBody",
         "type": "object"
       },
       "RecordBody": {
@@ -2438,6 +2569,204 @@
           }
         },
         "summary": "Get Clinicians"
+      }
+    },
+    "/follow-ups": {
+      "get": {
+        "operationId": "get_follow_ups_follow_ups_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "due",
+              "enum": [
+                "due",
+                "all"
+              ],
+              "title": "View",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 92233720368547759,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowUpListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Follow Ups"
+      }
+    },
+    "/follow-ups/{follow_up_id}/book": {
+      "post": {
+        "operationId": "post_book_follow_ups__follow_up_id__book_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "follow_up_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Follow Up Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FollowUpBookBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AppointmentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "invalid_status, slot_taken, patient_busy or patient_inactive"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "summary": "Post Book"
+      }
+    },
+    "/follow-ups/{follow_up_id}/contacted": {
+      "post": {
+        "operationId": "post_contacted_follow_ups__follow_up_id__contacted_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "follow_up_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Follow Up Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/QueueItemBody"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "invalid_status or patient_inactive"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Contacted"
       }
     },
     "/health": {

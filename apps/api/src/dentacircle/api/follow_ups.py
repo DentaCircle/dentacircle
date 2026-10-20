@@ -1,34 +1,70 @@
-"""Read or create the one open follow-up for a patient."""
+"""Read or create the one open follow-up for a patient, and the coordinator queue."""
 
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.exceptions import RequestValidationError
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic_core import PydanticCustomError
 
+from dentacircle.api.appointments import (
+    AppointmentResponse,
+    AppointmentStatus,
+    PartyResponse,
+    TypeNameResponse,
+)
 from dentacircle.core.access import SessionDep, require_roles
 from dentacircle.core.errors import CodedHttpError
-from dentacircle.domain.follow_up import FOLLOW_UP_CREATE_ROLES, FOLLOW_UP_READ_ROLES
+from dentacircle.domain.appointment import APPOINTMENT_STATUSES, AppointmentFieldError
+from dentacircle.domain.follow_up import (
+    FOLLOW_UP_CREATE_ROLES,
+    FOLLOW_UP_QUEUE_ROLES,
+    FOLLOW_UP_READ_ROLES,
+)
+from dentacircle.services.appointment_service import (
+    AppointmentView,
+    PatientBusyError,
+    SlotTakenError,
+)
 from dentacircle.services.auth_service import CurrentUser
 from dentacircle.services.clinic_day_service import ClinicNotFoundError
 from dentacircle.services.follow_up_service import (
     FollowUpFieldError,
+    FollowUpInvalidStatusError,
+    FollowUpNotFoundError,
     FollowUpOpenError,
+    FollowUpQueueItemView,
     FollowUpView,
     PatientInactiveError,
+    book_follow_up,
     create_manual_follow_up,
+    follow_up_in_clinic,
     get_open_follow_up,
+    list_follow_ups,
+    mark_contacted,
 )
-from dentacircle.services.patient_service import PatientNotFoundError, get_patient
+from dentacircle.services.patient_service import (
+    DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE,
+    PatientNotFoundError,
+    get_patient,
+)
 
 router = APIRouter()
 
 can_read = require_roles(*FOLLOW_UP_READ_ROLES)
 can_create = require_roles(*FOLLOW_UP_CREATE_ROLES)
+can_use_queue = require_roles(*FOLLOW_UP_QUEUE_ROLES)
 
 FollowUpStatus = Literal["scheduled", "contacted", "booked"]
+FollowUpTiming = Literal["overdue", "due_today", "upcoming"]
+FollowUpViewName = Literal["due", "all"]
+
+# OFFSET is a PostgreSQL bigint. Cap page so (page - 1) * page_size stays in range
+# even when page_size is the maximum.
+MAX_PAGE = (2**63 - 1) // MAX_PAGE_SIZE + 1
 
 
 class FollowUpBody(BaseModel):
@@ -46,8 +82,45 @@ class CreateFollowUpBody(BaseModel):
     due_on: date
 
 
+class FollowUpBookBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    clinician_id: UUID
+    appointment_type_id: UUID
+    starts_at: datetime
+
+    @field_validator("starts_at")
+    @classmethod
+    def require_offset(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise PydanticCustomError("timezone_naive", "invalid")
+        return value
+
+
 class FollowUpResponse(BaseModel):
     follow_up: FollowUpBody | None
+
+
+class QueuePatientBody(BaseModel):
+    id: UUID
+    display_id: str
+    full_name: str
+    phone: str
+
+
+class QueueItemBody(BaseModel):
+    id: UUID
+    status: FollowUpStatus
+    due_on: date
+    timing: FollowUpTiming
+    patient: QueuePatientBody
+
+
+class FollowUpListResponse(BaseModel):
+    items: list[QueueItemBody]
+    total: int
+    page: int
+    page_size: int
 
 
 class ErrorBody(BaseModel):
@@ -68,6 +141,45 @@ _CREATE_ERRORS: dict[int | str, dict[str, Any]] = {
     409: {"model": ErrorResponse, "description": "follow_up_open or patient_inactive"},
     422: {"model": ErrorResponse, "description": "validation_error"},
 }
+_CONTACTED_ERRORS: dict[int | str, dict[str, Any]] = {
+    404: {"model": ErrorResponse, "description": "Not Found"},
+    409: {"model": ErrorResponse, "description": "invalid_status or patient_inactive"},
+}
+_BOOK_ERRORS: dict[int | str, dict[str, Any]] = {
+    404: {"model": ErrorResponse, "description": "Not Found"},
+    409: {
+        "model": ErrorResponse,
+        "description": "invalid_status, slot_taken, patient_busy or patient_inactive",
+    },
+    422: {"model": ErrorResponse, "description": "validation_error"},
+}
+
+
+@router.get("/follow-ups")
+def get_follow_ups(
+    user: Annotated[CurrentUser, Depends(can_use_queue)],
+    session: SessionDep,
+    view: Annotated[FollowUpViewName, Query()] = "due",
+    page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
+) -> FollowUpListResponse:
+    try:
+        found = list_follow_ups(
+            session,
+            user.clinic.id,
+            view,
+            page,
+            page_size,
+            datetime.now(UTC),
+        )
+    except ClinicNotFoundError:
+        raise HTTPException(status_code=404) from None
+    return FollowUpListResponse(
+        items=[_queue_body(item) for item in found.items],
+        total=found.total,
+        page=found.page,
+        page_size=found.page_size,
+    )
 
 
 @router.get("/patients/{patient_id}/follow-up", responses=_READ_ERRORS)
@@ -81,6 +193,77 @@ def get_follow_up(
     except PatientNotFoundError:
         raise HTTPException(status_code=404) from None
     return FollowUpResponse(follow_up=None if found is None else _body(found))
+
+
+def _follow_up_for_write(
+    follow_up_id: UUID,
+    user: Annotated[CurrentUser, Depends(can_use_queue)],
+    session: SessionDep,
+) -> UUID:
+    """404 before the body is read, so a missing follow-up is not a validation error."""
+    try:
+        follow_up_in_clinic(session, user.clinic.id, follow_up_id)
+    except FollowUpNotFoundError:
+        raise HTTPException(status_code=404) from None
+    return follow_up_id
+
+
+@router.post("/follow-ups/{follow_up_id}/contacted", responses=_CONTACTED_ERRORS)
+def post_contacted(
+    follow_up_id: Annotated[UUID, Depends(_follow_up_for_write)],
+    user: Annotated[CurrentUser, Depends(can_use_queue)],
+    session: SessionDep,
+) -> QueueItemBody:
+    try:
+        updated = mark_contacted(session, user.clinic.id, user.id, follow_up_id, datetime.now(UTC))
+    except FollowUpNotFoundError:
+        raise HTTPException(status_code=404) from None
+    except ClinicNotFoundError:
+        raise HTTPException(status_code=404) from None
+    except PatientInactiveError:
+        raise CodedHttpError(409, "patient_inactive", "This patient is inactive.") from None
+    except FollowUpInvalidStatusError:
+        raise CodedHttpError(409, "invalid_status", "This follow-up has already changed.") from None
+    session.commit()
+    return _queue_body(updated)
+
+
+@router.post("/follow-ups/{follow_up_id}/book", status_code=201, responses=_BOOK_ERRORS)
+def post_book(
+    follow_up_id: Annotated[UUID, Depends(_follow_up_for_write)],
+    body: FollowUpBookBody,
+    user: Annotated[CurrentUser, Depends(can_use_queue)],
+    session: SessionDep,
+) -> AppointmentResponse:
+    try:
+        created = book_follow_up(
+            session,
+            user.clinic.id,
+            user.id,
+            follow_up_id,
+            body.clinician_id,
+            body.appointment_type_id,
+            body.starts_at,
+            datetime.now(UTC),
+        )
+    except AppointmentFieldError as exc:
+        raise _appointment_field_error(exc) from None
+    except FollowUpNotFoundError:
+        raise HTTPException(status_code=404) from None
+    except ClinicNotFoundError:
+        raise HTTPException(status_code=404) from None
+    except PatientInactiveError:
+        raise CodedHttpError(409, "patient_inactive", "This patient is inactive.") from None
+    except FollowUpInvalidStatusError:
+        raise CodedHttpError(409, "invalid_status", "This follow-up has already changed.") from None
+    except SlotTakenError:
+        raise CodedHttpError(409, "slot_taken", "That time was just taken.") from None
+    except PatientBusyError:
+        raise CodedHttpError(
+            409, "patient_busy", "That patient already has an appointment then."
+        ) from None
+    session.commit()
+    return _appointment_body(created)
 
 
 def _patient_for_create(
@@ -136,6 +319,26 @@ def _field_error(exc: FollowUpFieldError) -> RequestValidationError:
     )
 
 
+def _appointment_field_error(exc: AppointmentFieldError) -> RequestValidationError:
+    return RequestValidationError(
+        [{"type": exc.code, "loc": ("body", exc.field), "msg": exc.code, "input": None}]
+    )
+
+
+def _appointment_body(item: AppointmentView) -> AppointmentResponse:
+    return AppointmentResponse(
+        id=item.id,
+        patient_id=item.patient_id,
+        starts_at=item.starts_at,
+        ends_at=item.ends_at,
+        status=_visit_status(item.status),
+        clinician=PartyResponse(id=item.clinician.id, full_name=item.clinician.full_name),
+        appointment_type=TypeNameResponse(
+            id=item.appointment_type.id, name=item.appointment_type.name
+        ),
+    )
+
+
 def _body(row: FollowUpView) -> FollowUpBody:
     return FollowUpBody(
         id=row.id,
@@ -147,7 +350,34 @@ def _body(row: FollowUpView) -> FollowUpBody:
     )
 
 
+def _visit_status(value: str) -> AppointmentStatus:
+    if value not in APPOINTMENT_STATUSES:
+        raise RuntimeError("appointment status is not one of the known statuses")
+    return value  # type: ignore[return-value]
+
+
 def _status(value: str) -> FollowUpStatus:
     if value not in ("scheduled", "contacted", "booked"):
         raise RuntimeError("follow-up status is not one of the open statuses")
     return value  # type: ignore[return-value]
+
+
+def _timing(value: str) -> FollowUpTiming:
+    if value not in ("overdue", "due_today", "upcoming"):
+        raise RuntimeError("follow-up timing is not overdue, due_today, or upcoming")
+    return value  # type: ignore[return-value]
+
+
+def _queue_body(row: FollowUpQueueItemView) -> QueueItemBody:
+    return QueueItemBody(
+        id=row.id,
+        status=_status(row.status),
+        due_on=row.due_on,
+        timing=_timing(row.timing),
+        patient=QueuePatientBody(
+            id=row.patient.id,
+            display_id=row.patient.display_id,
+            full_name=row.patient.full_name,
+            phone=row.patient.phone,
+        ),
+    )

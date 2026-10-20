@@ -31,6 +31,8 @@ export function BookPage(props: BookPageProps) {
           types={props.types}
           clinicians={props.clinicians}
           today={props.today}
+          submitUrl="/api/appointments"
+          doneUrl={`/patients/${props.patientId}?booked=1`}
         />
       ) : null}
     </section>

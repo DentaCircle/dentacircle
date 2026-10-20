@@ -14,7 +14,11 @@ from sqlalchemy.orm import Session
 
 from dentacircle.core.database import get_engine
 from dentacircle.domain.appointment import APPOINTMENT_ROLES
-from dentacircle.domain.follow_up import FOLLOW_UP_CREATE_ROLES, FOLLOW_UP_READ_ROLES
+from dentacircle.domain.follow_up import (
+    FOLLOW_UP_CREATE_ROLES,
+    FOLLOW_UP_QUEUE_ROLES,
+    FOLLOW_UP_READ_ROLES,
+)
 from dentacircle.main import create_app
 from dentacircle.models.app_user import AppUser
 from dentacircle.models.appointment import Appointment
@@ -179,7 +183,70 @@ def test_follow_up_routes_declare_their_roles(monkeypatch: pytest.MonkeyPatch) -
     found = _route_roles(application)
     assert found[("GET", "/patients/{patient_id}/follow-up")] == set(FOLLOW_UP_READ_ROLES)
     assert found[("POST", "/patients/{patient_id}/follow-up")] == set(FOLLOW_UP_CREATE_ROLES)
+    assert found[("GET", "/follow-ups")] == set(FOLLOW_UP_QUEUE_ROLES)
+    assert found[("POST", "/follow-ups/{follow_up_id}/contacted")] == set(FOLLOW_UP_QUEUE_ROLES)
+    assert found[("POST", "/follow-ups/{follow_up_id}/book")] == set(FOLLOW_UP_QUEUE_ROLES)
     assert found[("POST", "/appointments/{appointment_id}/status")] == set(APPOINTMENT_ROLES)
+
+
+def test_refused_roles_leave_the_tables_unchanged_on_all_three_queue_routes(
+    api: TestClient,
+) -> None:
+    follow_up_id, clinician_id, type_id = _queue_ids(api)
+    start = datetime.now(_ZONE).date() + timedelta(days=2)
+    while start.weekday() == 6:
+        start += timedelta(days=1)
+    starts_at = datetime(start.year, start.month, start.day, 10, 0, tzinfo=_ZONE)
+    body = {
+        "clinician_id": clinician_id,
+        "appointment_type_id": type_id,
+        "starts_at": starts_at.isoformat(),
+    }
+    before = _snapshot()
+    for email, expected in (("inventory@x.test", 403),):
+        cookies = _cookie(api, email)
+        listed = api.get("/follow-ups", cookies=cookies)
+        contacted = api.post(f"/follow-ups/{follow_up_id}/contacted", cookies=cookies)
+        booked = api.post(f"/follow-ups/{follow_up_id}/book", cookies=cookies, json=body)
+        assert listed.status_code == expected
+        assert contacted.status_code == expected
+        assert booked.status_code == expected
+        assert _snapshot() == before
+    api.cookies.clear()
+    listed = api.get("/follow-ups")
+    contacted = api.post(f"/follow-ups/{follow_up_id}/contacted")
+    booked = api.post(f"/follow-ups/{follow_up_id}/book", json=body)
+    assert listed.status_code == 401
+    assert contacted.status_code == 401
+    assert booked.status_code == 401
+    assert _snapshot() == before
+    for email in ("receptionist@x.test", "clinician@x.test", "admin@x.test"):
+        listed = api.get("/follow-ups", cookies=_cookie(api, email))
+        assert listed.status_code == 200
+        assert listed.json()["items"][0]["id"] == follow_up_id
+
+
+def _queue_ids(api: TestClient) -> tuple[str, str, str]:
+    patient_id = _patient(api)
+    due_on = datetime.now(UTC).astimezone(_ZONE).date()
+    created = api.post(
+        f"/patients/{patient_id}/follow-up",
+        cookies=_cookie(api, "clinician@x.test"),
+        json={"due_on": due_on.isoformat()},
+    )
+    assert created.status_code == 201
+    with Session(get_engine()) as session:
+        clinician = session.scalars(
+            select(AppUser).where(AppUser.email == "clinician@x.test")
+        ).one()
+        consultation = next(
+            row
+            for row in session.scalars(
+                select(AppointmentType).where(AppointmentType.clinic_id == clinician.clinic_id)
+            )
+            if row.name == "Consultation"
+        )
+        return str(created.json()["follow_up"]["id"]), str(clinician.id), str(consultation.id)
 
 
 def _expected_due() -> str:

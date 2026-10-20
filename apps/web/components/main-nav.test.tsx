@@ -28,6 +28,15 @@ test("calendar is current on the calendar page", () => {
   expect(screen.getByRole("link", { name: "Calendar" })).toHaveAttribute("aria-current", "page");
 });
 
+test("follow-ups stays current on the book page", () => {
+  path.value = "/follow-ups/fu-1/book";
+  render(<MainNav />);
+
+  expect(screen.getByRole("link", { name: "Follow-ups" })).toHaveAttribute("href", "/follow-ups");
+  expect(screen.getByRole("link", { name: "Follow-ups" })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("link", { name: "Calendar" })).not.toHaveAttribute("aria-current");
+});
+
 test("patients stays current on the detail and edit pages", () => {
   path.value = "/patients/00000000-0000-4000-8000-000000000010";
   const { rerender } = render(<MainNav />);
