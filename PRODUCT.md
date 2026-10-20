@@ -386,5 +386,6 @@ returns it to contacted. Recalls stay off the follow-up queue.
 Staff with `clinician`, `receptionist` or `clinic_admin` can open `/patients/[id]/timeline`
 for one patient. Each registration, visit step, care item step, care session, follow-up step
 and recall step writes a `timeline_event` in the same transaction (migration `0014`). The
-list is newest first. Reading it writes no audit row. History from before this slice is not
-backfilled, so an existing patient starts empty. `inventory_admin` is refused.
+list is newest first, grouped by clinic-local day on the web. Visit and care rows link to the
+calendar day or care page. Reading it writes no audit row. History from before this slice is
+not backfilled, so an existing patient starts empty. `inventory_admin` is refused.

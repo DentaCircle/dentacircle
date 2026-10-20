@@ -3,7 +3,7 @@
 The tracker. Phases are made of slices. A slice is one reviewable change, about half a day
 to a day of work, with a visible result. Tick a slice only after `/ship-seal`.
 
-**Now:** S2.6 (not started). M1 reached 2026-10-06. S2.5 sealed 2026-10-20.
+**Now:** S2.7 (not started). M1 reached 2026-10-06. S2.6 sealed 2026-10-21.
 
 Milestones are demoable. Each one is a real stopping point.
 
@@ -39,7 +39,7 @@ Milestones are demoable. Each one is a real stopping point.
 - [x] S2.4 Coordinator queue: follow-ups with due and overdue calculated from the date, mark contacted, book from the queue
 - [x] S2.4b Close follow-ups: completing the booked visit completes its follow-up before S2.2 runs, cancelling or no-show on that visit releases it to contacted, plus a cancel action on the queue
 - [x] S2.5 Recalls: rules, due dates, a separate list, and the same contacted, book, cancel and close actions as follow-ups
-- [ ] S2.6 Patient timeline: one chronological view of everything above
+- [x] S2.6 Patient timeline: one chronological view of everything above
 - [ ] S2.7 Core loop check: end-to-end test and a written click-through of the M3 demo
 
 ## Phase 3: Documents and lab (M4)
