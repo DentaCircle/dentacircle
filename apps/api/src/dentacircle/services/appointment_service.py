@@ -45,6 +45,7 @@ from dentacircle.services.follow_up_service import (
     release_booked_follow_up,
 )
 from dentacircle.services.patient_service import PatientNotFoundError
+from dentacircle.services.recall_service import record_recall, release_booked_recall
 
 _EXCLUSION_VIOLATION = "23P01"
 _CLINICIAN_OVERLAP = "ex_appointment_no_overlap"
@@ -206,6 +207,7 @@ def cancel_appointment(
         changed_fields=["status"],
     )
     release_booked_follow_up(session, clinic_id, actor_user_id, row)
+    release_booked_recall(session, clinic_id, actor_user_id, row)
     session.flush()
     return _require_detail(session, clinic_id, appointment_id, zone)
 
@@ -260,8 +262,10 @@ def change_status(
         record_incomplete_care(
             session, clinic_id, actor_user_id, row, zone, now, due_on=follow_up_due_on
         )
+        record_recall(session, clinic_id, actor_user_id, row, zone, now)
     elif target == "no_show":
         release_booked_follow_up(session, clinic_id, actor_user_id, row)
+        release_booked_recall(session, clinic_id, actor_user_id, row)
     session.flush()
     return _require_detail(session, clinic_id, appointment_id, zone)
 
