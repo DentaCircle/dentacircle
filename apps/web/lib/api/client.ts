@@ -193,6 +193,120 @@ export function createFollowUp(patientId: string, dueOn: string): Promise<ApiRes
   return sendJson("POST", `/api/patients/${encodeURIComponent(patientId)}/follow-up`, { due_on: dueOn });
 }
 
+export type TimelineKind =
+  | "patient_registered"
+  | "visit_booked"
+  | "visit_rescheduled"
+  | "visit_cancelled"
+  | "visit_arrived"
+  | "visit_started"
+  | "visit_completed"
+  | "visit_no_show"
+  | "care_item_added"
+  | "care_item_started"
+  | "care_item_completed"
+  | "care_item_cancelled"
+  | "care_session_recorded"
+  | "follow_up_created"
+  | "follow_up_updated"
+  | "follow_up_contacted"
+  | "follow_up_booked"
+  | "follow_up_completed"
+  | "follow_up_released"
+  | "follow_up_cancelled"
+  | "recall_created"
+  | "recall_updated"
+  | "recall_contacted"
+  | "recall_booked"
+  | "recall_completed"
+  | "recall_released"
+  | "recall_cancelled";
+
+export type TimelineVisitSubject = {
+  appointment_id: string;
+  type_name: string;
+  clinician_name: string;
+  starts_at: string;
+};
+
+export type TimelineCareItemSubject = { name: string };
+
+export type TimelineSessionSubject = { care_session_id: string; item_names: string[] };
+
+export type TimelineFollowUpSubject = { due_on: string };
+
+export type TimelineRecallSubject = { due_on: string; type_name: string };
+
+export type TimelineSubject =
+  | TimelineVisitSubject
+  | TimelineCareItemSubject
+  | TimelineSessionSubject
+  | TimelineFollowUpSubject
+  | TimelineRecallSubject
+  | null;
+
+export type TimelineItem = {
+  id: string;
+  kind: TimelineKind;
+  occurred_at: string;
+  actor: { id: string; name: string };
+  subject: TimelineSubject;
+};
+
+export type TimelinePage = {
+  items: TimelineItem[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+const TIMELINE_KINDS: readonly TimelineKind[] = [
+  "patient_registered",
+  "visit_booked",
+  "visit_rescheduled",
+  "visit_cancelled",
+  "visit_arrived",
+  "visit_started",
+  "visit_completed",
+  "visit_no_show",
+  "care_item_added",
+  "care_item_started",
+  "care_item_completed",
+  "care_item_cancelled",
+  "care_session_recorded",
+  "follow_up_created",
+  "follow_up_updated",
+  "follow_up_contacted",
+  "follow_up_booked",
+  "follow_up_completed",
+  "follow_up_released",
+  "follow_up_cancelled",
+  "recall_created",
+  "recall_updated",
+  "recall_contacted",
+  "recall_booked",
+  "recall_completed",
+  "recall_released",
+  "recall_cancelled",
+];
+
+export function listTimeline(
+  cookieHeader: string,
+  patientId: string,
+  page: number,
+  pageSize = 20,
+): Promise<ApiResult<TimelinePage>> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  return getJson(
+    `/patients/${encodeURIComponent(patientId)}/timeline?${params.toString()}`,
+    timelinePageData,
+    cookieHeaders(cookieHeader),
+  );
+}
+
 export function getFollowUp(
   cookieHeader: string,
   patientId: string,
@@ -653,6 +767,103 @@ function careSessionItemData(value: unknown): CareSessionItem | null {
   if (careItemId === null || name === null || planTitle === null) return null;
   if (status !== "started" && status !== "completed") return null;
   return { care_item_id: careItemId, name, plan_title: planTitle, status };
+}
+
+function timelinePageData(value: unknown): TimelinePage | null {
+  if (!isRecord(value) || !Array.isArray(value.items)) return null;
+  const page = numberField(value, "page");
+  const pageSize = numberField(value, "page_size");
+  const total = numberField(value, "total");
+  if (page === null || pageSize === null || total === null) return null;
+  const items: TimelineItem[] = [];
+  for (const item of value.items) {
+    const row = timelineItemData(item);
+    if (row === null) return null;
+    items.push(row);
+  }
+  return { items, page, page_size: pageSize, total };
+}
+
+function timelineItemData(value: unknown): TimelineItem | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const occurredAt = stringField(value, "occurred_at");
+  const kind = value.kind;
+  if (id === null || occurredAt === null || !isTimelineKind(kind)) return null;
+  const actor = timelineActorData(value.actor);
+  const subject = timelineSubjectData(kind, value.subject);
+  if (actor === null || subject === undefined) return null;
+  return { id, kind, occurred_at: occurredAt, actor, subject };
+}
+
+function isTimelineKind(value: unknown): value is TimelineKind {
+  return typeof value === "string" && TIMELINE_KINDS.some((kind) => kind === value);
+}
+
+function timelineActorData(value: unknown): { id: string; name: string } | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const name = stringField(value, "name");
+  if (id === null || name === null) return null;
+  return { id, name };
+}
+
+function timelineSubjectData(kind: TimelineKind, value: unknown): TimelineSubject | undefined {
+  if (kind === "patient_registered") return value === null ? null : undefined;
+  if (kind.startsWith("visit_")) return visitSubjectData(value);
+  if (kind.startsWith("care_item_")) return careItemSubjectData(value);
+  if (kind === "care_session_recorded") return sessionSubjectData(value);
+  if (kind.startsWith("follow_up_")) return followUpSubjectData(value);
+  if (kind.startsWith("recall_")) return recallSubjectData(value);
+  return undefined;
+}
+
+function visitSubjectData(value: unknown): TimelineVisitSubject | undefined {
+  if (!isRecord(value)) return undefined;
+  const appointmentId = stringField(value, "appointment_id");
+  const typeName = stringField(value, "type_name");
+  const clinicianName = stringField(value, "clinician_name");
+  const startsAt = stringField(value, "starts_at");
+  if (appointmentId === null || typeName === null || clinicianName === null || startsAt === null) {
+    return undefined;
+  }
+  return {
+    appointment_id: appointmentId,
+    type_name: typeName,
+    clinician_name: clinicianName,
+    starts_at: startsAt,
+  };
+}
+
+function careItemSubjectData(value: unknown): TimelineCareItemSubject | undefined {
+  if (!isRecord(value)) return undefined;
+  const name = stringField(value, "name");
+  if (name === null || "care_session_id" in value) return undefined;
+  return { name };
+}
+
+function sessionSubjectData(value: unknown): TimelineSessionSubject | undefined {
+  if (!isRecord(value) || !Array.isArray(value.item_names)) return undefined;
+  const careSessionId = stringField(value, "care_session_id");
+  if (careSessionId === null || !value.item_names.every((name) => typeof name === "string")) {
+    return undefined;
+  }
+  return { care_session_id: careSessionId, item_names: value.item_names };
+}
+
+function followUpSubjectData(value: unknown): TimelineFollowUpSubject | undefined {
+  if (!isRecord(value) || "type_name" in value) return undefined;
+  const dueOn = stringField(value, "due_on");
+  if (dueOn === null) return undefined;
+  return { due_on: dueOn };
+}
+
+function recallSubjectData(value: unknown): TimelineRecallSubject | undefined {
+  if (!isRecord(value)) return undefined;
+  const dueOn = stringField(value, "due_on");
+  const typeName = stringField(value, "type_name");
+  if (dueOn === null || typeName === null) return undefined;
+  return { due_on: dueOn, type_name: typeName };
 }
 
 function followUpEnvelope(value: unknown): { follow_up: FollowUp | null } | null {
