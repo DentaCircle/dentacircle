@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from dentacircle.core.database import get_engine
 from dentacircle.domain.appointment import APPOINTMENT_ROLES
 from dentacircle.domain.follow_up import (
+    FOLLOW_UP_CANCEL_ROLES,
     FOLLOW_UP_CREATE_ROLES,
     FOLLOW_UP_QUEUE_ROLES,
     FOLLOW_UP_READ_ROLES,
@@ -186,6 +187,7 @@ def test_follow_up_routes_declare_their_roles(monkeypatch: pytest.MonkeyPatch) -
     assert found[("GET", "/follow-ups")] == set(FOLLOW_UP_QUEUE_ROLES)
     assert found[("POST", "/follow-ups/{follow_up_id}/contacted")] == set(FOLLOW_UP_QUEUE_ROLES)
     assert found[("POST", "/follow-ups/{follow_up_id}/book")] == set(FOLLOW_UP_QUEUE_ROLES)
+    assert found[("POST", "/follow-ups/{follow_up_id}/cancel")] == set(FOLLOW_UP_CANCEL_ROLES)
     assert found[("POST", "/appointments/{appointment_id}/status")] == set(APPOINTMENT_ROLES)
 
 

@@ -15,6 +15,7 @@ OPEN_FOLLOW_UP_STATUSES = frozenset(("scheduled", "contacted", "booked"))
 DUE_QUEUE_STATUSES = frozenset(("scheduled", "contacted"))
 CONTACTABLE_STATUSES = frozenset(("scheduled",))
 BOOKABLE_STATUSES = frozenset(("scheduled", "contacted"))
+CANCELLABLE_STATUSES = frozenset(("scheduled", "contacted", "booked"))
 OPEN_ITEM_STATUSES = frozenset(("planned", "started"))
 FOLLOW_UP_QUEUE_VIEWS = ("due", "all")
 FOLLOW_UP_TIMINGS = ("overdue", "due_today", "upcoming")
@@ -22,6 +23,7 @@ DEFAULT_DUE_DAYS = 7
 FOLLOW_UP_READ_ROLES = ("clinician", "receptionist", "clinic_admin")
 FOLLOW_UP_CREATE_ROLES = ("clinician", "receptionist", "clinic_admin")
 FOLLOW_UP_QUEUE_ROLES = FOLLOW_UP_READ_ROLES
+FOLLOW_UP_CANCEL_ROLES = FOLLOW_UP_READ_ROLES
 
 
 def needs_follow_up(patient_status: str, item_statuses: Sequence[str]) -> bool:

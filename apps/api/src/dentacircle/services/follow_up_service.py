@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from dentacircle.domain.follow_up import (
     BOOKABLE_STATUSES,
+    CANCELLABLE_STATUSES,
     CONTACTABLE_STATUSES,
     DUE_QUEUE_STATUSES,
     OPEN_FOLLOW_UP_STATUSES,
@@ -108,15 +109,18 @@ def record_incomplete_care(
     completed_at: datetime,
     due_on: date | None = None,
 ) -> None:
-    """Lock the patient, then create or retarget the open follow-up.
+    """Lock the patient, close this visit's booked follow-up, then create or retarget.
 
-    The visit row is already locked by the caller. This lock is taken after that one.
-    A clinician date is used as given. Without one, the seven-day rule still applies,
-    and only when the patient is active with an open care item.
+    The visit row is already locked by the caller. The patient lock is taken after that
+    one, and the follow-up lock after the patient. Closing first frees the open slot
+    before a new row is written. A clinician date is used as given. Without one, the
+    seven-day rule still applies, and only when the patient is active with an open item.
+    An inactive patient still has the booked follow-up closed, and gets no new row.
     """
     patient = PatientRepository(session, clinic_id).get(appointment.patient_id, lock=True)
     if patient is None:
         raise RuntimeError("visit points at a missing patient")
+    complete_booked_follow_up(session, clinic_id, actor_user_id, appointment)
     if due_on is not None:
         if patient.status != "active":
             return
@@ -275,6 +279,87 @@ def follow_up_in_clinic(session: Session, clinic_id: UUID, follow_up_id: UUID) -
     """Raise if this clinic has no follow-up with this id."""
     if FollowUpRepository(session, clinic_id).get(follow_up_id) is None:
         raise FollowUpNotFoundError
+
+
+def complete_booked_follow_up(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    appointment: Appointment,
+) -> None:
+    """Close the booked follow-up for this visit. The patient row is already locked.
+
+    The caller holds the visit lock, then the patient lock. This takes the follow-up
+    lock next. A visit that is not the booked visit does nothing.
+    """
+    _move_booked_follow_up(session, clinic_id, actor_user_id, appointment.id, "completed")
+
+
+def release_booked_follow_up(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    appointment: Appointment,
+) -> None:
+    """Return the booked follow-up for this visit to contacted. The visit is already locked.
+
+    The patient lock is taken here, then the follow-up. `due_on` and the visit id stay.
+    A visit that is not the booked visit does nothing.
+    """
+    patient = PatientRepository(session, clinic_id).get(appointment.patient_id, lock=True)
+    if patient is None:
+        raise RuntimeError("visit points at a missing patient")
+    _move_booked_follow_up(session, clinic_id, actor_user_id, appointment.id, "contacted")
+
+
+def cancel_follow_up(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    follow_up_id: UUID,
+) -> None:
+    """Lock the patient, then the follow-up, and cancel an open row. The visit stays."""
+    row, patient = _locked_row(session, clinic_id, follow_up_id)
+    if patient.status != "active":
+        raise PatientInactiveError
+    if row.status not in CANCELLABLE_STATUSES:
+        raise FollowUpInvalidStatusError
+    row.status = "cancelled"
+    record(
+        session,
+        clinic_id,
+        actor_user_id,
+        "follow_up",
+        row.id,
+        "status_change",
+        changed_fields=["status"],
+    )
+
+
+def _move_booked_follow_up(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    appointment_id: UUID,
+    status: str,
+) -> None:
+    """Lock the booked follow-up for this visit and set its status. Flush before any insert."""
+    row = FollowUpRepository(session, clinic_id).get_booked_for_appointment(
+        appointment_id, lock=True
+    )
+    if row is None:
+        return
+    row.status = status
+    record(
+        session,
+        clinic_id,
+        actor_user_id,
+        "follow_up",
+        row.id,
+        "status_change",
+        changed_fields=["status"],
+    )
+    session.flush()
 
 
 def mark_contacted(

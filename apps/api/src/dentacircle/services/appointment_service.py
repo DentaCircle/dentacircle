@@ -40,7 +40,10 @@ from dentacircle.repositories.patient_repository import PatientRepository
 from dentacircle.repositories.user_repository import UserRepository
 from dentacircle.services.audit_service import record
 from dentacircle.services.clinic_day_service import ClinicNotFoundError
-from dentacircle.services.follow_up_service import record_incomplete_care
+from dentacircle.services.follow_up_service import (
+    record_incomplete_care,
+    release_booked_follow_up,
+)
 from dentacircle.services.patient_service import PatientNotFoundError
 
 _EXCLUSION_VIOLATION = "23P01"
@@ -202,6 +205,7 @@ def cancel_appointment(
         "status_change",
         changed_fields=["status"],
     )
+    release_booked_follow_up(session, clinic_id, actor_user_id, row)
     session.flush()
     return _require_detail(session, clinic_id, appointment_id, zone)
 
@@ -256,6 +260,8 @@ def change_status(
         record_incomplete_care(
             session, clinic_id, actor_user_id, row, zone, now, due_on=follow_up_due_on
         )
+    elif target == "no_show":
+        release_booked_follow_up(session, clinic_id, actor_user_id, row)
     session.flush()
     return _require_detail(session, clinic_id, appointment_id, zone)
 

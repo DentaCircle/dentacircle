@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, ConfigDict, field_validator
 from pydantic_core import PydanticCustomError
@@ -19,6 +19,7 @@ from dentacircle.core.access import SessionDep, require_roles
 from dentacircle.core.errors import CodedHttpError
 from dentacircle.domain.appointment import APPOINTMENT_STATUSES, AppointmentFieldError
 from dentacircle.domain.follow_up import (
+    FOLLOW_UP_CANCEL_ROLES,
     FOLLOW_UP_CREATE_ROLES,
     FOLLOW_UP_QUEUE_ROLES,
     FOLLOW_UP_READ_ROLES,
@@ -39,6 +40,7 @@ from dentacircle.services.follow_up_service import (
     FollowUpView,
     PatientInactiveError,
     book_follow_up,
+    cancel_follow_up,
     create_manual_follow_up,
     follow_up_in_clinic,
     get_open_follow_up,
@@ -57,6 +59,7 @@ router = APIRouter()
 can_read = require_roles(*FOLLOW_UP_READ_ROLES)
 can_create = require_roles(*FOLLOW_UP_CREATE_ROLES)
 can_use_queue = require_roles(*FOLLOW_UP_QUEUE_ROLES)
+can_cancel = require_roles(*FOLLOW_UP_CANCEL_ROLES)
 
 FollowUpStatus = Literal["scheduled", "contacted", "booked"]
 FollowUpTiming = Literal["overdue", "due_today", "upcoming"]
@@ -142,6 +145,10 @@ _CREATE_ERRORS: dict[int | str, dict[str, Any]] = {
     422: {"model": ErrorResponse, "description": "validation_error"},
 }
 _CONTACTED_ERRORS: dict[int | str, dict[str, Any]] = {
+    404: {"model": ErrorResponse, "description": "Not Found"},
+    409: {"model": ErrorResponse, "description": "invalid_status or patient_inactive"},
+}
+_CANCEL_ERRORS: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorResponse, "description": "Not Found"},
     409: {"model": ErrorResponse, "description": "invalid_status or patient_inactive"},
 }
@@ -264,6 +271,37 @@ def post_book(
         ) from None
     session.commit()
     return _appointment_body(created)
+
+
+def _follow_up_for_cancel(
+    follow_up_id: UUID,
+    user: Annotated[CurrentUser, Depends(can_cancel)],
+    session: SessionDep,
+) -> UUID:
+    """404 before anything is written, so an unknown follow-up is not a conflict."""
+    try:
+        follow_up_in_clinic(session, user.clinic.id, follow_up_id)
+    except FollowUpNotFoundError:
+        raise HTTPException(status_code=404) from None
+    return follow_up_id
+
+
+@router.post("/follow-ups/{follow_up_id}/cancel", status_code=204, responses=_CANCEL_ERRORS)
+def post_cancel(
+    follow_up_id: Annotated[UUID, Depends(_follow_up_for_cancel)],
+    user: Annotated[CurrentUser, Depends(can_cancel)],
+    session: SessionDep,
+) -> Response:
+    try:
+        cancel_follow_up(session, user.clinic.id, user.id, follow_up_id)
+    except FollowUpNotFoundError:
+        raise HTTPException(status_code=404) from None
+    except PatientInactiveError:
+        raise CodedHttpError(409, "patient_inactive", "This patient is inactive.") from None
+    except FollowUpInvalidStatusError:
+        raise CodedHttpError(409, "invalid_status", "This follow-up has already changed.") from None
+    session.commit()
+    return Response(status_code=204)
 
 
 def _patient_for_create(
