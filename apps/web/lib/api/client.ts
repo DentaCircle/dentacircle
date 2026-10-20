@@ -166,6 +166,10 @@ export type FollowUpQueuePage = {
   page_size: number;
 };
 
+export function cancelFollowUp(followUpId: string): Promise<ApiResult<null>> {
+  return sendEmpty("POST", `/api/follow-ups/${encodeURIComponent(followUpId)}/cancel`);
+}
+
 export function createFollowUp(patientId: string, dueOn: string): Promise<ApiResult<null>> {
   return sendJson("POST", `/api/patients/${encodeURIComponent(patientId)}/follow-up`, { due_on: dueOn });
 }
@@ -289,6 +293,25 @@ async function getJson<T>(
     const data = parse(await readJson(response));
     if (data === null) return { ok: false, error: genericApiError(response.status) };
     return { ok: true, data };
+  } catch (error) {
+    if (isTimeoutError(error)) {
+      return { ok: false, error: { kind: "timeout", message: TIMEOUT_ERROR_MESSAGE } };
+    }
+    return { ok: false, error: { kind: "network", message: NETWORK_ERROR_MESSAGE } };
+  }
+}
+
+async function sendEmpty(method: "POST", path: string): Promise<ApiResult<null>> {
+  try {
+    const response = await fetch(path, {
+      method,
+      credentials: "same-origin",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!response.ok) {
+      return { ok: false, error: parseErrorBody(response.status, await readJson(response)) };
+    }
+    return { ok: true, data: null };
   } catch (error) {
     if (isTimeoutError(error)) {
       return { ok: false, error: { kind: "timeout", message: TIMEOUT_ERROR_MESSAGE } };

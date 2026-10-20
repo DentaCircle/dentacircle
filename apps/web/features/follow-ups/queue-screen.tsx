@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
+import { CancelButton } from "@/features/follow-ups/cancel-button";
 import { ContactedButton } from "@/features/follow-ups/contacted-button";
 import { followUpsHref, noticeText, type QueueNotice } from "@/features/follow-ups/links";
 import { formatDueOn } from "@/features/care/follow-up-line";
@@ -109,6 +110,7 @@ export function QueueScreen({
                       {row.status === "scheduled" || row.status === "contacted" ? (
                         <Link href={`/follow-ups/${row.id}/book`}>Book visit</Link>
                       ) : null}
+                      <CancelButton followUpId={row.id} view={view} page={page} />
                     </div>
                   </td>
                 </tr>

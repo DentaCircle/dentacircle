@@ -74,6 +74,7 @@ test("shows name, id, phone, due date, badges, status and actions", () => {
   expect(bookLinks).toHaveLength(2);
   expect(bookLinks[0]).toHaveAttribute("href", "/follow-ups/fu-1/book");
   expect(bookLinks[1]).toHaveAttribute("href", "/follow-ups/fu-2/book");
+  expect(screen.getAllByRole("button", { name: "Cancel follow-up" })).toHaveLength(3);
   expect(screen.getByRole("link", { name: "All open" })).toHaveAttribute("aria-current", "page");
 });
 
@@ -125,7 +126,7 @@ test("pagination and notices", () => {
   expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute("href", "/follow-ups?page=3");
 });
 
-test("a booked row has no actions", () => {
+test("a booked row can be cancelled and has no book or contacted action", () => {
   render(
     <QueueScreen
       status="ready"
@@ -134,10 +135,11 @@ test("a booked row has no actions", () => {
       page={1}
       pageSize={20}
       view="all"
-      notice="contacted"
+      notice="cancelled"
     />,
   );
-  expect(screen.getByRole("status")).toHaveTextContent("Marked contacted.");
+  expect(screen.getByRole("status")).toHaveTextContent("Follow-up cancelled.");
+  expect(screen.getByRole("button", { name: "Cancel follow-up" })).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Mark contacted" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Book visit" })).not.toBeInTheDocument();
 });

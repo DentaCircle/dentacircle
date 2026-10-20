@@ -1,14 +1,15 @@
 import type { FollowUpQueueView } from "@/lib/api/client";
 
-export type QueueNotice = "contacted" | "booked" | "changed";
+export type QueueNotice = "contacted" | "booked" | "changed" | "cancelled";
 
 const NOTICES: Record<QueueNotice, string> = {
   contacted: "Marked contacted.",
   booked: "Visit booked.",
   changed: "This follow-up has already changed.",
+  cancelled: "Follow-up cancelled.",
 };
 
-const NOTICE_NAMES: readonly QueueNotice[] = ["contacted", "booked", "changed"];
+const NOTICE_NAMES: readonly QueueNotice[] = ["contacted", "booked", "changed", "cancelled"];
 
 export function followUpsHref(
   view: FollowUpQueueView,
