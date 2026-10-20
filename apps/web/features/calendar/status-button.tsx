@@ -72,7 +72,14 @@ export function StatusButton({
 
   if (confirm !== null && !isConfirming) {
     return (
-      <Button type="button" variant="outline" onClick={() => setIsConfirming(true)}>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => {
+          setMessage(null);
+          setIsConfirming(true);
+        }}
+      >
         {LABELS[target]}
       </Button>
     );
@@ -97,7 +104,14 @@ export function StatusButton({
           <Button type="button" onClick={onConfirm} disabled={isSubmitting}>
             Yes
           </Button>
-          <Button type="button" variant="outline" onClick={() => setIsConfirming(false)}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setMessage(null);
+              setIsConfirming(false);
+            }}
+          >
             Keep
           </Button>
           {message === null ? null : (

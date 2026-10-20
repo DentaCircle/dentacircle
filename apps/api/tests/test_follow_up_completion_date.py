@@ -24,6 +24,7 @@ from dentacircle.repositories.follow_up_repository import FollowUpRepository
 from dentacircle.services.appointment_service import (
     AppointmentFieldError,
     ForbiddenStatusError,
+    InvalidStatusError,
     book_appointment,
     change_status,
 )
@@ -184,6 +185,26 @@ def test_a_bad_date_or_a_date_on_another_status_does_not_move_the_visit(database
             assert caught.value.code == "only_on_completed"
         assert _visit_status(scheduled) == "scheduled"
         assert _count(patient_id) == 0
+
+
+def test_an_illegal_completion_is_refused_before_the_date(database: str) -> None:
+    clinic_id, actor_id, type_id = _clinic()
+    patient_id = _patient(clinic_id, actor_id)
+    scheduled = _booked(clinic_id, actor_id, patient_id, type_id)
+    with Session(get_engine()) as session:
+        with pytest.raises(InvalidStatusError):
+            change_status(
+                session,
+                clinic_id,
+                actor_id,
+                _ROLES,
+                scheduled,
+                "completed",
+                _NOW,
+                follow_up_due_on=_TODAY - timedelta(days=1),
+            )
+    assert _visit_status(scheduled) == "scheduled"
+    assert _count(patient_id) == 0
 
 
 def test_an_inactive_patient_completes_and_keeps_the_old_follow_up(database: str) -> None:
@@ -358,6 +379,18 @@ def test_the_status_route_accepts_the_date_only_on_completion(
     )
     assert denied.status_code == 403
     assert _api_status(visit_id) == "in_progress"
+    stale = _api_visit(patient_id, "scheduled")
+    conflict = api.post(
+        f"/appointments/{stale}/status",
+        cookies=cookies,
+        json={
+            "status": "completed",
+            "follow_up_due_on": (_TODAY - timedelta(days=1)).isoformat(),
+        },
+    )
+    assert conflict.status_code == 409
+    assert conflict.json()["error"]["code"] == "invalid_status"
+    assert _api_status(stale) == "scheduled"
 
 
 def _complete(clinic_id: UUID, actor_id: UUID, visit_id: UUID, due_on: date | None) -> None:

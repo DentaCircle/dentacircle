@@ -192,6 +192,30 @@ test("a bad follow-up date stays in the confirm box", async () => {
   expect(push).not.toHaveBeenCalled();
 });
 
+test("keep drops a follow-up date error before complete is opened again", async () => {
+  const user = userEvent.setup();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(() =>
+      Promise.resolve({
+        ok: false,
+        status: 422,
+        json: () => Promise.resolve(validationBody("body.follow_up_due_on: before_today")),
+      }),
+    ),
+  );
+  render(<StatusButton appointmentId="visit-1" returnHref={HREF} target="completed" />);
+  await user.click(screen.getByRole("button", { name: "Complete" }));
+  await user.click(screen.getByRole("button", { name: "Yes" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Choose a date from today through the next year.",
+  );
+  await user.click(screen.getByRole("button", { name: "Keep" }));
+  await user.click(screen.getByRole("button", { name: "Complete" }));
+  expect(screen.getByText("Mark as completed?")).toBeInTheDocument();
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+});
+
 test("no-show does not ask for a follow-up date", async () => {
   const user = userEvent.setup();
   render(<StatusButton appointmentId="visit-1" returnHref={HREF} target="no_show" />);

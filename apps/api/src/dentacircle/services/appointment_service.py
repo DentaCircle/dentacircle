@@ -231,12 +231,14 @@ def change_status(
         raise ForbiddenStatusError
     if follow_up_due_on is not None and target != "completed":
         raise AppointmentFieldError("follow_up_due_on", "only_on_completed")
+    # An illegal move is reported before the date window, so a stale Complete
+    # stays a status conflict even when the date is also outside the window.
+    if target not in STATUS_TRANSITIONS.get(row.status, frozenset()):
+        raise InvalidStatusError
     if target == "completed" and follow_up_due_on is not None:
         problem = due_on_problem(follow_up_due_on, zone, now)
         if problem is not None:
             raise AppointmentFieldError("follow_up_due_on", problem)
-    if target not in STATUS_TRANSITIONS.get(row.status, frozenset()):
-        raise InvalidStatusError
     problem = _status_time_problem(target, row.starts_at, zone, now)
     if problem is not None:
         raise AppointmentFieldError("status", problem)

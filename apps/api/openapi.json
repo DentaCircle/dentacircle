@@ -450,6 +450,21 @@
         "title": "ClinicianResponse",
         "type": "object"
       },
+      "CreateFollowUpBody": {
+        "additionalProperties": false,
+        "properties": {
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "due_on"
+        ],
+        "title": "CreateFollowUpBody",
+        "type": "object"
+      },
       "ErrorBody": {
         "properties": {
           "code": {
@@ -488,9 +503,16 @@
       "FollowUpBody": {
         "properties": {
           "appointment_id": {
-            "format": "uuid",
-            "title": "Appointment Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appointment Id"
           },
           "created_at": {
             "format": "date-time",
@@ -1210,6 +1232,18 @@
       "dentacircle__api__appointments__StatusBody": {
         "additionalProperties": false,
         "properties": {
+          "follow_up_due_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Follow Up Due On"
+          },
           "status": {
             "enum": [
               "arrived",
@@ -2880,6 +2914,74 @@
           }
         },
         "summary": "Get Follow Up"
+      },
+      "post": {
+        "operationId": "post_follow_up_patients__patient_id__follow_up_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFollowUpBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowUpResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "follow_up_open or patient_inactive"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "summary": "Post Follow Up"
       }
     },
     "/patients/{patient_id}/status": {

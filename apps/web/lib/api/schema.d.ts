@@ -429,7 +429,8 @@ export interface paths {
         /** Get Follow Up */
         get: operations["get_follow_up_patients__patient_id__follow_up_get"];
         put?: never;
-        post?: never;
+        /** Post Follow Up */
+        post: operations["post_follow_up_patients__patient_id__follow_up_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -666,6 +667,14 @@ export interface components {
              */
             id: string;
         };
+        /** CreateFollowUpBody */
+        CreateFollowUpBody: {
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+        };
         /** ErrorBody */
         ErrorBody: {
             /** Code */
@@ -681,11 +690,8 @@ export interface components {
         };
         /** FollowUpBody */
         FollowUpBody: {
-            /**
-             * Appointment Id
-             * Format: uuid
-             */
-            appointment_id: string;
+            /** Appointment Id */
+            appointment_id: string | null;
             /**
              * Created At
              * Format: date-time
@@ -993,6 +999,8 @@ export interface components {
         };
         /** StatusBody */
         dentacircle__api__appointments__StatusBody: {
+            /** Follow Up Due On */
+            follow_up_due_on?: string | null;
             /**
              * Status
              * @enum {string}
@@ -2237,6 +2245,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_follow_up_patients__patient_id__follow_up_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateFollowUpBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FollowUpResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description follow_up_open or patient_inactive */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
         };
