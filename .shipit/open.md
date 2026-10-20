@@ -1,10 +1,5 @@
 # Open items
 
-- **Follow-up stays open after booking and after care is finished.** Completing the last
-  planned item does not close the follow-up, and a `booked` row stays open, blocking a new
-  follow-up for that patient. S2.4 chose not to close. Next action: S2.4b, before S2.7 —
-  completing the booked visit completes the follow-up before S2.2 runs, plus a cancel
-  action on the queue.
 - **Appointment status undo.** A mistaken arrived, no-show, start or complete cannot be reversed
   from the calendar. Care sessions do not undo the visit either. Next action: a small slice
   if the desk needs it.
