@@ -1,15 +1,21 @@
 """Create or update the one open follow-up when a visit is completed."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import date, datetime
+from typing import TYPE_CHECKING
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from psycopg.errors import UniqueViolation
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from dentacircle.domain.follow_up import (
+    BOOKABLE_STATUSES,
+    CONTACTABLE_STATUSES,
     DUE_QUEUE_STATUSES,
     OPEN_FOLLOW_UP_STATUSES,
     due_date,
@@ -29,6 +35,9 @@ from dentacircle.services.audit_service import record
 from dentacircle.services.clinic_day_service import ClinicNotFoundError
 from dentacircle.services.patient_service import PatientNotFoundError
 
+if TYPE_CHECKING:
+    from dentacircle.services.appointment_service import AppointmentView
+
 
 class FollowUpFieldError(Exception):
     """One field failed a rule. `code` is a validation name and carries no submitted value."""
@@ -40,11 +49,19 @@ class FollowUpFieldError(Exception):
 
 
 class PatientInactiveError(Exception):
-    """A follow-up cannot be created by hand for an inactive patient."""
+    """A follow-up cannot be created or updated for an inactive patient."""
 
 
 class FollowUpOpenError(Exception):
     """The patient already has a scheduled, contacted, or booked follow-up."""
+
+
+class FollowUpNotFoundError(Exception):
+    """No follow-up with this id in the clinic."""
+
+
+class FollowUpInvalidStatusError(Exception):
+    """The follow-up cannot take this status."""
 
 
 @dataclass(frozen=True)
@@ -252,6 +269,103 @@ def list_follow_ups(
         page=page,
         page_size=page_size,
     )
+
+
+def follow_up_in_clinic(session: Session, clinic_id: UUID, follow_up_id: UUID) -> None:
+    """Raise if this clinic has no follow-up with this id."""
+    if FollowUpRepository(session, clinic_id).get(follow_up_id) is None:
+        raise FollowUpNotFoundError
+
+
+def mark_contacted(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    follow_up_id: UUID,
+    now: datetime,
+) -> FollowUpQueueItemView:
+    """Lock the patient, then the follow-up, and move scheduled to contacted."""
+    row, patient = _locked_row(session, clinic_id, follow_up_id)
+    if patient.status != "active":
+        raise PatientInactiveError
+    if row.status not in CONTACTABLE_STATUSES:
+        raise FollowUpInvalidStatusError
+    row.status = "contacted"
+    record(
+        session,
+        clinic_id,
+        actor_user_id,
+        "follow_up",
+        row.id,
+        "status_change",
+        changed_fields=["status"],
+    )
+    today = now.astimezone(_zone(session, clinic_id)).date()
+    return _queue_item(row, patient, today)
+
+
+def book_follow_up(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    follow_up_id: UUID,
+    clinician_id: UUID,
+    appointment_type_id: UUID,
+    starts_at: datetime,
+    now: datetime,
+) -> AppointmentView:
+    """Lock the patient, then the follow-up, book a visit, and mark the row booked."""
+    from dentacircle.services.appointment_service import book_appointment
+
+    row, patient = _locked_row(session, clinic_id, follow_up_id)
+    if patient.status != "active":
+        raise PatientInactiveError
+    if row.status not in BOOKABLE_STATUSES:
+        raise FollowUpInvalidStatusError
+    appointment = book_appointment(
+        session,
+        clinic_id,
+        actor_user_id,
+        patient.id,
+        clinician_id,
+        appointment_type_id,
+        starts_at,
+        now,
+    )
+    row.status = "booked"
+    row.booked_appointment_id = appointment.id
+    record(
+        session,
+        clinic_id,
+        actor_user_id,
+        "follow_up",
+        row.id,
+        "status_change",
+        changed_fields=["status", "booked_appointment_id"],
+    )
+    return appointment
+
+
+def _locked_row(session: Session, clinic_id: UUID, follow_up_id: UUID) -> tuple[FollowUp, Patient]:
+    """Patient row first, then the follow-up, the same lock order S2.2 uses.
+
+    The first read is the patient id only, so the session does not cache a stale
+    follow-up row that would hide a concurrent status change.
+    """
+    patient_id = session.scalar(
+        select(FollowUp.patient_id).where(
+            FollowUp.clinic_id == clinic_id, FollowUp.id == follow_up_id
+        )
+    )
+    if patient_id is None:
+        raise FollowUpNotFoundError
+    patient = PatientRepository(session, clinic_id).get(patient_id, lock=True)
+    if patient is None:
+        raise RuntimeError("follow-up points at a missing patient")
+    row = FollowUpRepository(session, clinic_id).get(follow_up_id, lock=True)
+    if row is None:
+        raise FollowUpNotFoundError
+    return row, patient
 
 
 def _view(row: FollowUp) -> FollowUpView:

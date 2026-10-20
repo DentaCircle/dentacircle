@@ -13,6 +13,8 @@ from dentacircle.domain.appointment import date_problem
 FOLLOW_UP_STATUSES = ("scheduled", "contacted", "booked", "completed", "cancelled")
 OPEN_FOLLOW_UP_STATUSES = frozenset(("scheduled", "contacted", "booked"))
 DUE_QUEUE_STATUSES = frozenset(("scheduled", "contacted"))
+CONTACTABLE_STATUSES = frozenset(("scheduled",))
+BOOKABLE_STATUSES = frozenset(("scheduled", "contacted"))
 OPEN_ITEM_STATUSES = frozenset(("planned", "started"))
 FOLLOW_UP_QUEUE_VIEWS = ("due", "all")
 FOLLOW_UP_TIMINGS = ("overdue", "due_today", "upcoming")

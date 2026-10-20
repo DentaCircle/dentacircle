@@ -26,7 +26,7 @@ class FollowUpRepository:
         """This clinic's follow-up, or none. Other clinics are not found."""
         statement = scoped_select(FollowUp, self._clinic_id).where(FollowUp.id == follow_up_id)
         if lock:
-            statement = statement.with_for_update()
+            statement = statement.with_for_update().execution_options(populate_existing=True)
         return self._session.scalars(statement).one_or_none()
 
     def get_open(self, patient_id: UUID) -> FollowUp | None:
