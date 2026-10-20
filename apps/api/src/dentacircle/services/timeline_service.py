@@ -1,7 +1,7 @@
 """Write one timeline step, and list a patient's steps newest first."""
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -93,6 +93,7 @@ def record(
     care_session_id: UUID | None = None,
     follow_up_id: UUID | None = None,
     recall_id: UUID | None = None,
+    occurred_at: datetime | None = None,
 ) -> None:
     """Append one step in the caller's transaction. The row is not updated later."""
     if kind not in TIMELINE_KINDS:
@@ -105,12 +106,14 @@ def record(
         "recall_id": recall_id,
     }
     _check_subject(kind, subjects)
+    moment = occurred_at if occurred_at is not None else datetime.now(UTC)
     TimelineRepository(session, clinic_id).add(
         TimelineEvent(
             id=uuid4(),
             patient_id=patient_id,
             actor_user_id=actor_user_id,
             kind=kind,
+            occurred_at=moment,
             appointment_id=appointment_id,
             care_item_id=care_item_id,
             care_session_id=care_session_id,

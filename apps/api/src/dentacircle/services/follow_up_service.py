@@ -35,6 +35,7 @@ from dentacircle.repositories.follow_up_repository import FollowUpRepository
 from dentacircle.repositories.patient_repository import PatientRepository
 from dentacircle.services.audit_service import record
 from dentacircle.services.clinic_day_service import ClinicNotFoundError
+from dentacircle.services.patient_lock import lock_patient
 from dentacircle.services.patient_service import PatientNotFoundError
 from dentacircle.services.timeline_service import record as record_timeline
 
@@ -102,19 +103,6 @@ class FollowUpQueuePage:
     page_size: int
 
 
-def _lock_patient(session: Session, clinic_id: UUID, patient_id: UUID) -> Patient:
-    """Lock the patient row without flushing a pending timeline insert.
-
-    That insert references the patient. Flushing it first takes a key share lock
-    and waits behind another transaction that already holds the row.
-    """
-    with session.no_autoflush:
-        patient = PatientRepository(session, clinic_id).get(patient_id, lock=True)
-    if patient is None:
-        raise RuntimeError("visit points at a missing patient")
-    return patient
-
-
 def record_incomplete_care(
     session: Session,
     clinic_id: UUID,
@@ -132,12 +120,22 @@ def record_incomplete_care(
     seven-day rule still applies, and only when the patient is active with an open item.
     An inactive patient still has the booked follow-up closed, and gets no new row.
     """
-    patient = _lock_patient(session, clinic_id, appointment.patient_id)
-    complete_booked_follow_up(session, clinic_id, actor_user_id, appointment)
+    patient = lock_patient(session, clinic_id, appointment.patient_id)
+    complete_booked_follow_up(
+        session, clinic_id, actor_user_id, appointment, occurred_at=completed_at
+    )
     if due_on is not None:
         if patient.status != "active":
             return
-        _save_dated_follow_up(session, clinic_id, actor_user_id, patient.id, appointment.id, due_on)
+        _save_dated_follow_up(
+            session,
+            clinic_id,
+            actor_user_id,
+            patient.id,
+            appointment.id,
+            due_on,
+            occurred_at=completed_at,
+        )
         return
     statuses = CareRepository(session, clinic_id).list_item_statuses(patient.id)
     if not needs_follow_up(patient.status, statuses):
@@ -150,6 +148,7 @@ def record_incomplete_care(
         appointment.id,
         due_date(completed_at, zone),
         replace_due_on=False,
+        occurred_at=completed_at,
     )
 
 
@@ -162,6 +161,7 @@ def _save_dated_follow_up(
     due_on: date,
     *,
     replace_due_on: bool = True,
+    occurred_at: datetime | None = None,
 ) -> None:
     repository = FollowUpRepository(session, clinic_id)
     existing = repository.get_open(patient_id)
@@ -190,6 +190,7 @@ def _save_dated_follow_up(
             patient_id,
             "follow_up_created",
             follow_up_id=follow_up.id,
+            occurred_at=occurred_at,
         )
         return
     existing.appointment_id = appointment_id
@@ -213,6 +214,7 @@ def _save_dated_follow_up(
         patient_id,
         "follow_up_updated",
         follow_up_id=existing.id,
+        occurred_at=occurred_at,
     )
 
 
@@ -261,6 +263,7 @@ def create_manual_follow_up(
         patient.id,
         "follow_up_created",
         follow_up_id=follow_up.id,
+        occurred_at=now,
     )
     try:
         session.flush()
@@ -323,13 +326,17 @@ def complete_booked_follow_up(
     clinic_id: UUID,
     actor_user_id: UUID,
     appointment: Appointment,
+    *,
+    occurred_at: datetime | None = None,
 ) -> None:
     """Close the booked follow-up for this visit. The patient row is already locked.
 
     The caller holds the visit lock, then the patient lock. This takes the follow-up
     lock next. A visit that is not the booked visit does nothing.
     """
-    _move_booked_follow_up(session, clinic_id, actor_user_id, appointment.id, "completed")
+    _move_booked_follow_up(
+        session, clinic_id, actor_user_id, appointment.id, "completed", occurred_at=occurred_at
+    )
 
 
 def release_booked_follow_up(
@@ -343,7 +350,7 @@ def release_booked_follow_up(
     The patient lock is taken here, then the follow-up. `due_on` and the visit id stay.
     A visit that is not the booked visit does nothing.
     """
-    _lock_patient(session, clinic_id, appointment.patient_id)
+    lock_patient(session, clinic_id, appointment.patient_id)
     _move_booked_follow_up(session, clinic_id, actor_user_id, appointment.id, "contacted")
 
 
@@ -385,6 +392,8 @@ def _move_booked_follow_up(
     actor_user_id: UUID,
     appointment_id: UUID,
     status: str,
+    *,
+    occurred_at: datetime | None = None,
 ) -> None:
     """Lock the booked follow-up for this visit and set its status. Flush before any insert."""
     row = FollowUpRepository(session, clinic_id).get_booked_for_appointment(
@@ -409,6 +418,7 @@ def _move_booked_follow_up(
         row.patient_id,
         FOLLOW_UP_MOVE_KIND[status],
         follow_up_id=row.id,
+        occurred_at=occurred_at,
     )
     session.flush()
 
@@ -443,6 +453,7 @@ def mark_contacted(
         row.patient_id,
         "follow_up_contacted",
         follow_up_id=row.id,
+        occurred_at=now,
     )
     today = now.astimezone(_zone(session, clinic_id)).date()
     return _queue_item(row, patient, today)
@@ -494,6 +505,7 @@ def book_follow_up(
         row.patient_id,
         "follow_up_booked",
         follow_up_id=row.id,
+        occurred_at=now,
     )
     return appointment
 

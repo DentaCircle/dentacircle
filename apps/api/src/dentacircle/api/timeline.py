@@ -1,7 +1,7 @@
 """Read one patient's timeline. Nothing in this module writes a row."""
 
 from datetime import date, datetime
-from typing import Annotated, Literal, cast
+from typing import Annotated, Any, Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -118,7 +118,23 @@ class TimelineListResponse(BaseModel):
     page_size: int
 
 
-@router.get("/patients/{patient_id}/timeline")
+class ErrorBody(BaseModel):
+    code: str
+    message: str
+    request_id: str
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorBody
+
+
+_READ_ERRORS: dict[int | str, dict[str, Any]] = {
+    404: {"model": ErrorResponse, "description": "Not Found"},
+    422: {"model": ErrorResponse, "description": "validation_error"},
+}
+
+
+@router.get("/patients/{patient_id}/timeline", responses=_READ_ERRORS)
 def get_timeline(
     patient_id: UUID,
     user: Annotated[CurrentUser, Depends(can_read)],

@@ -1,6 +1,7 @@
 """GET /patients/{id}/timeline: shape, check order, roles, and no write route."""
 
 from collections.abc import Iterator
+from typing import get_args
 from uuid import UUID, uuid4
 
 import pytest
@@ -10,8 +11,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from dentacircle.api.timeline import TimelineKind
 from dentacircle.core.database import get_engine
-from dentacircle.domain.timeline import TIMELINE_READ_ROLES
+from dentacircle.domain.timeline import TIMELINE_KINDS, TIMELINE_READ_ROLES
 from dentacircle.main import create_app
 from dentacircle.models.audit_event import AuditEvent
 from dentacircle.models.timeline_event import TimelineEvent
@@ -31,6 +33,10 @@ _EMAILS = {
 def api(throwaway_database_url: str, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
     with patient_api(throwaway_database_url, monkeypatch) as client:
         yield client
+
+
+def test_response_kinds_match_domain() -> None:
+    assert set(get_args(TimelineKind)) == set(TIMELINE_KINDS)
 
 
 def test_get_returns_the_page_newest_first(api: TestClient) -> None:

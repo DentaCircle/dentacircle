@@ -190,6 +190,7 @@ def cancel_appointment(
 ) -> CalendarItemView:
     # Cancel does not compare the clock. The argument is here so every appointment
     # write takes the same `now` the route already has.
+    occurred_at = now
     del now
     zone, _timezone_name, _default_minutes = _clinic_clock(session, clinic_id)
     repository = AppointmentRepository(session, clinic_id)
@@ -215,6 +216,7 @@ def cancel_appointment(
         row.patient_id,
         "visit_cancelled",
         appointment_id=row.id,
+        occurred_at=occurred_at,
     )
     release_booked_follow_up(session, clinic_id, actor_user_id, row)
     release_booked_recall(session, clinic_id, actor_user_id, row)
@@ -275,6 +277,7 @@ def change_status(
         row.patient_id,
         VISIT_STATUS_KIND[target],
         appointment_id=row.id,
+        occurred_at=now,
     )
     if target == "completed":
         record_incomplete_care(
@@ -403,6 +406,7 @@ def reschedule_appointment(
         row.patient_id,
         "visit_rescheduled",
         appointment_id=row.id,
+        occurred_at=now,
     )
     try:
         session.flush()
@@ -469,6 +473,7 @@ def book_appointment(
         patient_id,
         "visit_booked",
         appointment_id=appointment.id,
+        occurred_at=now,
     )
     try:
         session.flush()

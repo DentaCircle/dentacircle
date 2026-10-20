@@ -33,23 +33,11 @@ from dentacircle.repositories.patient_repository import PatientRepository
 from dentacircle.repositories.recall_repository import RecallRepository
 from dentacircle.services.audit_service import record
 from dentacircle.services.clinic_day_service import ClinicNotFoundError
+from dentacircle.services.patient_lock import lock_patient
 from dentacircle.services.timeline_service import record as record_timeline
 
 if TYPE_CHECKING:
     from dentacircle.services.appointment_service import AppointmentView
-
-
-def _lock_patient(session: Session, clinic_id: UUID, patient_id: UUID) -> Patient:
-    """Lock the patient row without flushing a pending timeline insert.
-
-    That insert references the patient. Flushing it first takes a key share lock
-    and waits behind another transaction that already holds the row.
-    """
-    with session.no_autoflush:
-        patient = PatientRepository(session, clinic_id).get(patient_id, lock=True)
-    if patient is None:
-        raise RuntimeError("visit points at a missing patient")
-    return patient
 
 
 def record_recall(
@@ -66,8 +54,10 @@ def record_recall(
     A type with no interval writes nothing. An inactive patient still closes a booked
     recall and gets no new row. A booked recall for a different visit is left alone.
     """
-    patient = _lock_patient(session, clinic_id, appointment.patient_id)
-    _move_booked_recall(session, clinic_id, actor_user_id, appointment.id, "completed")
+    patient = lock_patient(session, clinic_id, appointment.patient_id)
+    _move_booked_recall(
+        session, clinic_id, actor_user_id, appointment.id, "completed", occurred_at=completed_at
+    )
     appointment_type = AppointmentTypeRepository(session, clinic_id).get(
         appointment.appointment_type_id
     )
@@ -105,6 +95,7 @@ def record_recall(
             patient.id,
             "recall_created",
             recall_id=recall.id,
+            occurred_at=completed_at,
         )
         return
     if existing.status not in MOVABLE_RECALL_STATUSES:
@@ -128,6 +119,7 @@ def record_recall(
         patient.id,
         "recall_updated",
         recall_id=existing.id,
+        occurred_at=completed_at,
     )
 
 
@@ -142,7 +134,7 @@ def release_booked_recall(
     The patient lock is taken here, then the recall. `due_on` and the visit id stay.
     A visit that is not the booked visit does nothing.
     """
-    _lock_patient(session, clinic_id, appointment.patient_id)
+    lock_patient(session, clinic_id, appointment.patient_id)
     _move_booked_recall(session, clinic_id, actor_user_id, appointment.id, "contacted")
 
 
@@ -152,6 +144,8 @@ def _move_booked_recall(
     actor_user_id: UUID,
     appointment_id: UUID,
     status: str,
+    *,
+    occurred_at: datetime | None = None,
 ) -> None:
     """Lock the booked recall for this visit and set its status. Flush before any insert."""
     row = RecallRepository(session, clinic_id).get_booked_for_appointment(appointment_id, lock=True)
@@ -174,6 +168,7 @@ def _move_booked_recall(
         row.patient_id,
         RECALL_MOVE_KIND[status],
         recall_id=row.id,
+        occurred_at=occurred_at,
     )
     session.flush()
 
@@ -307,6 +302,7 @@ def mark_contacted(
         row.patient_id,
         "recall_contacted",
         recall_id=row.id,
+        occurred_at=now,
     )
     return _require_item(session, clinic_id, row.id, now)
 
@@ -357,6 +353,7 @@ def book_recall(
         row.patient_id,
         "recall_booked",
         recall_id=row.id,
+        occurred_at=now,
     )
     return appointment
 
