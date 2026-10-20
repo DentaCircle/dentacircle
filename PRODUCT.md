@@ -319,7 +319,13 @@ just completed. An existing open follow-up keeps its status and due date; only t
 moves. `GET /patients/{id}/follow-up` returns the open row or null for clinician, receptionist
 and clinic_admin. `/patients/[id]/care` shows the due date and badge above the plans.
 `inventory_admin` still gets 403. Migration `0010` adds `follow_up`. Finishing the last care
-item does not close the follow-up. S2.3 adds a hand-created follow-up with no visit, and a
-clinician-set date on completion that replaces the seven-day default.
+item does not close the follow-up.
 
-Next slice: S2.3 manual follow-up create and a clinician-set due date on completion.
+Clinician, receptionist, and clinic admin can create a follow-up by hand on Care when the
+patient is active and has no open follow-up. The date is today through 365 days, clinic-local,
+and the row has no visit. On the calendar, confirming Complete can set that date. The date
+creates a follow-up even when every care item is finished, and it replaces the date on an
+existing open follow-up. Migration `0011` allows a null visit. Without a date, completion
+still uses the seven-day rule from S2.2.
+
+Next slice: S2.4 coordinator queue, with due and overdue, mark contacted, and book from the queue.
