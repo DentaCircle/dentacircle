@@ -37,6 +37,15 @@ test("follow-ups stays current on the book page", () => {
   expect(screen.getByRole("link", { name: "Calendar" })).not.toHaveAttribute("aria-current");
 });
 
+test("recalls stays current on the book page", () => {
+  path.value = "/recalls/rc-1/book";
+  render(<MainNav />);
+
+  expect(screen.getByRole("link", { name: "Recalls" })).toHaveAttribute("href", "/recalls");
+  expect(screen.getByRole("link", { name: "Recalls" })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("link", { name: "Follow-ups" })).not.toHaveAttribute("aria-current");
+});
+
 test("patients stays current on the detail and edit pages", () => {
   path.value = "/patients/00000000-0000-4000-8000-000000000010";
   const { rerender } = render(<MainNav />);

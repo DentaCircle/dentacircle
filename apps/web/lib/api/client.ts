@@ -166,6 +166,25 @@ export type FollowUpQueuePage = {
   page_size: number;
 };
 
+export type RecallStatus = "scheduled" | "contacted" | "booked";
+export type RecallTiming = "overdue" | "due_today" | "upcoming";
+export type RecallQueueView = "due" | "all";
+export type RecallQueueItem = {
+  id: string;
+  status: RecallStatus;
+  due_on: string;
+  timing: RecallTiming;
+  last_visit_on: string;
+  recall_type: { id: string; name: string };
+  patient: { id: string; display_id: string; full_name: string; phone: string };
+};
+export type RecallQueuePage = {
+  items: RecallQueueItem[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
 export function cancelFollowUp(followUpId: string): Promise<ApiResult<null>> {
   return sendEmpty("POST", `/api/follow-ups/${encodeURIComponent(followUpId)}/cancel`);
 }
@@ -197,6 +216,24 @@ export function listFollowUps(
     view,
   });
   return getJson(`/follow-ups?${params.toString()}`, followUpQueuePageData, cookieHeaders(cookieHeader));
+}
+
+export function cancelRecall(recallId: string): Promise<ApiResult<null>> {
+  return sendEmpty("POST", `/api/recalls/${encodeURIComponent(recallId)}/cancel`);
+}
+
+export function listRecalls(
+  cookieHeader: string,
+  page: number,
+  view: RecallQueueView = "due",
+  pageSize = 20,
+): Promise<ApiResult<RecallQueuePage>> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+    view,
+  });
+  return getJson(`/recalls?${params.toString()}`, recallQueuePageData, cookieHeaders(cookieHeader));
 }
 
 export function listCarePlans(cookieHeader: string, patientId: string): Promise<ApiResult<CarePlan[]>> {
@@ -637,6 +674,54 @@ function followUpQueueItemData(value: unknown): FollowUpQueueItem | null {
   if (status !== "scheduled" && status !== "contacted" && status !== "booked") return null;
   if (timing !== "overdue" && timing !== "due_today" && timing !== "upcoming") return null;
   return { id, status, due_on: dueOn, timing, patient };
+}
+
+function recallQueuePageData(value: unknown): RecallQueuePage | null {
+  if (!isRecord(value) || !Array.isArray(value.items)) return null;
+  const page = numberField(value, "page");
+  const pageSize = numberField(value, "page_size");
+  const total = numberField(value, "total");
+  if (page === null || pageSize === null || total === null) return null;
+  const items: RecallQueueItem[] = [];
+  for (const item of value.items) {
+    const row = recallQueueItemData(item);
+    if (row === null) return null;
+    items.push(row);
+  }
+  return { items, page, page_size: pageSize, total };
+}
+
+function recallQueueItemData(value: unknown): RecallQueueItem | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const dueOn = stringField(value, "due_on");
+  const lastVisitOn = stringField(value, "last_visit_on");
+  const status = value.status;
+  const timing = value.timing;
+  const recallType = recallTypeData(value.recall_type);
+  const patient = followUpQueuePatientData(value.patient);
+  if (id === null || dueOn === null || lastVisitOn === null || recallType === null || patient === null) {
+    return null;
+  }
+  if (status !== "scheduled" && status !== "contacted" && status !== "booked") return null;
+  if (timing !== "overdue" && timing !== "due_today" && timing !== "upcoming") return null;
+  return {
+    id,
+    status,
+    due_on: dueOn,
+    timing,
+    last_visit_on: lastVisitOn,
+    recall_type: recallType,
+    patient,
+  };
+}
+
+function recallTypeData(value: unknown): { id: string; name: string } | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const name = stringField(value, "name");
+  if (id === null || name === null) return null;
+  return { id, name };
 }
 
 function followUpQueuePatientData(

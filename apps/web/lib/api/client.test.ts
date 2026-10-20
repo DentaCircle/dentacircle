@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 
 import {
   cancelFollowUp,
+  cancelRecall,
   changeAppointmentStatus,
   getCurrentUser,
   getHealth,
@@ -272,6 +273,20 @@ describe("changeAppointmentStatus", () => {
       ok: false,
       error: { kind: "network", message: "The API could not be reached." },
     });
+  });
+});
+
+describe("cancelRecall", () => {
+  test("posts with no body and treats 204 as success", async () => {
+    const fetchMock = stubFetch({ ok: true, status: 204, json: () => Promise.resolve(null) });
+
+    await expect(cancelRecall("rc-1")).resolves.toEqual({ ok: true, data: null });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/recalls/rc-1/cancel",
+      expect.objectContaining({ method: "POST", credentials: "same-origin" }),
+    );
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
+    expect(init.body).toBeUndefined();
   });
 });
 
