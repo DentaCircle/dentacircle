@@ -1,6 +1,25 @@
 {
   "components": {
     "schemas": {
+      "ActorBody": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "ActorBody",
+        "type": "object"
+      },
       "AppointmentCreate": {
         "additionalProperties": false,
         "properties": {
@@ -352,6 +371,19 @@
         "title": "CareItemResponse",
         "type": "object"
       },
+      "CareItemSubjectBody": {
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CareItemSubjectBody",
+        "type": "object"
+      },
       "CarePlanResponse": {
         "properties": {
           "created_at": {
@@ -394,6 +426,28 @@
           "items"
         ],
         "title": "CarePlanResponse",
+        "type": "object"
+      },
+      "CareSessionSubjectBody": {
+        "properties": {
+          "care_session_id": {
+            "format": "uuid",
+            "title": "Care Session Id",
+            "type": "string"
+          },
+          "item_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Item Names",
+            "type": "array"
+          }
+        },
+        "required": [
+          "care_session_id",
+          "item_names"
+        ],
+        "title": "CareSessionSubjectBody",
         "type": "object"
       },
       "ClinicDayBody": {
@@ -668,6 +722,20 @@
           "follow_up"
         ],
         "title": "FollowUpResponse",
+        "type": "object"
+      },
+      "FollowUpSubjectBody": {
+        "properties": {
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "due_on"
+        ],
+        "title": "FollowUpSubjectBody",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1189,6 +1257,25 @@
         "title": "RecallPatientBody",
         "type": "object"
       },
+      "RecallSubjectBody": {
+        "properties": {
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "type_name": {
+            "title": "Type Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "due_on",
+          "type_name"
+        ],
+        "title": "RecallSubjectBody",
+        "type": "object"
+      },
       "RecallTypeBody": {
         "properties": {
           "id": {
@@ -1395,6 +1482,119 @@
         "title": "SlotResponse",
         "type": "object"
       },
+      "TimelineItemBody": {
+        "properties": {
+          "actor": {
+            "$ref": "#/components/schemas/ActorBody"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "patient_registered",
+              "visit_booked",
+              "visit_rescheduled",
+              "visit_cancelled",
+              "visit_arrived",
+              "visit_started",
+              "visit_completed",
+              "visit_no_show",
+              "care_item_added",
+              "care_item_started",
+              "care_item_completed",
+              "care_item_cancelled",
+              "care_session_recorded",
+              "follow_up_created",
+              "follow_up_updated",
+              "follow_up_contacted",
+              "follow_up_booked",
+              "follow_up_completed",
+              "follow_up_released",
+              "follow_up_cancelled",
+              "recall_created",
+              "recall_updated",
+              "recall_contacted",
+              "recall_booked",
+              "recall_completed",
+              "recall_released",
+              "recall_cancelled"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "occurred_at": {
+            "format": "date-time",
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "subject": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VisitSubjectBody"
+              },
+              {
+                "$ref": "#/components/schemas/CareItemSubjectBody"
+              },
+              {
+                "$ref": "#/components/schemas/CareSessionSubjectBody"
+              },
+              {
+                "$ref": "#/components/schemas/FollowUpSubjectBody"
+              },
+              {
+                "$ref": "#/components/schemas/RecallSubjectBody"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subject"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "occurred_at",
+          "actor",
+          "subject"
+        ],
+        "title": "TimelineItemBody",
+        "type": "object"
+      },
+      "TimelineListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineItemBody"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "TimelineListResponse",
+        "type": "object"
+      },
       "TitleBody": {
         "additionalProperties": false,
         "properties": {
@@ -1504,6 +1704,36 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "VisitSubjectBody": {
+        "properties": {
+          "appointment_id": {
+            "format": "uuid",
+            "title": "Appointment Id",
+            "type": "string"
+          },
+          "clinician_name": {
+            "title": "Clinician Name",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "type_name": {
+            "title": "Type Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "appointment_id",
+          "type_name",
+          "clinician_name",
+          "starts_at"
+        ],
+        "title": "VisitSubjectBody",
         "type": "object"
       },
       "WorkingHoursInterval": {
@@ -3612,6 +3842,70 @@
           }
         },
         "summary": "Put Patient Status"
+      }
+    },
+    "/patients/{patient_id}/timeline": {
+      "get": {
+        "operationId": "get_timeline_patients__patient_id__timeline_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 92233720368547759,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Timeline"
       }
     },
     "/recalls": {

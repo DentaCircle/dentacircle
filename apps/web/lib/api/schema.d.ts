@@ -522,6 +522,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patients/{patient_id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Timeline */
+        get: operations["get_timeline_patients__patient_id__timeline_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/recalls": {
         parameters: {
             query?: never;
@@ -611,6 +628,16 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** ActorBody */
+        ActorBody: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** AppointmentCreate */
         AppointmentCreate: {
             /**
@@ -764,6 +791,11 @@ export interface components {
              */
             status: "planned" | "started" | "completed" | "cancelled";
         };
+        /** CareItemSubjectBody */
+        CareItemSubjectBody: {
+            /** Name */
+            name: string;
+        };
         /** CarePlanResponse */
         CarePlanResponse: {
             /**
@@ -787,6 +819,16 @@ export interface components {
             patient_id: string;
             /** Title */
             title: string;
+        };
+        /** CareSessionSubjectBody */
+        CareSessionSubjectBody: {
+            /**
+             * Care Session Id
+             * Format: uuid
+             */
+            care_session_id: string;
+            /** Item Names */
+            item_names: string[];
         };
         /** ClinicDayBody */
         ClinicDayBody: {
@@ -909,6 +951,14 @@ export interface components {
         /** FollowUpResponse */
         FollowUpResponse: {
             follow_up: components["schemas"]["FollowUpBody"] | null;
+        };
+        /** FollowUpSubjectBody */
+        FollowUpSubjectBody: {
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -1134,6 +1184,16 @@ export interface components {
             /** Phone */
             phone: string;
         };
+        /** RecallSubjectBody */
+        RecallSubjectBody: {
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+            /** Type Name */
+            type_name: string;
+        };
         /** RecallTypeBody */
         RecallTypeBody: {
             /**
@@ -1233,6 +1293,38 @@ export interface components {
              */
             starts_at: string;
         };
+        /** TimelineItemBody */
+        TimelineItemBody: {
+            actor: components["schemas"]["ActorBody"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "patient_registered" | "visit_booked" | "visit_rescheduled" | "visit_cancelled" | "visit_arrived" | "visit_started" | "visit_completed" | "visit_no_show" | "care_item_added" | "care_item_started" | "care_item_completed" | "care_item_cancelled" | "care_session_recorded" | "follow_up_created" | "follow_up_updated" | "follow_up_contacted" | "follow_up_booked" | "follow_up_completed" | "follow_up_released" | "follow_up_cancelled" | "recall_created" | "recall_updated" | "recall_contacted" | "recall_booked" | "recall_completed" | "recall_released" | "recall_cancelled";
+            /**
+             * Occurred At
+             * Format: date-time
+             */
+            occurred_at: string;
+            /** Subject */
+            subject: components["schemas"]["VisitSubjectBody"] | components["schemas"]["CareItemSubjectBody"] | components["schemas"]["CareSessionSubjectBody"] | components["schemas"]["FollowUpSubjectBody"] | components["schemas"]["RecallSubjectBody"] | null;
+        };
+        /** TimelineListResponse */
+        TimelineListResponse: {
+            /** Items */
+            items: components["schemas"]["TimelineItemBody"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
         /** TitleBody */
         TitleBody: {
             /** Title */
@@ -1275,6 +1367,23 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /** VisitSubjectBody */
+        VisitSubjectBody: {
+            /**
+             * Appointment Id
+             * Format: uuid
+             */
+            appointment_id: string;
+            /** Clinician Name */
+            clinician_name: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Type Name */
+            type_name: string;
         };
         /** WorkingHoursInterval */
         WorkingHoursInterval: {
@@ -2815,6 +2924,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PatientResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_timeline_patients__patient_id__timeline_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TimelineListResponse"];
                 };
             };
             /** @description Validation Error */
