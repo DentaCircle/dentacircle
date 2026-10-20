@@ -21,6 +21,7 @@ from dentacircle.repositories.care_repository import CareRepository
 from dentacircle.repositories.care_session_repository import CareSessionRepository
 from dentacircle.services.audit_service import record
 from dentacircle.services.care_service import move_locked_item
+from dentacircle.services.timeline_service import record as record_timeline
 
 
 class CareSessionNotFoundError(Exception):
@@ -77,6 +78,8 @@ def record_session(
     actor_user_id: UUID,
     appointment_id: UUID,
     entries: list[tuple[UUID, str]],
+    *,
+    occurred_at: datetime | None = None,
 ) -> CareSessionView:
     """Lock the visit and each item, then save the session and the item moves together."""
     cleaned = clean_entries(entries)
@@ -92,8 +95,16 @@ def record_session(
     for item, _plan, status in locked:
         if not can_move(item.status, status):
             raise ItemChangedError
-    for item, _plan, status in locked:
-        move_locked_item(session, clinic_id, actor_user_id, item, status)
+    stamp = occurred_at if occurred_at is not None else datetime.now(UTC)
+    for index, (item, _plan, status) in enumerate(locked):
+        move_locked_item(
+            session,
+            clinic_id,
+            actor_user_id,
+            item,
+            status,
+            occurred_at=stamp + timedelta(microseconds=index),
+        )
     row = CareSession(
         id=uuid4(),
         appointment_id=appointment.id,
@@ -101,9 +112,8 @@ def record_session(
         recorded_by_user_id=actor_user_id,
     )
     repository.add(row)
-    # now() is one value for the whole transaction, so give each line its own time.
+    # One base time for the whole transaction; each line gets its own instant.
     # Read order is then the order the clinician saved.
-    stamp = datetime.now(UTC)
     for index, (item, _plan, status) in enumerate(locked):
         line = CareSessionItem(
             id=uuid4(),
@@ -121,6 +131,15 @@ def record_session(
         row.id,
         "create",
         changed_fields=[],
+    )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        appointment.patient_id,
+        "care_session_recorded",
+        care_session_id=row.id,
+        occurred_at=stamp + timedelta(microseconds=len(locked)),
     )
     session.flush()
     session.refresh(row)

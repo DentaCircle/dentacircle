@@ -29,6 +29,7 @@ from dentacircle.domain.appointment import (
 )
 from dentacircle.domain.follow_up import due_on_problem
 from dentacircle.domain.patient import display_id
+from dentacircle.domain.timeline import VISIT_STATUS_KIND
 from dentacircle.models.app_user import AppUser
 from dentacircle.models.appointment import Appointment
 from dentacircle.models.appointment_type import AppointmentType
@@ -46,6 +47,7 @@ from dentacircle.services.follow_up_service import (
 )
 from dentacircle.services.patient_service import PatientNotFoundError
 from dentacircle.services.recall_service import record_recall, release_booked_recall
+from dentacircle.services.timeline_service import record as record_timeline
 
 _EXCLUSION_VIOLATION = "23P01"
 _CLINICIAN_OVERLAP = "ex_appointment_no_overlap"
@@ -188,6 +190,7 @@ def cancel_appointment(
 ) -> CalendarItemView:
     # Cancel does not compare the clock. The argument is here so every appointment
     # write takes the same `now` the route already has.
+    occurred_at = now
     del now
     zone, _timezone_name, _default_minutes = _clinic_clock(session, clinic_id)
     repository = AppointmentRepository(session, clinic_id)
@@ -205,6 +208,15 @@ def cancel_appointment(
         row.id,
         "status_change",
         changed_fields=["status"],
+    )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        row.patient_id,
+        "visit_cancelled",
+        appointment_id=row.id,
+        occurred_at=occurred_at,
     )
     release_booked_follow_up(session, clinic_id, actor_user_id, row)
     release_booked_recall(session, clinic_id, actor_user_id, row)
@@ -257,6 +269,15 @@ def change_status(
         row.id,
         "status_change",
         changed_fields=["status"],
+    )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        row.patient_id,
+        VISIT_STATUS_KIND[target],
+        appointment_id=row.id,
+        occurred_at=now,
     )
     if target == "completed":
         record_incomplete_care(
@@ -378,6 +399,15 @@ def reschedule_appointment(
         "update",
         changed_fields=changed,
     )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        row.patient_id,
+        "visit_rescheduled",
+        appointment_id=row.id,
+        occurred_at=now,
+    )
     try:
         session.flush()
     except IntegrityError as exc:
@@ -435,6 +465,15 @@ def book_appointment(
         appointment.id,
         "create",
         changed_fields=[],
+    )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        patient_id,
+        "visit_booked",
+        appointment_id=appointment.id,
+        occurred_at=now,
     )
     try:
         session.flush()

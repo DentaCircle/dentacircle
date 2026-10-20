@@ -1,7 +1,7 @@
 """Register, read, edit and list one clinic's patients."""
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -22,6 +22,7 @@ from dentacircle.repositories.clinic_day_repository import ClinicDayRepository
 from dentacircle.repositories.patient_repository import PatientRepository
 from dentacircle.services.audit_service import record
 from dentacircle.services.clinic_day_service import ClinicNotFoundError
+from dentacircle.services.timeline_service import record as record_timeline
 
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
@@ -68,6 +69,8 @@ def register_patient(
     full_name: str,
     phone: str,
     date_of_birth: date | None,
+    *,
+    occurred_at: datetime | None = None,
 ) -> PatientView:
     cleaned_name = clean_name(full_name)
     stored_phone, phone_digits = clean_phone(phone)
@@ -83,6 +86,15 @@ def register_patient(
     )
     repository.add(patient)
     record(session, clinic_id, actor_user_id, "patient", patient.id, "create", changed_fields=[])
+    moment = occurred_at if occurred_at is not None else datetime.now(UTC)
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        patient.id,
+        "patient_registered",
+        occurred_at=moment,
+    )
     session.flush()
     session.refresh(patient)
     return _view(patient)

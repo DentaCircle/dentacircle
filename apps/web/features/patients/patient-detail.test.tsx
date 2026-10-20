@@ -48,6 +48,10 @@ test("shows the patient, an edit link and a status button", () => {
     "href",
     "/patients/00000000-0000-4000-8000-000000000010/care",
   );
+  expect(screen.getByRole("link", { name: "Timeline" })).toHaveAttribute(
+    "href",
+    "/patients/00000000-0000-4000-8000-000000000010/timeline",
+  );
   expect(screen.getByRole("link", { name: "Book appointment" })).toHaveAttribute(
     "href",
     "/patients/00000000-0000-4000-8000-000000000010/book",
@@ -79,6 +83,10 @@ test("hides edit and the status button when the role cannot edit", () => {
 
   expect(screen.getByText("Active")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Care" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Timeline" })).toHaveAttribute(
+    "href",
+    "/patients/00000000-0000-4000-8000-000000000010/timeline",
+  );
   expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Book appointment" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Mark inactive" })).not.toBeInTheDocument();
@@ -124,6 +132,7 @@ test("shows not found, forbidden and error states", () => {
   );
   expect(screen.getByRole("alert")).toHaveTextContent("The patient could not be loaded.");
   expect(screen.queryByRole("link", { name: "Edit" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Timeline" })).not.toBeInTheDocument();
 });
 
 test("shows saved after an edit", () => {
