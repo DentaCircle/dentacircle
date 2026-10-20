@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field, field_validator
 
 from dentacircle.core.access import SessionDep, require_roles
 from dentacircle.domain.clinic_day import MAX_DURATION_MINUTES, MIN_DURATION_MINUTES
+from dentacircle.domain.recall import MAX_RECALL_MONTHS, MIN_RECALL_MONTHS
 from dentacircle.domain.roles import ROLES
 from dentacircle.services.appointment_type_service import (
     MAX_TYPE_NAME_LENGTH,
@@ -34,10 +35,21 @@ def _trimmed(value: object) -> object:
     return value
 
 
+def _whole_months(value: object) -> object:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError("invalid")
+    return value
+
+
 class AppointmentTypeCreate(BaseModel):
     name: str = Field(min_length=1, max_length=MAX_TYPE_NAME_LENGTH)
     duration_minutes: int | None = Field(
         default=None, ge=MIN_DURATION_MINUTES, le=MAX_DURATION_MINUTES
+    )
+    recall_after_months: int | None = Field(
+        default=None, ge=MIN_RECALL_MONTHS, le=MAX_RECALL_MONTHS
     )
 
     @field_validator("name", mode="before")
@@ -45,22 +57,36 @@ class AppointmentTypeCreate(BaseModel):
     def trim_name(cls, value: object) -> object:
         return _trimmed(value)
 
+    @field_validator("recall_after_months", mode="before")
+    @classmethod
+    def whole_months(cls, value: object) -> object:
+        return _whole_months(value)
+
 
 class AppointmentTypeUpdate(BaseModel):
     name: str = Field(min_length=1, max_length=MAX_TYPE_NAME_LENGTH)
     duration_minutes: int | None = Field(ge=MIN_DURATION_MINUTES, le=MAX_DURATION_MINUTES)
     is_active: bool
+    recall_after_months: int | None = Field(
+        default=None, ge=MIN_RECALL_MONTHS, le=MAX_RECALL_MONTHS
+    )
 
     @field_validator("name", mode="before")
     @classmethod
     def trim_name(cls, value: object) -> object:
         return _trimmed(value)
 
+    @field_validator("recall_after_months", mode="before")
+    @classmethod
+    def whole_months(cls, value: object) -> object:
+        return _whole_months(value)
+
 
 class AppointmentTypeResponse(BaseModel):
     id: UUID
     name: str
     duration_minutes: int | None
+    recall_after_months: int | None
     effective_duration_minutes: int
     is_active: bool
 
@@ -86,6 +112,7 @@ def _response(item: AppointmentTypeView) -> AppointmentTypeResponse:
         id=item.id,
         name=item.name,
         duration_minutes=item.duration_minutes,
+        recall_after_months=item.recall_after_months,
         effective_duration_minutes=item.effective_duration_minutes,
         is_active=item.is_active,
     )
@@ -111,7 +138,13 @@ def post_appointment_type(
     session: SessionDep,
 ) -> AppointmentTypeResponse:
     try:
-        created = create_appointment_type(session, user.clinic.id, body.name, body.duration_minutes)
+        created = create_appointment_type(
+            session,
+            user.clinic.id,
+            body.name,
+            body.duration_minutes,
+            body.recall_after_months,
+        )
     except ConflictError:
         raise HTTPException(status_code=409) from None
     except InvalidAppointmentTypeError:
@@ -137,6 +170,8 @@ def put_appointment_type(
             body.name,
             body.duration_minutes,
             body.is_active,
+            body.recall_after_months,
+            set_recall_after_months="recall_after_months" in body.model_fields_set,
         )
     except AppointmentTypeNotFoundError:
         raise HTTPException(status_code=404) from None

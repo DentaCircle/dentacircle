@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from dentacircle.domain.clinic_day import ClinicDayValidationError, validate_optional_duration
+from dentacircle.domain.recall import recall_months_problem
 from dentacircle.models.appointment_type import AppointmentType
 from dentacircle.repositories.appointment_type_repository import AppointmentTypeRepository
 from dentacircle.repositories.clinic_day_repository import ClinicDayRepository
@@ -33,6 +34,7 @@ class AppointmentTypeView:
     id: UUID
     name: str
     duration_minutes: int | None
+    recall_after_months: int | None
     effective_duration_minutes: int
     is_active: bool
 
@@ -46,10 +48,15 @@ def list_appointment_types(
 
 
 def create_appointment_type(
-    session: Session, clinic_id: UUID, name: str, duration_minutes: int | None
+    session: Session,
+    clinic_id: UUID,
+    name: str,
+    duration_minutes: int | None,
+    recall_after_months: int | None = None,
 ) -> AppointmentTypeView:
     cleaned = clean_type_name(name)
     _checked_duration(duration_minutes)
+    _checked_recall_months(recall_after_months)
     repository = AppointmentTypeRepository(session, clinic_id)
     if repository.find_by_name(cleaned) is not None:
         raise ConflictError
@@ -58,6 +65,7 @@ def create_appointment_type(
             id=uuid4(),
             name=cleaned,
             duration_minutes=duration_minutes,
+            recall_after_months=recall_after_months,
             is_active=True,
         )
     )
@@ -72,9 +80,14 @@ def update_appointment_type(
     name: str,
     duration_minutes: int | None,
     is_active: bool,
+    recall_after_months: int | None = None,
+    *,
+    set_recall_after_months: bool = False,
 ) -> AppointmentTypeView:
     cleaned = clean_type_name(name)
     _checked_duration(duration_minutes)
+    if set_recall_after_months:
+        _checked_recall_months(recall_after_months)
     repository = AppointmentTypeRepository(session, clinic_id)
     row = repository.get(type_id)
     if row is None:
@@ -85,6 +98,8 @@ def update_appointment_type(
     row.name = cleaned
     row.duration_minutes = duration_minutes
     row.is_active = is_active
+    if set_recall_after_months:
+        row.recall_after_months = recall_after_months
     _flush_name(session)
     return _view(row, _clinic_default(session, clinic_id))
 
@@ -114,6 +129,7 @@ def _view(row: AppointmentType, clinic_default: int) -> AppointmentTypeView:
         id=row.id,
         name=row.name,
         duration_minutes=row.duration_minutes,
+        recall_after_months=row.recall_after_months,
         effective_duration_minutes=effective_duration_minutes(row.duration_minutes, clinic_default),
         is_active=row.is_active,
     )
@@ -142,6 +158,11 @@ def _checked_duration(minutes: int | None) -> None:
         validate_optional_duration(minutes)
     except ClinicDayValidationError:
         raise InvalidAppointmentTypeError from None
+
+
+def _checked_recall_months(months: int | None) -> None:
+    if recall_months_problem(months) is not None:
+        raise InvalidAppointmentTypeError
 
 
 def _is_unique_violation(exc: IntegrityError) -> bool:

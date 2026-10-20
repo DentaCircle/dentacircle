@@ -98,6 +98,7 @@ def seed_clinic_day(session: Session, clinic_id: UUID) -> None:
                 id=uuid4(),
                 name=item.name,
                 duration_minutes=item.duration_minutes,
+                recall_after_months=item.recall_after_months,
                 is_active=True,
             )
         )

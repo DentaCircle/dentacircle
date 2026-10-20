@@ -17,6 +17,7 @@ from dentacircle.api.clinicians import router as clinicians_router
 from dentacircle.api.follow_ups import router as follow_ups_router
 from dentacircle.api.health import router as health_router
 from dentacircle.api.patients import router as patients_router
+from dentacircle.api.recalls import router as recalls_router
 from dentacircle.core.config import get_settings
 from dentacircle.core.errors import register_exception_handlers
 from dentacircle.core.logging import configure_logging
@@ -39,6 +40,7 @@ def create_app() -> FastAPI:
     application.include_router(care_router)
     application.include_router(care_sessions_router)
     application.include_router(follow_ups_router)
+    application.include_router(recalls_router)
     return application
 
 

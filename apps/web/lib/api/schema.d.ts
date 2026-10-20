@@ -522,6 +522,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/recalls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Recalls */
+        get: operations["get_recalls_recalls_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recalls/{recall_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Recall */
+        get: operations["get_recall_recalls__recall_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recalls/{recall_id}/book": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Book */
+        post: operations["post_book_recalls__recall_id__book_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recalls/{recall_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Cancel */
+        post: operations["post_cancel_recalls__recall_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/recalls/{recall_id}/contacted": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Contacted */
+        post: operations["post_contacted_recalls__recall_id__contacted_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -585,6 +670,8 @@ export interface components {
             duration_minutes?: number | null;
             /** Name */
             name: string;
+            /** Recall After Months */
+            recall_after_months?: number | null;
         };
         /** AppointmentTypeResponse */
         AppointmentTypeResponse: {
@@ -601,6 +688,8 @@ export interface components {
             is_active: boolean;
             /** Name */
             name: string;
+            /** Recall After Months */
+            recall_after_months: number | null;
         };
         /** AppointmentTypeUpdate */
         AppointmentTypeUpdate: {
@@ -610,6 +699,8 @@ export interface components {
             is_active: boolean;
             /** Name */
             name: string;
+            /** Recall After Months */
+            recall_after_months?: number | null;
         };
         /** AvailabilityResponse */
         AvailabilityResponse: {
@@ -969,6 +1060,89 @@ export interface components {
             id: string;
             /** Phone */
             phone: string;
+        };
+        /** RecallBookBody */
+        RecallBookBody: {
+            /**
+             * Appointment Type Id
+             * Format: uuid
+             */
+            appointment_type_id: string;
+            /**
+             * Clinician Id
+             * Format: uuid
+             */
+            clinician_id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+        };
+        /** RecallItemBody */
+        RecallItemBody: {
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Last Visit On
+             * Format: date
+             */
+            last_visit_on: string;
+            patient: components["schemas"]["RecallPatientBody"];
+            recall_type: components["schemas"]["RecallTypeBody"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "scheduled" | "contacted" | "booked";
+            /**
+             * Timing
+             * @enum {string}
+             */
+            timing: "overdue" | "due_today" | "upcoming";
+        };
+        /** RecallListResponse */
+        RecallListResponse: {
+            /** Items */
+            items: components["schemas"]["RecallItemBody"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** RecallPatientBody */
+        RecallPatientBody: {
+            /** Display Id */
+            display_id: string;
+            /** Full Name */
+            full_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Phone */
+            phone: string;
+        };
+        /** RecallTypeBody */
+        RecallTypeBody: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
         };
         /** RecordBody */
         RecordBody: {
@@ -2641,6 +2815,228 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PatientResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_recalls_recalls_get: {
+        parameters: {
+            query?: {
+                view?: "due" | "all";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecallListResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_recall_recalls__recall_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recall_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecallItemBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_book_recalls__recall_id__book_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recall_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecallBookBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AppointmentResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description invalid_status, slot_taken, patient_busy or patient_inactive */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    post_cancel_recalls__recall_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recall_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description invalid_status or patient_inactive */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_contacted_recalls__recall_id__contacted_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                recall_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecallItemBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description invalid_status or patient_inactive */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
             /** @description Validation Error */

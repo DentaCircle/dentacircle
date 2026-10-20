@@ -31,6 +31,7 @@ _HEAD_TABLES = [
     "follow_up",
     "patient",
     "patient_number_counter",
+    "recall",
     "user_role",
 ]
 
@@ -72,7 +73,7 @@ def test_upgrade_downgrade_upgrade(
     config = _config()
     command.upgrade(config, "head")
     assert _public_tables(throwaway_database_url) == _HEAD_TABLES
-    assert _version(throwaway_database_url) == "0012_booked_appointment"
+    assert _version(throwaway_database_url) == "0013_recalls"
     assert _columns(throwaway_database_url, "patient") == _PATIENT_COLUMNS
     assert _columns(throwaway_database_url, "patient_number_counter") == _COUNTER_COLUMNS
     assert _columns(throwaway_database_url, "audit_event") == _AUDIT_COLUMNS
@@ -89,7 +90,7 @@ def test_upgrade_downgrade_upgrade(
 
     command.upgrade(config, "head")
     assert _public_tables(throwaway_database_url) == _HEAD_TABLES
-    assert _version(throwaway_database_url) == "0012_booked_appointment"
+    assert _version(throwaway_database_url) == "0013_recalls"
 
 
 def test_existing_patients_become_active_and_downgrade_drops_the_columns(
@@ -101,7 +102,7 @@ def test_existing_patients_become_active_and_downgrade_drops_the_columns(
     _insert_patient_at_0004(throwaway_database_url)
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0012_booked_appointment"
+    assert _version(throwaway_database_url) == "0013_recalls"
     nullable, default = _column(throwaway_database_url, "patient", "status")
     assert nullable == "NO"
     assert default is not None and "active" in default

@@ -17,10 +17,15 @@ class AppointmentType(ClinicScoped, Base):
             "duration_minutes IS NULL OR (duration_minutes BETWEEN 5 AND 480)",
             name="duration_range",
         ),
+        CheckConstraint(
+            "recall_after_months IS NULL OR (recall_after_months BETWEEN 1 AND 60)",
+            name="recall_months_range",
+        ),
         Index("uq_appointment_type_name", "clinic_id", text("lower(name)"), unique=True),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
     duration_minutes: Mapped[int | None] = mapped_column(Integer)
+    recall_after_months: Mapped[int | None] = mapped_column(Integer)
     is_active: Mapped[bool] = mapped_column(default=True, server_default="true")
