@@ -241,6 +241,13 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   leaves a booked visit on the calendar. Finishing care never closes a follow-up by itself;
   the coordinator cancels it. No migration.
 
+- **Patient timeline (decided in S2.6):** each step writes one `timeline_event` in the same
+  transaction as the change. The row stores a closed `kind`, the actor, the time and at most
+  one subject id. It stores no names, dates, notes or other patient values. Audit stays as
+  decided in S1.2 (no values and no direction of a status change). There is no backfill.
+  `clinician`, `receptionist` and `clinic_admin` read `GET /patients/{id}/timeline`, newest
+  first. Subject details are read live, so a renamed item shows its current name.
+
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.
@@ -376,4 +383,8 @@ three roles can mark contacted, book the next visit, and cancel. Completing the 
 closes the recall before a new one can be written. Cancelling or no-show on that visit
 returns it to contacted. Recalls stay off the follow-up queue.
 
-Next slice: S2.6 patient timeline — one chronological view of the steps above.
+Staff with `clinician`, `receptionist` or `clinic_admin` can open `/patients/[id]/timeline`
+for one patient. Each registration, visit step, care item step, care session, follow-up step
+and recall step writes a `timeline_event` in the same transaction (migration `0014`). The
+list is newest first. Reading it writes no audit row. History from before this slice is not
+backfilled, so an existing patient starts empty. `inventory_admin` is refused.
