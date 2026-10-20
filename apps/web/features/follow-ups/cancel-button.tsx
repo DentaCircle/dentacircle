@@ -22,6 +22,12 @@ export function CancelButton({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  function clearSubmissionState() {
+    isSubmittingRef.current = false;
+    setIsSubmitting(false);
+    setIsConfirming(false);
+  }
+
   async function onConfirm() {
     if (isSubmittingRef.current) return;
     isSubmittingRef.current = true;
@@ -30,14 +36,22 @@ export function CancelButton({
     try {
       const result = await cancelFollowUp(followUpId);
       if (result.ok) {
+        clearSubmissionState();
         go("cancelled");
         return;
       }
-      if (result.error.kind === "api" && result.error.status === 409) {
+      if (
+        result.error.kind === "api" &&
+        result.error.status === 409 &&
+        result.error.code === "invalid_status"
+      ) {
+        clearSubmissionState();
         go("changed");
         return;
       }
-      if (result.error.kind === "api" && result.error.status === 403) {
+      if (result.error.kind === "api" && result.error.code === "patient_inactive") {
+        setMessage("This patient is inactive.");
+      } else if (result.error.kind === "api" && result.error.status === 403) {
         setMessage("You do not have access.");
       } else if (result.error.kind === "network" || result.error.kind === "timeout") {
         setMessage("Could not reach the server.");

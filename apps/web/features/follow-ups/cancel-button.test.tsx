@@ -73,6 +73,27 @@ test("a 409 refreshes and shows that the follow-up has already changed", async (
   expect(refresh).toHaveBeenCalled();
 });
 
+test("patient inactive shows an inline message and leaves the button enabled", async () => {
+  const user = userEvent.setup();
+  cancelFollowUp.mockResolvedValue({
+    ok: false,
+    error: {
+      kind: "api",
+      status: 409,
+      code: "patient_inactive",
+      message: "This patient is inactive.",
+      requestId: "",
+    },
+  });
+  render(<CancelButton followUpId="fu-1" view="due" page={1} />);
+  await user.click(screen.getByRole("button", { name: "Cancel follow-up" }));
+  await user.click(screen.getByRole("button", { name: "Yes, cancel" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("This patient is inactive.");
+  expect(screen.getByRole("button", { name: "Yes, cancel" })).not.toBeDisabled();
+  expect(push).not.toHaveBeenCalled();
+});
+
 test("forbidden shows that the caller has no access", async () => {
   const user = userEvent.setup();
   cancelFollowUp.mockResolvedValue({
