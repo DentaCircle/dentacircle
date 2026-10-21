@@ -248,6 +248,12 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   `clinician`, `receptionist` and `clinic_admin` read `GET /patients/{id}/timeline`, newest
   first. Subject details are read live, so a renamed item shows its current name.
 
+- **Core loop check (decided in S2.7):** the M3 loop is proven by an API-level test through
+  the HTTP routes plus a written click-through in `docs/demo-m3.md`. No browser automation
+  (Playwright or similar) until a slice of its own, because it adds a dependency and a CI
+  service. Lab work, the crown and the document in the Demo thread arrive with S3.x; M3 uses
+  the Scaling and root canal story from the S2.7 brief.
+
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.
@@ -260,6 +266,9 @@ Recommendations are mine, not decisions.
 
 One synthetic story, reused by the M3 core loop check (S2.7) and the seed data (S7.3), so
 slices stop inventing their own vocabulary:
+
+Step 3 (crown, lab, document) needs S3.x. The M3 check in S2.7 runs steps 1, 2, 4 and 5
+with a Scaling visit and a root canal item.
 
 1. A consultation is booked and the patient arrives.
 2. The clinician records scaling (done, six-month recall) and a root canal planned over
@@ -389,3 +398,9 @@ and recall step writes a `timeline_event` in the same transaction (migration `00
 list is newest first, grouped by clinic-local day on the web. Visit and care rows link to the
 calendar day or care page. Reading it writes no audit row. History from before this slice is
 not backfilled, so an existing patient starts empty. `inventory_admin` is refused.
+
+The M3 core loop in PRODUCT.md is checked by `apps/api/tests/test_core_loop.py` through the
+HTTP routes: follow-up and recall paths, Due and All open queue views, clinician-set due
+today, the neither outcome, cancel of a booked follow-up visit, the full timeline kind
+sequence, and role plus tenancy guards. `docs/demo-m3.md` is the browser walk-through for
+the same story (linked from README). This slice added no new routes or UI.
