@@ -3,11 +3,11 @@ import {
   isTimeoutError,
   NETWORK_ERROR_MESSAGE,
   parseErrorBody,
-  REQUEST_TIMEOUT_MS,
   TIMEOUT_ERROR_MESSAGE,
   type ApiError,
   type ApiResult,
 } from "@/lib/api/errors";
+import { fetchWithTimeout, readJson } from "@/lib/api/transport";
 import type { components } from "@/lib/api/schema";
 
 export type HealthResponse = components["schemas"]["HealthResponse"];
@@ -447,10 +447,9 @@ async function getJson<T>(
   headers?: HeadersInit,
 ): Promise<ApiResult<T>> {
   try {
-    const response = await fetch(`${apiBaseUrl()}${path}`, {
+    const response = await fetchWithTimeout(`${apiBaseUrl()}${path}`, {
       cache: "no-store",
       headers,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) {
       const body: unknown = await readJson(response);
@@ -469,10 +468,9 @@ async function getJson<T>(
 
 async function sendEmpty(method: "POST", path: string): Promise<ApiResult<null>> {
   try {
-    const response = await fetch(path, {
+    const response = await fetchWithTimeout(path, {
       method,
       credentials: "same-origin",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) {
       return { ok: false, error: parseErrorBody(response.status, await readJson(response)) };
@@ -488,12 +486,11 @@ async function sendEmpty(method: "POST", path: string): Promise<ApiResult<null>>
 
 async function sendJson(method: "POST" | "PATCH", path: string, body: unknown): Promise<ApiResult<null>> {
   try {
-    const response = await fetch(path, {
+    const response = await fetchWithTimeout(path, {
       method,
       headers: { "content-type": "application/json" },
       credentials: "same-origin",
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) {
       return { ok: false, error: parseErrorBody(response.status, await readJson(response)) };
@@ -507,13 +504,6 @@ async function sendJson(method: "POST" | "PATCH", path: string, body: unknown): 
   }
 }
 
-async function readJson(response: Response): Promise<unknown> {
-  try {
-    return await response.json();
-  } catch {
-    return null;
-  }
-}
 
 function healthData(value: unknown): HealthResponse | null {
   if (typeof value !== "object" || value === null || !("status" in value)) return null;

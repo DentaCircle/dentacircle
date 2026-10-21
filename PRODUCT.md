@@ -253,6 +253,10 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   (Playwright or similar) until a slice of its own, because it adds a dependency and a CI
   service. Lab work, the crown and the document in the Demo thread arrive with S3.x; M3 uses
   the Scaling and root canal story from the S2.7 brief.
+- **Appointment client maintenance (decided in S2.8):** appointment availability keeps runtime
+  response validation behind a feature-local lifecycle that cancels superseded requests and
+  rejects stale results. Booking and rescheduling share timeout transport and distinguish a
+  patient scheduling conflict from a clinician slot conflict with fixed safe copy.
 
 ## Open decisions (need the developer's call)
 

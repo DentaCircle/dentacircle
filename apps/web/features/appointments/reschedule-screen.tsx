@@ -1,19 +1,16 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { fetchWithTimeout } from "@/lib/api/transport";
 import { ChoiceField, type BookChoice } from "@/features/appointments/choice-field";
-import {
-  isAbort,
-  parseAvailability,
-  TimeSlots,
-  type SlotChoice,
-  type TimesState,
-} from "@/features/appointments/time-slots";
+import { conflictMessage, errorCode } from "@/features/appointments/request-errors";
+import { TimeSlots } from "@/features/appointments/time-slots";
+import { useAvailability } from "@/features/appointments/use-availability";
 import { addCalendarDays, wallDate } from "@/features/appointments/wall-time";
 
 export function RescheduleScreen({
@@ -33,56 +30,13 @@ export function RescheduleScreen({
   const isSubmittingRef = useRef(false);
   const [clinicianId, setClinicianId] = useState(initialClinicianId);
   const [date, setDate] = useState(initialDate);
-  const [slots, setSlots] = useState<SlotChoice[]>([]);
-  const [timesState, setTimesState] = useState<TimesState>("loading");
-  const [selected, setSelected] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [reloadKey, setReloadKey] = useState(0);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    setTimesState("loading");
-    setSlots([]);
-    const params = new URLSearchParams({
-      date,
-      clinician_id: clinicianId,
-      reschedule_appointment_id: appointmentId,
-    });
-    void fetch(`/api/appointments/availability?${params.toString()}`, {
-      credentials: "same-origin",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
-        if (response.status === 403) {
-          setTimesState("forbidden");
-          return;
-        }
-        if (!response.ok) {
-          setTimesState("error");
-          return;
-        }
-        const parsed = parseAvailability(await response.json());
-        if (parsed === null) {
-          setTimesState("error");
-          return;
-        }
-        setSlots(parsed.slots);
-        setSelected((current) =>
-          current !== null && parsed.slots.some((slot) => slot.startsAt === current) ? current : null,
-        );
-        if (!parsed.isOpen) {
-          setTimesState("closed");
-          return;
-        }
-        setTimesState(parsed.slots.length === 0 ? "empty" : "ready");
-      })
-      .catch((error: unknown) => {
-        if (isAbort(error)) return;
-        setTimesState("error");
-      });
-    return () => controller.abort();
-  }, [appointmentId, clinicianId, date, reloadKey]);
+  const availabilityInput = useMemo(
+    () => ({ date, clinicianId, rescheduleAppointmentId: appointmentId }),
+    [appointmentId, clinicianId, date],
+  );
+  const { slots, timesState, selected, select, clearSelection, reload } = useAvailability(availabilityInput);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -93,7 +47,7 @@ export function RescheduleScreen({
     try {
       const body: { starts_at: string; clinician_id?: string } = { starts_at: selected };
       if (clinicianId !== initialClinicianId) body.clinician_id = clinicianId;
-      const response = await fetch(`/api/appointments/${appointmentId}/reschedule`, {
+      const response = await fetchWithTimeout(`/api/appointments/${appointmentId}/reschedule`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         credentials: "same-origin",
@@ -106,9 +60,10 @@ export function RescheduleScreen({
         return;
       }
       if (response.status === 409) {
-        setSelected(null);
-        setMessage("That time is not available. Pick another.");
-        setReloadKey((current) => current + 1);
+        const code = errorCode(await response.json().catch(() => null));
+        clearSelection();
+        setMessage(conflictMessage(code, "That time is not available. Pick another."));
+        reload();
       } else if (response.status === 403) {
         setMessage("You do not have access.");
       } else {
@@ -130,7 +85,7 @@ export function RescheduleScreen({
         options={clinicians}
         onChange={(value) => {
           setClinicianId(value);
-          setSelected(null);
+          clearSelection();
         }}
       />
       <div className="flex flex-col gap-2">
@@ -143,17 +98,17 @@ export function RescheduleScreen({
           max={addCalendarDays(today, 365)}
           onChange={(event) => {
             setDate(event.target.value);
-            setSelected(null);
+            clearSelection();
           }}
         />
       </div>
-      <TimeSlots state={timesState} slots={slots} selected={selected} onSelect={setSelected} />
+      <TimeSlots state={timesState} slots={slots} selected={selected} onSelect={select} />
       {message === null ? null : (
         <p role="alert" className="text-sm text-destructive">
           {message}
         </p>
       )}
-      <Button type="submit" disabled={isSubmitting || selected === null}>
+      <Button type="submit" disabled={isSubmitting || selected === null || timesState !== "ready"}>
         Reschedule
       </Button>
     </form>
