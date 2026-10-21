@@ -9,7 +9,7 @@ The browser automation environment could not export its local screenshot into th
 so this maintenance-only slice records automated behavioral evidence instead of embedding an
 image. It does not claim visual proof beyond that manual check.
 
-- `make check`: API 94 passed, 522 database-dependent tests skipped; web 48 files / 188 tests
+- `make check` with configured local PostgreSQL: API 616 passed; web 48 files / 188 tests
   passed.
 - Focused booking and rescheduling screens: 22 behavioral tests passed, including stale JSON
   completion/failure, cancellation, selection invalidation, timeout recovery, retry, and both
