@@ -1,10 +1,7 @@
 import { Button } from "@/components/ui/button";
-import { wallTime } from "@/features/appointments/wall-time";
+import type { SlotChoice } from "@/features/appointments/availability-request";
 
-export type SlotChoice = {
-  startsAt: string;
-  label: string;
-};
+export type { SlotChoice } from "@/features/appointments/availability-request";
 
 export type TimesState = "loading" | "closed" | "empty" | "ready" | "forbidden" | "error";
 
@@ -39,24 +36,4 @@ export function TimeSlots({
       ))}
     </div>
   );
-}
-
-export function parseAvailability(value: unknown): { isOpen: boolean; slots: SlotChoice[] } | null {
-  if (typeof value !== "object" || value === null || !("is_open" in value) || !("slots" in value)) {
-    return null;
-  }
-  if (typeof value.is_open !== "boolean" || !Array.isArray(value.slots)) return null;
-  const slots: SlotChoice[] = [];
-  for (const slot of value.slots) {
-    if (typeof slot !== "object" || slot === null || !("starts_at" in slot)) return null;
-    if (typeof slot.starts_at !== "string") return null;
-    const label = wallTime(slot.starts_at);
-    if (label === null) return null;
-    slots.push({ startsAt: slot.starts_at, label });
-  }
-  return { isOpen: value.is_open, slots };
-}
-
-export function isAbort(error: unknown): boolean {
-  return error instanceof DOMException && error.name === "AbortError";
 }

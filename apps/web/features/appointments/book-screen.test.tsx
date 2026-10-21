@@ -75,6 +75,165 @@ test("changing the clinician loads that clinician's times", async () => {
   );
 });
 
+test("a late availability body cannot replace the newest clinician's slots", async () => {
+  const user = userEvent.setup();
+  let resolveFirstBody: (value: unknown) => void = () => undefined;
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    if (String(input).includes("clinician_id=clinician-2")) {
+      return jsonResponse({
+        is_open: true,
+        slots: [{ starts_at: "2026-10-12T10:00:00+05:30", ends_at: "2026-10-12T10:30:00+05:30" }],
+      });
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => new Promise((resolve) => {
+        resolveFirstBody = resolve;
+      }),
+    });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  render(
+    <BookScreen
+      patientId="patient-1"
+      types={types}
+      clinicians={clinicians}
+      today="2026-10-12"
+      submitUrl="/api/appointments"
+      doneUrl="/patients/patient-1?booked=1"
+    />,
+  );
+
+  await waitFor(() => expect(availabilityCount(fetchMock)).toBe(1));
+  await user.selectOptions(screen.getByLabelText("Clinician"), "clinician-2");
+  await waitFor(() => expect(availabilityCount(fetchMock)).toBe(2));
+  expect(await screen.findByRole("button", { name: "10:00" })).toBeInTheDocument();
+
+  resolveFirstBody({ is_open: true, slots: [slot] });
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(screen.queryByRole("button", { name: "09:15" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "10:00" })).toBeInTheDocument();
+});
+
+test("a late availability failure cannot replace the newest clinician's slots", async () => {
+  const user = userEvent.setup();
+  let rejectFirstBody: (reason?: unknown) => void = () => undefined;
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    if (String(input).includes("clinician_id=clinician-2")) {
+      return jsonResponse({
+        is_open: true,
+        slots: [{ starts_at: "2026-10-12T10:00:00+05:30", ends_at: "2026-10-12T10:30:00+05:30" }],
+      });
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => new Promise((_resolve, reject) => {
+        rejectFirstBody = reject;
+      }),
+    });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  render(
+    <BookScreen
+      patientId="patient-1"
+      types={types}
+      clinicians={clinicians}
+      today="2026-10-12"
+      submitUrl="/api/appointments"
+      doneUrl="/patients/patient-1?booked=1"
+    />,
+  );
+
+  await waitFor(() => expect(availabilityCount(fetchMock)).toBe(1));
+  await user.selectOptions(screen.getByLabelText("Clinician"), "clinician-2");
+  expect(await screen.findByRole("button", { name: "10:00" })).toBeInTheDocument();
+
+  rejectFirstBody(new Error("late body failure"));
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "10:00" })).toBeInTheDocument();
+});
+
+test("an availability timeout shows fixed copy and a changed choice recovers", async () => {
+  const user = userEvent.setup();
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    if (String(input).includes("clinician_id=clinician-2")) return availabilityResponse(String(input));
+    return Promise.reject(new DOMException("timed out", "TimeoutError"));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  render(
+    <BookScreen
+      patientId="patient-1"
+      types={types}
+      clinicians={clinicians}
+      today="2026-10-12"
+      submitUrl="/api/appointments"
+      doneUrl="/patients/patient-1?booked=1"
+    />,
+  );
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong.");
+  await user.selectOptions(screen.getByLabelText("Clinician"), "clinician-2");
+  expect(await screen.findByRole("button", { name: "10:00" })).toBeInTheDocument();
+});
+
+test("changing the date clears a selected slot until its replacement loads", async () => {
+  const user = userEvent.setup();
+  const fetchMock = vi.fn((input: RequestInfo | URL) => availabilityResponse(String(input)));
+  vi.stubGlobal("fetch", fetchMock);
+  render(
+    <BookScreen
+      patientId="patient-1"
+      types={types}
+      clinicians={clinicians}
+      today="2026-10-12"
+      submitUrl="/api/appointments"
+      doneUrl="/patients/patient-1?booked=1"
+    />,
+  );
+
+  await user.click(await screen.findByRole("button", { name: "09:15" }));
+  expect(screen.getByRole("button", { name: "Book" })).toBeEnabled();
+  await user.clear(screen.getByLabelText("Date"));
+  await user.type(screen.getByLabelText("Date"), "2026-10-13");
+
+  expect(screen.getByRole("button", { name: "Book" })).toBeDisabled();
+  await waitFor(() =>
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("date=2026-10-13"),
+      expect.anything(),
+    ),
+  );
+});
+
+test("unmounting cancels an in-flight availability request", async () => {
+  let cancellation: AbortSignal | undefined;
+  const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+    cancellation = init?.signal ?? undefined;
+    return new Promise(() => undefined);
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  const rendered = render(
+    <BookScreen
+      patientId="patient-1"
+      types={types}
+      clinicians={clinicians}
+      today="2026-10-12"
+      submitUrl="/api/appointments"
+      doneUrl="/patients/patient-1?booked=1"
+    />,
+  );
+
+  await waitFor(() => expect(cancellation).toBeDefined());
+  rendered.unmount();
+
+  expect(cancellation?.aborted).toBe(true);
+});
+
 test("a closed day and a day with no times use the empty copy", async () => {
   const fetchMock = vi.fn(() => jsonResponse({ is_open: false, slots: [] }));
   vi.stubGlobal("fetch", fetchMock);
@@ -217,6 +376,38 @@ test("a taken time asks for another and reloads the list", async () => {
   await user.click(screen.getByRole("button", { name: "Book" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("That time was just taken. Pick another.");
+  await waitFor(() => expect(availabilityCount(fetchMock)).toBe(2));
+});
+
+test("a patient conflict identifies the patient conflict and reloads the list", async () => {
+  const user = userEvent.setup();
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === "POST") {
+      return jsonResponse(
+        { error: { code: "patient_busy", message: "ignored", request_id: "request-1" } },
+        409,
+      );
+    }
+    return availabilityResponse(String(input));
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  render(
+    <BookScreen
+      patientId="patient-1"
+      types={types}
+      clinicians={clinicians}
+      today="2026-10-12"
+      submitUrl="/api/appointments"
+      doneUrl="/patients/patient-1?booked=1"
+    />,
+  );
+
+  await user.click(await screen.findByRole("button", { name: "09:15" }));
+  await user.click(screen.getByRole("button", { name: "Book" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "That patient already has an appointment then. Pick another time.",
+  );
   await waitFor(() => expect(availabilityCount(fetchMock)).toBe(2));
 });
 

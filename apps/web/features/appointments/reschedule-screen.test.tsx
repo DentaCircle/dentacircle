@@ -67,6 +67,39 @@ test("a closed day and a day with no times use the empty copy", async () => {
   expect(await screen.findByText("No free times on this day.")).toBeInTheDocument();
 });
 
+test("a late availability body cannot replace the newest clinician's slots", async () => {
+  const user = userEvent.setup();
+  let resolveFirstBody: (value: unknown) => void = () => undefined;
+  const fetchMock = vi.fn((input: RequestInfo | URL) => {
+    if (String(input).includes("clinician_id=clinician-2")) {
+      return jsonResponse({
+        is_open: true,
+        slots: [{ starts_at: "2026-10-16T10:00:00+05:30", ends_at: "2026-10-16T10:30:00+05:30" }],
+      });
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: () => new Promise((resolve) => {
+        resolveFirstBody = resolve;
+      }),
+    });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  render(<ReadyScreen />);
+
+  await waitFor(() => expect(availabilityCount(fetchMock)).toBe(1));
+  await user.selectOptions(screen.getByLabelText("Clinician"), "clinician-2");
+  await waitFor(() => expect(availabilityCount(fetchMock)).toBe(2));
+  expect(await screen.findByRole("button", { name: "10:00" })).toBeInTheDocument();
+
+  resolveFirstBody({ is_open: true, slots: [slot] });
+
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  expect(screen.queryByRole("button", { name: "09:15" })).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "10:00" })).toBeInTheDocument();
+});
+
 test("a visit that cannot move has no form", () => {
   const { rerender } = render(<ReschedulePage status="not-scheduled" />);
   expect(screen.getByRole("alert")).toHaveTextContent("This appointment can no longer be moved.");
@@ -144,6 +177,51 @@ test("a taken time asks for another and reloads the times", async () => {
 
   expect(await screen.findByRole("alert")).toHaveTextContent("That time is not available. Pick another.");
   await waitFor(() => expect(availabilityCount(fetchMock)).toBe(2));
+});
+
+test("a patient conflict identifies the patient conflict and reloads the list", async () => {
+  const user = userEvent.setup();
+  const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === "POST") {
+      return jsonResponse(
+        { error: { code: "patient_busy", message: "ignored", request_id: "request-1" } },
+        409,
+      );
+    }
+    return jsonResponse({ is_open: true, slots: [slot] });
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  render(<ReadyScreen />);
+
+  await user.click(await screen.findByRole("button", { name: "09:15" }));
+  await user.click(screen.getByRole("button", { name: "Reschedule" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "That patient already has an appointment then. Pick another time.",
+  );
+  await waitFor(() => expect(availabilityCount(fetchMock)).toBe(2));
+});
+
+test("a failed reschedule can be deliberately retried without an automatic second request", async () => {
+  const user = userEvent.setup();
+  let submits = 0;
+  const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method !== "POST") return jsonResponse({ is_open: true, slots: [slot] });
+    submits += 1;
+    if (submits === 1) return Promise.reject(new DOMException("timed out", "TimeoutError"));
+    return jsonResponse({});
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  render(<ReadyScreen />);
+  await user.click(await screen.findByRole("button", { name: "09:15" }));
+  await user.click(screen.getByRole("button", { name: "Reschedule" }));
+
+  expect(await screen.findByRole("alert")).toHaveTextContent("Could not reach the server.");
+  expect(submits).toBe(1);
+  await user.click(screen.getByRole("button", { name: "Reschedule" }));
+
+  await waitFor(() => expect(submits).toBe(2));
+  expect(push).toHaveBeenCalledWith("/calendar?view=day&date=2026-10-16&notice=rescheduled");
 });
 
 function ReadyScreen() {
