@@ -23,6 +23,7 @@ def decode_filename_header(value: str) -> str:
     """The original name after UTF-8 percent-decoding from the upload header."""
     return unquote(value, encoding="utf-8")
 
+
 # The first bytes of each allowed type. The browser's Content-Type is never trusted alone.
 _SIGNATURES = (
     (b"%PDF-", PDF),
