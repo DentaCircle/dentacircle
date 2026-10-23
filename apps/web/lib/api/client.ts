@@ -1,3 +1,4 @@
+import { readUploadContentType } from "@/features/documents/sizes";
 import {
   genericApiError,
   isTimeoutError,
@@ -344,8 +345,23 @@ export function listDocuments(
 }
 
 /** Sends the file as the raw request body. The name goes in a header so URLs stay out of logs. */
-export function uploadDocument(patientId: string, file: File): Promise<ApiResult<null>> {
-  const contentType = file.type === "" ? "application/octet-stream" : file.type;
+export async function uploadDocument(
+  patientId: string,
+  file: File,
+): Promise<ApiResult<null>> {
+  const contentType = await readUploadContentType(file);
+  if (contentType === null) {
+    return {
+      ok: false,
+      error: {
+        kind: "api",
+        status: 422,
+        code: "validation_error",
+        message: "That file type is not allowed.",
+        requestId: "",
+      },
+    };
+  }
   return sendRequest(
     `/api/patients/${encodeURIComponent(patientId)}/documents`,
     {

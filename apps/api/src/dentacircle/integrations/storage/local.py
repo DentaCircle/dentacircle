@@ -24,12 +24,14 @@ class LocalDiskStorage:
         path.parent.mkdir(parents=True, exist_ok=True)
         # Write beside the target and rename, so a reader never sees half a file.
         temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
+        replaced = False
         try:
             with temporary.open("wb") as handle:
                 handle.write(data)
                 handle.flush()
                 os.fsync(handle.fileno())
             temporary.replace(path)
+            replaced = True
             if sys.platform != "win32":
                 directory_fd = os.open(path.parent, os.O_RDONLY)
                 try:
@@ -38,6 +40,8 @@ class LocalDiskStorage:
                     os.close(directory_fd)
         except BaseException:
             temporary.unlink(missing_ok=True)
+            if replaced:
+                path.unlink(missing_ok=True)
             raise
 
     def open(self, key: str) -> Iterator[bytes]:

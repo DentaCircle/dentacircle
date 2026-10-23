@@ -26,12 +26,21 @@ function sniffContentType(bytes: Uint8Array): string | null {
   return null;
 }
 
+export type AllowedUploadType = (typeof ALLOWED_TYPES)[number];
+
+/** The stored type implied by the file's leading bytes, or null when unsupported. */
+export async function readUploadContentType(file: File): Promise<AllowedUploadType | null> {
+  const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  const sniffed = sniffContentType(head);
+  if (sniffed === null) return null;
+  return ALLOWED_TYPES.find((allowed) => allowed === sniffed) ?? null;
+}
+
 /** Reads the first bytes so an empty browser MIME type does not block a valid file. */
 export async function fileProblem(file: File): Promise<FileProblem | null> {
   if (file.size === 0) return "empty";
   if (file.size > MAX_UPLOAD_BYTES) return "size";
-  const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
-  if (sniffContentType(head) === null) return "type";
+  if ((await readUploadContentType(file)) === null) return "type";
   return null;
 }
 

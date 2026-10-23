@@ -27,23 +27,26 @@ export function UploadForm({ patientId }: { patientId: string }) {
       setMessage(CHOOSE_A_FILE);
       return;
     }
-    const problem = await fileProblem(file);
-    if (problem !== null) {
-      setMessage(problemMessage(problem));
-      return;
-    }
     isSubmittingRef.current = true;
     setIsSubmitting(true);
-    const result = await uploadDocument(patientId, file);
-    isSubmittingRef.current = false;
-    setIsSubmitting(false);
-    if (!result.ok) {
-      setMessage(uploadFailure(result.error));
-      return;
+    try {
+      const problem = await fileProblem(file);
+      if (problem !== null) {
+        setMessage(problemMessage(problem));
+        return;
+      }
+      const result = await uploadDocument(patientId, file);
+      if (!result.ok) {
+        setMessage(uploadFailure(result.error));
+        return;
+      }
+      formRef.current?.reset();
+      router.push(documentsHref(patientId, 1, "uploaded"));
+      router.refresh();
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
     }
-    formRef.current?.reset();
-    router.push(documentsHref(patientId, 1, "uploaded"));
-    router.refresh();
   }
 
   return (

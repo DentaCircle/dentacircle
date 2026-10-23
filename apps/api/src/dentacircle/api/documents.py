@@ -99,6 +99,17 @@ _UPLOAD_ERRORS: dict[int | str, dict[str, Any]] = {
     415: {"model": ErrorResponse, "description": "unsupported_media_type"},
     422: {"model": ErrorResponse, "description": "validation_error"},
 }
+_BINARY = {"schema": {"type": "string", "format": "binary"}}
+_UPLOAD_OPENAPI: dict[str, Any] = {
+    "requestBody": {
+        "required": True,
+        "content": {
+            "application/pdf": _BINARY,
+            "image/png": _BINARY,
+            "image/jpeg": _BINARY,
+        },
+    }
+}
 _DOWNLOAD_RESPONSES: dict[int | str, dict[str, Any]] = {
     **_NOT_FOUND,
     200: {
@@ -108,7 +119,12 @@ _DOWNLOAD_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
-@router.post("/patients/{patient_id}/documents", status_code=201, responses=_UPLOAD_ERRORS)
+@router.post(
+    "/patients/{patient_id}/documents",
+    status_code=201,
+    responses=_UPLOAD_ERRORS,
+    openapi_extra=_UPLOAD_OPENAPI,
+)
 async def post_document(
     request: Request,
     patient_id: UUID,

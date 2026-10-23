@@ -1,6 +1,8 @@
 """The storage interface: one contract for both adapters, key escapes, and the import guard."""
 
 import ast
+import os
+import sys
 from collections.abc import Callable
 from pathlib import Path
 
@@ -119,6 +121,27 @@ def test_a_failed_write_leaves_no_temporary_file(
         raise OSError("disk full")
 
     monkeypatch.setattr(Path, "replace", fail)
+    with pytest.raises(OSError):
+        local.put(_KEY, b"x")
+    assert [path for path in (tmp_path / "root").rglob("*") if path.is_file()] == []
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="directory fsync is skipped on Windows")
+def test_a_failed_directory_fsync_removes_the_new_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    local = LocalDiskStorage(tmp_path / "root")
+    real_fsync = os.fsync
+    calls = 0
+
+    def fail_on_directory_fsync(fd: int) -> None:
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            raise OSError("fsync failed")
+        real_fsync(fd)
+
+    monkeypatch.setattr(os, "fsync", fail_on_directory_fsync)
     with pytest.raises(OSError):
         local.put(_KEY, b"x")
     assert [path for path in (tmp_path / "root").rglob("*") if path.is_file()] == []
