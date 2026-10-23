@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     session_ttl_hours: int = 12
     cookie_secure: bool = True
+    # Where the local disk adapter keeps documents. A relative path is under the repo root.
+    storage_root: str = ".data/documents"
 
     @field_validator("database_url")
     @classmethod
@@ -39,6 +41,13 @@ class Settings(BaseSettings):
         if normalized not in _LOG_LEVELS:
             raise ValueError("LOG_LEVEL must be DEBUG, INFO, WARNING, ERROR, or CRITICAL")
         return normalized
+
+    @field_validator("storage_root")
+    @classmethod
+    def storage_root_must_not_be_blank(cls, value: str) -> str:
+        if value.strip():
+            return value
+        raise ValueError("STORAGE_ROOT must not be empty")
 
     @field_validator("session_ttl_hours")
     @classmethod
@@ -82,6 +91,8 @@ def _startup_message(exc: ValidationError) -> str:
             parts.append("LOG_LEVEL must be DEBUG, INFO, WARNING, ERROR, or CRITICAL")
         elif error["loc"] == ("session_ttl_hours",):
             parts.append("SESSION_TTL_HOURS must be a positive integer")
+        elif error["loc"] == ("storage_root",):
+            parts.append("STORAGE_ROOT must not be empty")
         elif error["loc"] == ("cookie_secure",):
             parts.append("COOKIE_SECURE must be true or false")
         else:

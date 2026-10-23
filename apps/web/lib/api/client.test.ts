@@ -9,7 +9,9 @@ import {
   getPatient,
   getReadiness,
   listAppointments,
+  listDocuments,
   listPatients,
+  uploadDocument,
 } from "@/lib/api/client";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/api/errors";
 
@@ -17,6 +19,7 @@ const marker = "synthetic-marker-raw-body";
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe("getHealth", () => {
@@ -301,6 +304,117 @@ describe("cancelFollowUp", () => {
     );
     const init = fetchMock.mock.calls[0]?.[1] as RequestInit;
     expect(init.body).toBeUndefined();
+  });
+});
+
+describe("listDocuments", () => {
+  const item = {
+    id: "doc-1",
+    filename: "report.pdf",
+    content_type: "application/pdf",
+    size_bytes: 20,
+    uploaded_at: "2026-10-12T10:05:00+05:30",
+    uploaded_by: { id: "user-1", name: "Sample Desk" },
+  };
+
+  test("reads one page with the session cookie, and uses the 5 second timeout", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const fetchMock = stubFetch(
+      jsonResponse(200, { items: [item], total: 1, page: 1, page_size: 20 }),
+    );
+
+    await expect(listDocuments("dc_session=abc", "p 1", 1)).resolves.toEqual({
+      ok: true,
+      data: { items: [item], total: 1, page: 1, page_size: 20 },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/patients/p%201/documents?page=1&page_size=20",
+      expect.objectContaining({ headers: { cookie: "dc_session=abc" } }),
+    );
+    expect(timeout).toHaveBeenCalledWith(5_000);
+  });
+
+  test("a body that is not a document page is a generic error", async () => {
+    stubFetch(jsonResponse(200, { items: [{ ...item, content_type: "image/gif" }], total: 1, page: 1, page_size: 20 }));
+    const result = await listDocuments("", "p-1", 1);
+    expect(result.ok).toBe(false);
+
+    stubFetch(jsonResponse(200, { items: [{ ...item, uploaded_by: null }], total: 1, page: 1, page_size: 20 }));
+    expect((await listDocuments("", "p-1", 1)).ok).toBe(false);
+
+    stubFetch(jsonResponse(200, { items: [item] }));
+    expect((await listDocuments("", "p-1", 1)).ok).toBe(false);
+  });
+
+  test("an API error keeps its status and code", async () => {
+    stubFetch(
+      jsonResponse(404, { error: { code: "not_found", message: "Not Found", request_id: "r-1" } }),
+    );
+    const result = await listDocuments("", "p-1", 1);
+    expect(result).toEqual({
+      ok: false,
+      error: { kind: "api", status: 404, code: "not_found", message: "Not Found", requestId: "r-1" },
+    });
+  });
+});
+
+describe("uploadDocument", () => {
+  const file = new File(["%PDF-1.7"], "My report.pdf", { type: "application/pdf" });
+
+  test("sends the raw file with its type and waits up to 60 seconds", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    const fetchMock = stubFetch(jsonResponse(201, {}));
+
+    await expect(uploadDocument("p 1", file)).resolves.toEqual({ ok: true, data: null });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/patients/p%201/documents",
+      expect.objectContaining({
+        method: "POST",
+        body: file,
+        headers: {
+          "content-type": "application/pdf",
+          "x-document-filename": encodeURIComponent("My report.pdf"),
+        },
+        credentials: "same-origin",
+      }),
+    );
+    expect(timeout).toHaveBeenCalledWith(60_000);
+    expect(timeout).not.toHaveBeenCalledWith(5_000);
+  });
+
+  test("keeps the status and code of an API error", async () => {
+    stubFetch(
+      jsonResponse(413, {
+        error: { code: "payload_too_large", message: "That file is too large.", request_id: "r-1" },
+      }),
+    );
+    const result = await uploadDocument("p-1", file);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatchObject({ kind: "api", status: 413, code: "payload_too_large" });
+    }
+  });
+
+  test("returns a timeout or a network error without throwing", async () => {
+    stubFetch(Promise.reject(new DOMException("timed out", "TimeoutError")));
+    await expect(uploadDocument("p-1", file)).resolves.toEqual({
+      ok: false,
+      error: { kind: "timeout", message: "The API did not respond in time." },
+    });
+
+    stubFetch(Promise.reject(new TypeError("failed")));
+    await expect(uploadDocument("p-1", file)).resolves.toEqual({
+      ok: false,
+      error: { kind: "network", message: "The API could not be reached." },
+    });
+  });
+
+  test("ordinary calls keep the 5 second timeout", async () => {
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    stubFetch({ ok: true, status: 200, json: () => Promise.resolve({}) });
+    await changeAppointmentStatus("visit-1", "arrived");
+    expect(timeout).toHaveBeenCalledWith(5_000);
+    expect(timeout).not.toHaveBeenCalledWith(60_000);
   });
 });
 
