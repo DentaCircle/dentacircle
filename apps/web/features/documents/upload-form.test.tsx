@@ -81,9 +81,9 @@ test("a file name with special characters is sent in the header unchanged", asyn
   await user.click(screen.getByRole("button", { name: "Upload" }));
 
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-  const calls = fetchMock.mock.calls as unknown as [string][];
+  const calls = fetchMock.mock.calls as unknown as [string, RequestInit][];
   expect(calls[0][0]).toBe("/api/patients/patient-1/documents");
-  const init = calls[0][1] as RequestInit;
+  const init = calls[0][1];
   expect((init.headers as Record<string, string>)["x-document-filename"]).toBe(
     encodeURIComponent("a&b=c#d.pdf"),
   );

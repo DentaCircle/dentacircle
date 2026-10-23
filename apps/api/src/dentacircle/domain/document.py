@@ -4,7 +4,7 @@ Everything here is pure. The database check constraints list the same types and 
 """
 
 import unicodedata
-from urllib.parse import quote, unquote, unquote
+from urllib.parse import quote, unquote
 
 DOCUMENT_READ_ROLES = ("clinician", "receptionist", "clinic_admin")
 DOCUMENT_WRITE_ROLES = ("clinician", "receptionist", "clinic_admin")
