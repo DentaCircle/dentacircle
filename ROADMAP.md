@@ -3,7 +3,7 @@
 The tracker. Phases are made of slices. A slice is one reviewable change, about half a day
 to a day of work, with a visible result. Tick a slice only after `/ship-seal`.
 
-**Now:** S3.2 (not started). M1 reached 2026-10-06. M3 reached 2026-10-21. S2.8 sealed 2026-10-21. S3.1 sealed 2026-10-23.
+**Now:** S3.3 (not started). M1 reached 2026-10-06. M3 reached 2026-10-21. S2.8 sealed 2026-10-21. S3.1 sealed 2026-10-23. S3.2 sealed 2026-10-23.
 
 Milestones are demoable. Each one is a real stopping point.
 
@@ -46,7 +46,7 @@ Milestones are demoable. Each one is a real stopping point.
 ## Phase 3: Documents and lab (M4)
 
 - [x] S3.1 Document upload behind a storage interface, attached to a patient
-- [ ] S3.2 Document viewer, link documents to follow-ups and appointments
+- [x] S3.2 Document viewer, link documents to follow-ups and appointments
 - [ ] S3.3 Lab work: record, statuses, patient and lab views
 
 ## Phase 4: Inventory (M4)
