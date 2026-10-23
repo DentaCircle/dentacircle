@@ -4,7 +4,7 @@ Everything here is pure. The database check constraints list the same types and 
 """
 
 import unicodedata
-from urllib.parse import quote
+from urllib.parse import quote, unquote, unquote
 
 DOCUMENT_READ_ROLES = ("clinician", "receptionist", "clinic_admin")
 DOCUMENT_WRITE_ROLES = ("clinician", "receptionist", "clinic_admin")
@@ -16,6 +16,12 @@ DOCUMENT_CONTENT_TYPES = (PDF, PNG, JPEG)
 
 MAX_DOCUMENT_BYTES = 8 * 1024 * 1024
 MAX_FILENAME_LENGTH = 200
+DOCUMENT_FILENAME_HEADER = "X-Document-Filename"
+
+
+def decode_filename_header(value: str) -> str:
+    """The original name after UTF-8 percent-decoding from the upload header."""
+    return unquote(value, encoding="utf-8")
 
 # The first bytes of each allowed type. The browser's Content-Type is never trusted alone.
 _SIGNATURES = (

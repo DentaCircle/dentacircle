@@ -8,10 +8,30 @@ export const ACCEPT = ".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg
 
 export type FileProblem = "empty" | "type" | "size";
 
-export function fileProblem(file: { type: string; size: number }): FileProblem | null {
+const SIGNATURES: { prefix: number[]; type: string }[] = [
+  { prefix: [0x25, 0x50, 0x44, 0x46, 0x2d], type: "application/pdf" },
+  { prefix: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], type: "image/png" },
+  { prefix: [0xff, 0xd8, 0xff], type: "image/jpeg" },
+];
+
+function startsWith(bytes: Uint8Array, prefix: number[]): boolean {
+  if (bytes.length < prefix.length) return false;
+  return prefix.every((value, index) => bytes[index] === value);
+}
+
+function sniffContentType(bytes: Uint8Array): string | null {
+  for (const { prefix, type } of SIGNATURES) {
+    if (startsWith(bytes, prefix)) return type;
+  }
+  return null;
+}
+
+/** Reads the first bytes so an empty browser MIME type does not block a valid file. */
+export async function fileProblem(file: File): Promise<FileProblem | null> {
   if (file.size === 0) return "empty";
-  if (!ALLOWED_TYPES.some((allowed) => allowed === file.type)) return "type";
   if (file.size > MAX_UPLOAD_BYTES) return "size";
+  const head = new Uint8Array(await file.slice(0, 8).arrayBuffer());
+  if (sniffContentType(head) === null) return "type";
   return null;
 }
 

@@ -3,6 +3,7 @@
 import logging
 from collections.abc import Iterator
 from typing import cast
+from urllib.parse import quote
 from uuid import UUID, uuid4
 
 import pytest
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from dentacircle.core.database import get_engine
 from dentacircle.domain.document import (
+    DOCUMENT_FILENAME_HEADER,
     DOCUMENT_READ_ROLES,
     DOCUMENT_WRITE_ROLES,
     MAX_DOCUMENT_BYTES,
@@ -80,12 +82,14 @@ def _post(
     data: bytes | Iterator[bytes] = _PDF,
     content_type: str | None = "application/pdf",
 ) -> Response:
-    headers = {} if content_type is None else {"Content-Type": content_type}
-    params = {} if name is None else {"filename": name}
+    headers: dict[str, str] = {}
+    if content_type is not None:
+        headers["Content-Type"] = content_type
+    if name is not None:
+        headers[DOCUMENT_FILENAME_HEADER] = quote(name, safe="")
     response: Response = api.post(
         f"/patients/{patient_id}/documents",
         cookies=cookies if cookies is not None else _cookie(api),
-        params=params,
         content=data,
         headers=headers,
     )
@@ -183,9 +187,8 @@ def test_no_session_is_401(api: TestClient) -> None:
     api.cookies.clear()
     response = api.post(
         f"/patients/{patient_id}/documents",
-        params={"filename": "x.pdf"},
         content=_PDF,
-        headers={"Content-Type": "application/pdf"},
+        headers={"Content-Type": "application/pdf", DOCUMENT_FILENAME_HEADER: "x.pdf"},
     )
     assert response.status_code == 401
     assert _count(Document) == 0
@@ -199,7 +202,9 @@ def test_checks_run_session_role_input_patient_then_the_rest(
     api.cookies.clear()
     # 401 first, whatever else is wrong.
     anonymous = api.post(
-        f"/patients/{missing}/documents", params={"filename": "/"}, content=oversize
+        f"/patients/{missing}/documents",
+        content=oversize,
+        headers={DOCUMENT_FILENAME_HEADER: "/"},
     )
     assert anonymous.status_code == 401
     # 403 next.
@@ -269,9 +274,8 @@ def test_the_limit_is_counted_from_the_stream_not_from_content_length(
     request = api.build_request(
         "POST",
         f"/patients/{patient_id}/documents",
-        params={"filename": "big.pdf"},
         content=stream(),
-        headers={"Content-Type": "application/pdf"},
+        headers={"Content-Type": "application/pdf", DOCUMENT_FILENAME_HEADER: "big.pdf"},
         cookies=_cookie(api),
     )
     assert "content-length" not in request.headers

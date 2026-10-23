@@ -367,11 +367,14 @@ describe("uploadDocument", () => {
 
     await expect(uploadDocument("p 1", file)).resolves.toEqual({ ok: true, data: null });
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/patients/p%201/documents?filename=My%20report.pdf",
+      "/api/patients/p%201/documents",
       expect.objectContaining({
         method: "POST",
         body: file,
-        headers: { "content-type": "application/pdf" },
+        headers: {
+          "content-type": "application/pdf",
+          "x-document-filename": encodeURIComponent("My report.pdf"),
+        },
         credentials: "same-origin",
       }),
     );

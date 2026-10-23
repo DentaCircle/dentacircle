@@ -499,7 +499,7 @@ export interface paths {
         put?: never;
         /**
          * Post Document
-         * @description The raw file is the request body. Checks run in this order: session, role, input, patient.
+         * @description The raw file is the request body. The name is in a header so access logs stay clean.
          */
         post: operations["post_document_patients__patient_id__documents_post"];
         delete?: never;
@@ -2936,10 +2936,10 @@ export interface operations {
     };
     post_document_patients__patient_id__documents_post: {
         parameters: {
-            query: {
-                filename: string;
+            query?: never;
+            header: {
+                "X-Document-Filename": string;
             };
-            header?: never;
             path: {
                 patient_id: string;
             };

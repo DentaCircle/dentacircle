@@ -1,5 +1,7 @@
 """Document storage on the local disk, under one root folder."""
 
+import os
+import sys
 from collections.abc import Iterator
 from pathlib import Path
 from typing import BinaryIO
@@ -23,8 +25,17 @@ class LocalDiskStorage:
         # Write beside the target and rename, so a reader never sees half a file.
         temporary = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
         try:
-            temporary.write_bytes(data)
+            with temporary.open("wb") as handle:
+                handle.write(data)
+                handle.flush()
+                os.fsync(handle.fileno())
             temporary.replace(path)
+            if sys.platform != "win32":
+                directory_fd = os.open(path.parent, os.O_RDONLY)
+                try:
+                    os.fsync(directory_fd)
+                finally:
+                    os.close(directory_fd)
         except BaseException:
             temporary.unlink(missing_ok=True)
             raise

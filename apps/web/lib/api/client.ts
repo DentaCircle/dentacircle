@@ -343,12 +343,19 @@ export function listDocuments(
   );
 }
 
-/** Sends the file as the raw request body. The API reads the name from the query string. */
+/** Sends the file as the raw request body. The name goes in a header so URLs stay out of logs. */
 export function uploadDocument(patientId: string, file: File): Promise<ApiResult<null>> {
-  const name = encodeURIComponent(file.name);
+  const contentType = file.type === "" ? "application/octet-stream" : file.type;
   return sendRequest(
-    `/api/patients/${encodeURIComponent(patientId)}/documents?filename=${name}`,
-    { method: "POST", headers: { "content-type": file.type }, body: file },
+    `/api/patients/${encodeURIComponent(patientId)}/documents`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": contentType,
+        "x-document-filename": encodeURIComponent(file.name),
+      },
+      body: file,
+    },
     UPLOAD_TIMEOUT_MS,
   );
 }

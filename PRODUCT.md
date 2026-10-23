@@ -258,7 +258,8 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   rejects stale results. Booking and rescheduling share timeout transport and distinguish a
   patient scheduling conflict from a clinician slot conflict with fixed safe copy.
 - **Document upload (decided in S3.1):** a file is sent as the raw request body with the name
-  in a query parameter, not multipart, so no `python-multipart` dependency. Allowed types are
+  in the `X-Document-Filename` header, not multipart, so no `python-multipart` dependency and
+  access logs do not carry the name in the URL. Allowed types are
   PDF, PNG and JPEG, decided from the first bytes of the file, up to 8 MiB counted while the
   body is read (under Next's 10 MB proxy default). Files sit behind a `DocumentStorage`
   interface in `integrations/storage/`; the only real adapter writes to local disk under

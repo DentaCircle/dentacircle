@@ -3844,7 +3844,7 @@
         "summary": "Get Documents"
       },
       "post": {
-        "description": "The raw file is the request body. Checks run in this order: session, role, input, patient.",
+        "description": "The raw file is the request body. The name is in a header so access logs stay clean.",
         "operationId": "post_document_patients__patient_id__documents_post",
         "parameters": [
           {
@@ -3858,11 +3858,11 @@
             }
           },
           {
-            "in": "query",
-            "name": "filename",
+            "in": "header",
+            "name": "X-Document-Filename",
             "required": true,
             "schema": {
-              "title": "Filename",
+              "title": "X-Document-Filename",
               "type": "string"
             }
           }

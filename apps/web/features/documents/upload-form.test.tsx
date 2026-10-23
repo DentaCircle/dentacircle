@@ -54,11 +54,11 @@ test("sends the file as the raw body, with its type and a 60 second timeout", as
 
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   expect(fetchMock).toHaveBeenCalledWith(
-    "/api/patients/patient-1/documents?filename=My%20report.pdf",
+    "/api/patients/patient-1/documents",
     expect.objectContaining({
       method: "POST",
       body: file,
-      headers: { "content-type": "application/pdf" },
+      headers: { "content-type": "application/pdf", "x-document-filename": "My%20report.pdf" },
       credentials: "same-origin",
     }),
   );
@@ -69,7 +69,7 @@ test("sends the file as the raw body, with its type and a 60 second timeout", as
   expect(refresh).toHaveBeenCalled();
 });
 
-test("a file name with special characters is encoded in the query", async () => {
+test("a file name with special characters is sent in the header unchanged", async () => {
   const user = setup();
   const fetchMock = vi.fn(() =>
     Promise.resolve({ ok: true, status: 201, json: () => Promise.resolve({}) }),
@@ -82,7 +82,11 @@ test("a file name with special characters is encoded in the query", async () => 
 
   await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
   const calls = fetchMock.mock.calls as unknown as [string][];
-  expect(calls[0][0]).toBe("/api/patients/patient-1/documents?filename=a%26b%3Dc%23d.pdf");
+  expect(calls[0][0]).toBe("/api/patients/patient-1/documents");
+  const init = calls[0][1] as RequestInit;
+  expect((init.headers as Record<string, string>)["x-document-filename"]).toBe(
+    encodeURIComponent("a&b=c#d.pdf"),
+  );
 });
 
 test("no file is a message and sends nothing", async () => {

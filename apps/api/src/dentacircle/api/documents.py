@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, Any, Literal, cast
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import StreamingResponse
@@ -14,6 +14,7 @@ from dentacircle.core.access import SessionDep, require_roles
 from dentacircle.core.errors import CodedHttpError
 from dentacircle.domain.document import (
     DOCUMENT_CONTENT_TYPES,
+    DOCUMENT_FILENAME_HEADER,
     DOCUMENT_READ_ROLES,
     DOCUMENT_WRITE_ROLES,
     MAX_DOCUMENT_BYTES,
@@ -21,6 +22,7 @@ from dentacircle.domain.document import (
     UnsupportedMediaTypeError,
     attachment_disposition,
     clean_filename,
+    decode_filename_header,
 )
 from dentacircle.integrations.storage import DocumentStorage, get_storage
 from dentacircle.services.auth_service import CurrentUser
@@ -110,20 +112,21 @@ _DOWNLOAD_RESPONSES: dict[int | str, dict[str, Any]] = {
 async def post_document(
     request: Request,
     patient_id: UUID,
-    filename: Annotated[str, Query()],
+    filename: Annotated[str, Header(alias=DOCUMENT_FILENAME_HEADER)],
     user: Annotated[CurrentUser, Depends(can_write)],
     session: SessionDep,
     storage: StorageDep,
 ) -> DocumentBody:
-    """The raw file is the request body. Checks run in this order: session, role, input, patient."""
+    """The raw file is the request body. The name is in a header so access logs stay clean."""
     try:
-        clean_filename(filename)
+        clean_filename(decode_filename_header(filename))
     except DocumentFieldError as exc:
         raise _field_error(exc) from None
     try:
         await run_in_threadpool(require_patient, session, user.clinic.id, patient_id)
     except PatientNotFoundError:
         raise HTTPException(status_code=404) from None
+    await run_in_threadpool(session.rollback)
     data = await _read_body(request)
     try:
         created = await run_in_threadpool(
@@ -133,7 +136,7 @@ async def post_document(
             user.clinic.id,
             user.id,
             patient_id,
-            filename,
+            decode_filename_header(filename),
             request.headers.get("content-type"),
             data,
         )
@@ -205,7 +208,12 @@ async def _read_body(request: Request) -> bytes:
 
 
 def _field_error(exc: DocumentFieldError) -> RequestValidationError:
-    location = ("query", exc.location) if exc.location == "filename" else ("body",)
+    if exc.location == "filename":
+        location = ("header", DOCUMENT_FILENAME_HEADER.lower())
+    elif exc.location == "body":
+        location = ("body",)
+    else:
+        location = (exc.location,)
     return RequestValidationError(
         [{"type": exc.code, "loc": location, "msg": exc.code, "input": None}]
     )

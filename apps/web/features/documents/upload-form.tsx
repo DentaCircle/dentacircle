@@ -27,7 +27,7 @@ export function UploadForm({ patientId }: { patientId: string }) {
       setMessage(CHOOSE_A_FILE);
       return;
     }
-    const problem = fileProblem(file);
+    const problem = await fileProblem(file);
     if (problem !== null) {
       setMessage(problemMessage(problem));
       return;
