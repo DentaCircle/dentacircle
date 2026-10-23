@@ -41,6 +41,16 @@ class Document(Base):
             ["app_user.id", "app_user.clinic_id"],
             name="fk_document_uploaded_by_user_id_clinic_id",
         ),
+        ForeignKeyConstraint(
+            ["appointment_id", "clinic_id"],
+            ["appointment.id", "appointment.clinic_id"],
+            name="fk_document_appointment_id_clinic_id",
+        ),
+        ForeignKeyConstraint(
+            ["follow_up_id", "clinic_id"],
+            ["follow_up.id", "follow_up.clinic_id"],
+            name="fk_document_follow_up_id_clinic_id",
+        ),
         Index(
             "ix_document_patient_order",
             "clinic_id",
@@ -48,6 +58,8 @@ class Document(Base):
             desc("created_at"),
             desc("id"),
         ),
+        Index("ix_document_clinic_appointment", "clinic_id", "appointment_id"),
+        Index("ix_document_clinic_follow_up", "clinic_id", "follow_up_id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
@@ -58,4 +70,6 @@ class Document(Base):
     content_type: Mapped[str] = mapped_column()
     size_bytes: Mapped[int] = mapped_column(BigInteger)
     storage_key: Mapped[str] = mapped_column()
+    appointment_id: Mapped[UUID | None] = mapped_column()
+    follow_up_id: Mapped[UUID | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

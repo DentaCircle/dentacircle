@@ -1,10 +1,11 @@
 """Document service: store, write order and rollback, inactive patients, audit, tenancy, read."""
 
 import logging
+from datetime import date
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import event, func, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
@@ -15,17 +16,22 @@ from dentacircle.models.app_user import AppUser
 from dentacircle.models.audit_event import AuditEvent
 from dentacircle.models.document import Document
 from dentacircle.models.patient import Patient
+from dentacircle.models.timeline_event import TimelineEvent
 from dentacircle.services.document_service import (
     DocumentNotFoundError,
     DocumentPatientInactiveError,
     DocumentView,
+    get_document,
     list_documents,
     open_document,
+    update_document_links,
     upload_document,
 )
-from dentacircle.services.patient_service import PatientNotFoundError
+from dentacircle.services.follow_up_service import create_manual_follow_up
+from dentacircle.services.patient_service import PatientNotFoundError, register_patient
 from dentacircle.services.provisioning_service import create_user, get_or_create_clinic
-from tests.timeline_support import World, world
+from dentacircle.services.timeline_service import DocumentSubject, list_timeline
+from tests.timeline_support import AT_START, NOW, World, book, world
 
 pytest_plugins = ["tests.timeline_support"]
 
@@ -44,6 +50,8 @@ def _upload(
     patient_id: UUID | None = None,
     clinic_id: UUID | None = None,
     actor_id: UUID | None = None,
+    appointment_id: UUID | None = None,
+    follow_up_id: UUID | None = None,
 ) -> DocumentView:
     with Session(get_engine()) as session:
         return upload_document(
@@ -55,12 +63,27 @@ def _upload(
             filename,
             content_type,
             data,
+            appointment_id=appointment_id,
+            follow_up_id=follow_up_id,
         )
 
 
 def _count(model: type[Document] | type[AuditEvent]) -> int:
     with Session(get_engine()) as session:
         return int(session.scalar(select(func.count()).select_from(model)) or 0)
+
+
+def _timeline_kinds(clinic: World) -> list[str]:
+    with Session(get_engine()) as session:
+        rows = session.scalars(
+            select(TimelineEvent.kind)
+            .where(
+                TimelineEvent.clinic_id == clinic.clinic_id,
+                TimelineEvent.patient_id == clinic.patient_id,
+            )
+            .order_by(TimelineEvent.occurred_at, TimelineEvent.seq)
+        )
+        return list(rows)
 
 
 def _document_audits() -> list[AuditEvent]:
@@ -115,6 +138,9 @@ def test_an_upload_stores_the_bytes_the_row_and_one_audit_event(database: str) -
     assert events[0].actor_user_id == clinic.actor_id
     assert events[0].clinic_id == clinic.clinic_id
     assert events[0].changed_fields == []
+    assert view.appointment is None
+    assert view.follow_up is None
+    assert _timeline_kinds(clinic) == ["patient_registered", "document_uploaded"]
 
 
 def test_the_stored_time_is_clinic_local(database: str) -> None:
@@ -152,6 +178,7 @@ def test_a_failed_audit_write_leaves_no_row_and_no_file(
     assert storage.files == {}
     assert _count(Document) == 0
     assert _document_audits() == []
+    assert _timeline_kinds(clinic) == ["patient_registered"]
 
 
 def test_a_failed_commit_leaves_no_row_and_no_file(
@@ -170,6 +197,7 @@ def test_a_failed_commit_leaves_no_row_and_no_file(
     assert storage.files == {}
     assert _count(Document) == 0
     assert _document_audits() == []
+    assert _timeline_kinds(clinic) == ["patient_registered"]
 
 
 def test_the_file_is_stored_before_the_row_is_written(database: str) -> None:
@@ -196,6 +224,7 @@ def test_an_inactive_patient_cannot_receive_a_document(database: str) -> None:
     assert storage.files == {}
     assert _count(Document) == 0
     assert _document_audits() == []
+    assert _timeline_kinds(clinic) == ["patient_registered"]
 
 
 def test_an_unknown_patient_stores_nothing(database: str) -> None:
@@ -357,3 +386,356 @@ def test_reading_writes_no_audit_event(database: str) -> None:
         open_document(session, storage, clinic.clinic_id, clinic.patient_id, view.id)
         session.commit()
     assert _count(AuditEvent) == before
+
+
+# --- links --------------------------------------------------------------------
+
+
+def test_a_document_can_link_a_visit_and_a_follow_up_independently(database: str) -> None:
+    clinic = world()
+    visit_id = book(clinic, AT_START)
+    follow_up_id = _follow_up(clinic)
+    view = _upload(clinic, MemoryStorage())
+    with Session(get_engine()) as session:
+        linked = update_document_links(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            clinic.patient_id,
+            view.id,
+            set_appointment=True,
+            appointment_id=visit_id,
+            set_follow_up=True,
+            follow_up_id=follow_up_id,
+        )
+    assert linked.appointment is not None
+    assert linked.appointment.id == visit_id
+    assert linked.appointment.type_name == "Consultation"
+    assert linked.appointment.starts_at.utcoffset() is not None
+    assert linked.appointment.starts_at.isoformat().endswith("+05:30")
+    assert linked.follow_up is not None
+    assert linked.follow_up.id == follow_up_id
+    assert linked.follow_up.due_on == date(2026, 10, 19)
+    events = _document_audits()
+    assert [event.action for event in events] == ["create", "update"]
+    assert events[1].changed_fields == ["appointment_id", "follow_up_id"]
+    assert str(visit_id) not in events[1].changed_fields
+    assert str(follow_up_id) not in events[1].changed_fields
+    assert _timeline_kinds(clinic).count("document_uploaded") == 1
+
+
+def test_an_omitted_link_stays_and_a_no_op_writes_no_audit(database: str) -> None:
+    clinic = world()
+    visit_id = book(clinic, AT_START)
+    view = _upload(clinic, MemoryStorage(), appointment_id=visit_id)
+    with Session(get_engine()) as session:
+        same = update_document_links(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            clinic.patient_id,
+            view.id,
+            set_appointment=True,
+            appointment_id=visit_id,
+            set_follow_up=False,
+            follow_up_id=None,
+        )
+    assert same.appointment is not None
+    assert same.appointment.id == visit_id
+    assert same.follow_up is None
+    assert [row.action for row in _document_audits()] == ["create"]
+
+
+def test_null_clears_one_link(database: str) -> None:
+    clinic = world()
+    visit_id = book(clinic, AT_START)
+    view = _upload(clinic, MemoryStorage(), appointment_id=visit_id)
+    with Session(get_engine()) as session:
+        cleared = update_document_links(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            clinic.patient_id,
+            view.id,
+            set_appointment=True,
+            appointment_id=None,
+            set_follow_up=False,
+            follow_up_id=None,
+        )
+    assert cleared.appointment is None
+    assert _document_audits()[-1].changed_fields == ["appointment_id"]
+
+
+def test_a_cancelled_visit_can_still_be_linked(database: str) -> None:
+    clinic = world()
+    visit_id = book(clinic, AT_START)
+    from dentacircle.services.appointment_service import cancel_appointment
+
+    with Session(get_engine()) as session:
+        cancel_appointment(session, clinic.clinic_id, clinic.actor_id, visit_id, NOW)
+        session.commit()
+    view = _upload(clinic, MemoryStorage(), appointment_id=visit_id)
+    assert view.appointment is not None
+    assert view.appointment.id == visit_id
+
+
+def test_another_patients_visit_or_follow_up_is_not_found_and_nothing_is_stored(
+    database: str,
+) -> None:
+    clinic = world()
+    other_patient = _other_patient(clinic)
+    visit_id = _book_for(clinic, other_patient)
+    view = _upload(clinic, MemoryStorage())
+    before = _count(Document)
+    with Session(get_engine()) as session:
+        with pytest.raises(DocumentNotFoundError):
+            update_document_links(
+                session,
+                clinic.clinic_id,
+                clinic.actor_id,
+                clinic.patient_id,
+                view.id,
+                set_appointment=True,
+                appointment_id=visit_id,
+                set_follow_up=False,
+                follow_up_id=None,
+            )
+    assert _count(Document) == before
+    with pytest.raises(DocumentNotFoundError):
+        _upload(clinic, MemoryStorage(), appointment_id=visit_id)
+    assert _count(Document) == before
+
+
+def test_another_clinics_visit_is_not_found(database: str) -> None:
+    clinic = world()
+    view = _upload(clinic, MemoryStorage())
+    other_clinic_id, other_actor_id = _other_clinic()
+    other_visit = _visit_in_other_clinic(other_clinic_id, other_actor_id)
+    with Session(get_engine()) as session:
+        with pytest.raises(DocumentNotFoundError):
+            update_document_links(
+                session,
+                clinic.clinic_id,
+                clinic.actor_id,
+                clinic.patient_id,
+                view.id,
+                set_appointment=True,
+                appointment_id=other_visit,
+                set_follow_up=False,
+                follow_up_id=None,
+            )
+
+
+def test_the_link_lookup_filters_by_clinic(database: str) -> None:
+    """Removing the clinic filter from the visit lookup drops clinic_id from that query."""
+    clinic = world()
+    view = _upload(clinic, MemoryStorage())
+    statements: list[str] = []
+
+    def capture(
+        conn: object,
+        cursor: object,
+        statement: str,
+        parameters: object,
+        context: object,
+        executemany: bool,
+    ) -> None:
+        statements.append(statement)
+
+    engine = get_engine()
+    event.listen(engine, "before_cursor_execute", capture)
+    try:
+        with Session(engine) as session:
+            with pytest.raises(DocumentNotFoundError):
+                update_document_links(
+                    session,
+                    clinic.clinic_id,
+                    clinic.actor_id,
+                    clinic.patient_id,
+                    view.id,
+                    set_appointment=True,
+                    appointment_id=uuid4(),
+                    set_follow_up=False,
+                    follow_up_id=None,
+                )
+            with pytest.raises(DocumentNotFoundError):
+                update_document_links(
+                    session,
+                    clinic.clinic_id,
+                    clinic.actor_id,
+                    clinic.patient_id,
+                    view.id,
+                    set_appointment=False,
+                    appointment_id=None,
+                    set_follow_up=True,
+                    follow_up_id=uuid4(),
+                )
+    finally:
+        event.remove(engine, "before_cursor_execute", capture)
+    lookups = [
+        statement.split("WHERE", 1)[1]
+        for statement in statements
+        if "WHERE" in statement
+        and "patient_id" in statement
+        and ("FROM appointment" in statement or "FROM follow_up" in statement)
+    ]
+    assert len(lookups) >= 2
+    assert all("clinic_id" in where for where in lookups)
+
+
+def test_an_inactive_patient_cannot_change_a_link(database: str) -> None:
+    clinic = world()
+    visit_id = book(clinic, AT_START)
+    view = _upload(clinic, MemoryStorage())
+    _set_patient_status(clinic.patient_id, "inactive")
+    with Session(get_engine()) as session:
+        found = get_document(session, clinic.clinic_id, clinic.patient_id, view.id)
+        assert found.id == view.id
+        with pytest.raises(DocumentPatientInactiveError):
+            update_document_links(
+                session,
+                clinic.clinic_id,
+                clinic.actor_id,
+                clinic.patient_id,
+                view.id,
+                set_appointment=True,
+                appointment_id=visit_id,
+                set_follow_up=False,
+                follow_up_id=None,
+            )
+    assert [row.action for row in _document_audits()] == ["create"]
+
+
+def test_a_filter_returns_only_linked_documents_and_a_foreign_id_is_empty(database: str) -> None:
+    clinic = world()
+    visit_id = book(clinic, AT_START)
+    other_visit = _book_for(clinic, _other_patient(clinic))
+    linked = _upload(clinic, MemoryStorage(), appointment_id=visit_id)
+    _upload(clinic, MemoryStorage())
+    with Session(get_engine()) as session:
+        found = list_documents(
+            session,
+            clinic.clinic_id,
+            clinic.patient_id,
+            1,
+            20,
+            appointment_id=visit_id,
+        )
+        assert [item.id for item in found.items] == [linked.id]
+        foreign = list_documents(
+            session,
+            clinic.clinic_id,
+            clinic.patient_id,
+            1,
+            20,
+            appointment_id=other_visit,
+        )
+        assert foreign.items == []
+        assert foreign.total == 0
+        missing = list_documents(
+            session,
+            clinic.clinic_id,
+            clinic.patient_id,
+            1,
+            20,
+            appointment_id=uuid4(),
+        )
+        assert missing.items == []
+
+
+def test_the_timeline_reads_the_current_filename(database: str) -> None:
+    clinic = world()
+    view = _upload(clinic, MemoryStorage(), filename="first.pdf")
+    with Session(get_engine()) as session:
+        row = session.get(Document, view.id)
+        assert row is not None
+        row.filename = "later.pdf"
+        session.commit()
+    with Session(get_engine()) as session:
+        page = list_timeline(session, clinic.clinic_id, clinic.patient_id, 1, 20)
+    uploaded = next(item for item in page.items if item.kind == "document_uploaded")
+    assert isinstance(uploaded.subject, DocumentSubject)
+    assert uploaded.subject.document_id == view.id
+    assert uploaded.subject.filename == "later.pdf"
+
+
+def _follow_up(clinic: World) -> UUID:
+    with Session(get_engine()) as session:
+        created = create_manual_follow_up(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            clinic.patient_id,
+            date(2026, 10, 19),
+            NOW,
+        )
+        session.commit()
+        return created.id
+
+
+def _other_patient(clinic: World) -> UUID:
+    with Session(get_engine()) as session:
+        patient = register_patient(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            "Sample Bea",
+            "9000000002",
+            None,
+            occurred_at=NOW,
+        )
+        session.commit()
+        return patient.id
+
+
+def _book_for(clinic: World, patient_id: UUID) -> UUID:
+    from dentacircle.services.appointment_service import book_appointment
+
+    with Session(get_engine()) as session:
+        visit = book_appointment(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            patient_id,
+            clinic.clinician_id,
+            clinic.consultation_id,
+            AT_START.replace(hour=15),
+            NOW,
+        )
+        session.commit()
+        return visit.id
+
+
+def _visit_in_other_clinic(clinic_id: UUID, actor_id: UUID) -> UUID:
+    from dentacircle.models.appointment_type import AppointmentType
+    from dentacircle.services.appointment_service import book_appointment
+
+    with Session(get_engine()) as session:
+        patient = register_patient(
+            session,
+            clinic_id,
+            actor_id,
+            "Sample Cyd",
+            "9000000003",
+            None,
+            occurred_at=NOW,
+        )
+        consultation = next(
+            row
+            for row in session.scalars(
+                select(AppointmentType).where(AppointmentType.clinic_id == clinic_id)
+            )
+            if row.name == "Consultation"
+        )
+        visit = book_appointment(
+            session,
+            clinic_id,
+            actor_id,
+            patient.id,
+            actor_id,
+            consultation.id,
+            AT_START,
+            NOW,
+        )
+        session.commit()
+        return visit.id

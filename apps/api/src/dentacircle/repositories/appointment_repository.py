@@ -51,6 +51,14 @@ class AppointmentRepository:
             for appointment, patient, clinician, appointment_type in rows
         ]
 
+    def get_for_patient(self, appointment_id: UUID, patient_id: UUID) -> Appointment | None:
+        """This clinic's visit for this patient, or none. Status does not matter."""
+        statement = scoped_select(Appointment, self._clinic_id).where(
+            Appointment.id == appointment_id,
+            Appointment.patient_id == patient_id,
+        )
+        return self._session.scalars(statement).one_or_none()
+
     def get_detail(
         self, appointment_id: UUID
     ) -> tuple[Appointment, Patient, AppUser, AppointmentType] | None:

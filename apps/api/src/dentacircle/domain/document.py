@@ -76,13 +76,26 @@ def clean_filename(raw: str) -> str:
     return name
 
 
-def attachment_disposition(filename: str) -> str:
-    """Content-Disposition for a download. The name is only a label, never a path."""
+IMAGE_INLINE_CSP = "sandbox; default-src 'none'"
+
+
+def content_disposition(disposition: str, filename: str) -> str:
+    """Content-Disposition for a download or an inline view. The name is only a label."""
     fallback = "".join(
         char if char.isascii() and char.isprintable() and char not in '"\\%' else "_"
         for char in filename
     )
-    return f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quote(filename, safe='')}"
+    return f"{disposition}; filename=\"{fallback}\"; filename*=UTF-8''{quote(filename, safe='')}"
+
+
+def attachment_disposition(filename: str) -> str:
+    """Content-Disposition for a download. The name is only a label, never a path."""
+    return content_disposition("attachment", filename)
+
+
+def is_inline_image(content_type: str) -> bool:
+    """PNG and JPEG are shown with a sandbox policy. PDF is not."""
+    return content_type in (PNG, JPEG)
 
 
 def _media_type(header: str | None) -> str:

@@ -12,6 +12,7 @@ from dentacircle.models.appointment import Appointment
 from dentacircle.models.appointment_type import AppointmentType
 from dentacircle.models.care_item import CareItem
 from dentacircle.models.care_session_item import CareSessionItem
+from dentacircle.models.document import Document
 from dentacircle.models.follow_up import FollowUp
 from dentacircle.models.recall import Recall
 from dentacircle.models.timeline_event import TimelineEvent
@@ -119,6 +120,18 @@ class TimelineRepository:
             )
         )
         return {follow_up_id: due_on for follow_up_id, due_on in rows}
+
+    def document_filenames(self, document_ids: set[UUID]) -> dict[UUID, str]:
+        """Current filename, read live. The name is not stored on the event."""
+        if not document_ids:
+            return {}
+        rows = self._session.execute(
+            select(Document.id, Document.filename).where(
+                Document.clinic_id == self._clinic_id,
+                Document.id.in_(document_ids),
+            )
+        )
+        return {document_id: filename for document_id, filename in rows}
 
     def recalls(self, recall_ids: set[UUID]) -> dict[UUID, tuple[date, str]]:
         """Due date and the current type name."""

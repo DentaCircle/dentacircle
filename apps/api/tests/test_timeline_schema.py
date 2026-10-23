@@ -11,7 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from dentacircle.core.database import to_psycopg_url
+from dentacircle.core.database import clear_engine, get_engine, to_psycopg_url
 from dentacircle.domain.timeline import TIMELINE_KINDS, subject_column
 from dentacircle.repositories.timeline_repository import TimelineRepository
 from tests.test_migrations import _config, _public_tables, _version
@@ -36,6 +36,7 @@ _ITEM = "16161616-1616-1616-1616-161616161616"
 _SESSION = "17171717-1717-1717-1717-171717171717"
 _FOLLOW_UP = "18181818-1818-1818-1818-181818181818"
 _RECALL = "19191919-1919-1919-1919-191919191919"
+_DOCUMENT = "21212121-2121-2121-2121-212121212121"
 
 _COLUMNS = {
     "id",
@@ -50,6 +51,7 @@ _COLUMNS = {
     "care_session_id",
     "follow_up_id",
     "recall_id",
+    "document_id",
 }
 
 
@@ -66,7 +68,7 @@ def test_upgrade_downgrade_upgrade(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0015_documents"
+    assert _version(throwaway_database_url) == "0016_document_links"
     assert "timeline_event" in _public_tables(throwaway_database_url)
     assert _columns(throwaway_database_url) == _COLUMNS
     assert "DESC" in _index_def(throwaway_database_url)
@@ -77,8 +79,38 @@ def test_upgrade_downgrade_upgrade(
     assert "recall" in _public_tables(throwaway_database_url)
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0015_documents"
+    assert _version(throwaway_database_url) == "0016_document_links"
     assert "timeline_event" in _public_tables(throwaway_database_url)
+
+
+def test_downgrade_removes_document_uploaded_rows_before_the_old_check(
+    throwaway_database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
+    config = _config()
+    command.upgrade(config, "head")
+    clear_engine()
+    with Session(get_engine()) as session:
+        _seed(session)
+        kept = _insert(session, "patient_registered")
+        _insert(session, "document_uploaded", document_id=_DOCUMENT)
+        session.commit()
+    command.downgrade(config, "0015_documents")
+    assert _version(throwaway_database_url) == "0015_documents"
+    assert "document_id" not in _columns(throwaway_database_url)
+    clear_engine()
+    with Session(get_engine()) as session:
+        kinds = list(session.scalars(text("SELECT kind FROM timeline_event")))
+        ids = list(session.scalars(text("SELECT id::text FROM timeline_event")))
+    assert kinds == ["patient_registered"]
+    assert ids == [kept]
+    command.upgrade(config, "head")
+    assert _version(throwaway_database_url) == "0016_document_links"
+    assert "document_id" in _columns(throwaway_database_url)
+    clear_engine()
+    with Session(get_engine()) as session:
+        kinds = list(session.scalars(text("SELECT kind FROM timeline_event")))
+    assert kinds == ["patient_registered"]
 
 
 def test_each_kind_needs_its_one_subject(migrated: str, db_session: Session) -> None:
@@ -101,6 +133,17 @@ def test_each_kind_needs_its_one_subject(migrated: str, db_session: Session) -> 
     db_session.rollback()
     with pytest.raises(IntegrityError):
         _insert(db_session, "visit_booked", appointment_id=_VISIT, follow_up_id=_FOLLOW_UP)
+    db_session.rollback()
+    with pytest.raises(IntegrityError):
+        _insert(db_session, "document_uploaded")
+    db_session.rollback()
+    with pytest.raises(IntegrityError):
+        _insert(
+            db_session,
+            "document_uploaded",
+            document_id=_DOCUMENT,
+            appointment_id=_VISIT,
+        )
 
 
 def test_a_subject_cannot_point_at_another_clinic(migrated: str, db_session: Session) -> None:
@@ -172,6 +215,7 @@ def _subject_for(kind: str) -> dict[str, str]:
         "care_session_id": _SESSION,
         "follow_up_id": _FOLLOW_UP,
         "recall_id": _RECALL,
+        "document_id": _DOCUMENT,
     }
     return {column: ids[column]}
 
@@ -187,15 +231,18 @@ def _insert(
     care_session_id: str | None = None,
     follow_up_id: str | None = None,
     recall_id: str | None = None,
+    document_id: str | None = None,
 ) -> str:
     event_id = str(uuid4())
     session.execute(
         text(
             "INSERT INTO timeline_event"
             " (id, clinic_id, patient_id, actor_user_id, kind,"
-            "  appointment_id, care_item_id, care_session_id, follow_up_id, recall_id)"
+            "  appointment_id, care_item_id, care_session_id, follow_up_id, recall_id,"
+            "  document_id)"
             " VALUES (:id, :clinic_id, :patient_id, :actor_user_id, :kind,"
-            "  :appointment_id, :care_item_id, :care_session_id, :follow_up_id, :recall_id)"
+            "  :appointment_id, :care_item_id, :care_session_id, :follow_up_id, :recall_id,"
+            "  :document_id)"
         ),
         {
             "id": event_id,
@@ -208,6 +255,7 @@ def _insert(
             "care_session_id": care_session_id,
             "follow_up_id": follow_up_id,
             "recall_id": recall_id,
+            "document_id": document_id,
         },
     )
     return event_id
@@ -288,6 +336,22 @@ def _seed(session: Session) -> None:
             "type_id": _TYPE,
             "visit_id": _VISIT,
             "due_on": _DUE,
+        },
+    )
+    session.execute(
+        text(
+            "INSERT INTO document"
+            " (id, clinic_id, patient_id, uploaded_by_user_id, filename, content_type,"
+            "  size_bytes, storage_key)"
+            " VALUES (:id, :clinic_id, :patient_id, :user_id, 'report.pdf', 'application/pdf',"
+            "  10, :storage_key)"
+        ),
+        {
+            "id": _DOCUMENT,
+            "clinic_id": _CLINIC,
+            "patient_id": _PATIENT,
+            "user_id": _USER,
+            "storage_key": f"{_CLINIC}/{_DOCUMENT}",
         },
     )
 
