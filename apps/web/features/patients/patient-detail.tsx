@@ -47,7 +47,7 @@ export function PatientDetail({
         <h1 className="text-2xl font-semibold">
           {status === "ready" && patient !== null ? patient.fullName : "Patient"}
         </h1>
-        <div className="flex gap-3 text-sm">
+        <div className="flex flex-wrap gap-3 text-sm">
           {status === "ready" && patient !== null ? (
             <Button asChild variant="outline" size="sm">
               <Link href={`/patients/${patient.id}/care`}>Care</Link>
