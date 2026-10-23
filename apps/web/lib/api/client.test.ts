@@ -315,6 +315,8 @@ describe("listDocuments", () => {
     size_bytes: 20,
     uploaded_at: "2026-10-12T10:05:00+05:30",
     uploaded_by: { id: "user-1", name: "Sample Desk" },
+    appointment: null,
+    follow_up: null,
   };
 
   test("reads one page with the session cookie, and uses the 5 second timeout", async () => {

@@ -69,6 +69,30 @@ test("sends the file as the raw body, with its type and a 60 second timeout", as
   expect(refresh).toHaveBeenCalled();
 });
 
+test("a visit context is sent with the upload and kept on the way back", async () => {
+  const user = setup();
+  const fetchMock = vi.fn(() =>
+    Promise.resolve({ ok: true, status: 201, json: () => Promise.resolve({}) }),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  render(<UploadForm patientId={PATIENT} context={{ kind: "visit", id: "visit-1" }} />);
+
+  await user.upload(screen.getByLabelText("File"), pdf("report.pdf"));
+  await user.click(screen.getByRole("button", { name: "Upload" }));
+
+  await waitFor(() =>
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/patients/patient-1/documents?appointment_id=visit-1",
+      expect.objectContaining({ method: "POST" }),
+    ),
+  );
+  await waitFor(() =>
+    expect(push).toHaveBeenCalledWith(
+      "/patients/patient-1/documents?page=1&appointment_id=visit-1&notice=uploaded",
+    ),
+  );
+});
+
 test("a file name with special characters is sent in the header unchanged", async () => {
   const user = setup();
   const fetchMock = vi.fn(() =>

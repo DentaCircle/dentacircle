@@ -222,7 +222,8 @@ export type TimelineKind =
   | "recall_booked"
   | "recall_completed"
   | "recall_released"
-  | "recall_cancelled";
+  | "recall_cancelled"
+  | "document_uploaded";
 
 export type TimelineVisitSubject = {
   appointment_id: string;
@@ -239,12 +240,15 @@ export type TimelineFollowUpSubject = { due_on: string };
 
 export type TimelineRecallSubject = { due_on: string; type_name: string };
 
+export type TimelineDocumentSubject = { document_id: string; filename: string };
+
 export type TimelineSubject =
   | TimelineVisitSubject
   | TimelineCareItemSubject
   | TimelineSessionSubject
   | TimelineFollowUpSubject
   | TimelineRecallSubject
+  | TimelineDocumentSubject
   | null;
 
 export type TimelineItem = {
@@ -264,6 +268,14 @@ export type TimelinePage = {
 
 export type DocumentContentType = "application/pdf" | "image/png" | "image/jpeg";
 
+export type DocumentAppointmentLink = {
+  id: string;
+  starts_at: string;
+  type_name: string;
+};
+
+export type DocumentFollowUpLink = { id: string; due_on: string };
+
 export type DocumentItem = {
   id: string;
   filename: string;
@@ -271,6 +283,8 @@ export type DocumentItem = {
   size_bytes: number;
   uploaded_at: string;
   uploaded_by: { id: string; name: string };
+  appointment: DocumentAppointmentLink | null;
+  follow_up: DocumentFollowUpLink | null;
 };
 
 export type DocumentPage = {
@@ -308,6 +322,7 @@ const TIMELINE_KINDS: readonly TimelineKind[] = [
   "recall_completed",
   "recall_released",
   "recall_cancelled",
+  "document_uploaded",
 ];
 
 export function listTimeline(
@@ -327,19 +342,39 @@ export function listTimeline(
   );
 }
 
+export type DocumentListFilter = {
+  appointmentId?: string;
+  followUpId?: string;
+};
+
 export function listDocuments(
   cookieHeader: string,
   patientId: string,
   page: number,
   pageSize = 20,
+  filter?: DocumentListFilter,
 ): Promise<ApiResult<DocumentPage>> {
   const params = new URLSearchParams({
     page: String(page),
     page_size: String(pageSize),
   });
+  if (filter?.appointmentId) params.set("appointment_id", filter.appointmentId);
+  if (filter?.followUpId) params.set("follow_up_id", filter.followUpId);
   return getJson(
     `/patients/${encodeURIComponent(patientId)}/documents?${params.toString()}`,
     documentPageData,
+    cookieHeaders(cookieHeader),
+  );
+}
+
+export function getDocument(
+  cookieHeader: string,
+  patientId: string,
+  documentId: string,
+): Promise<ApiResult<DocumentItem>> {
+  return getJson(
+    `/patients/${encodeURIComponent(patientId)}/documents/${encodeURIComponent(documentId)}`,
+    documentItemData,
     cookieHeaders(cookieHeader),
   );
 }
@@ -348,6 +383,7 @@ export function listDocuments(
 export async function uploadDocument(
   patientId: string,
   file: File,
+  filter?: DocumentListFilter,
 ): Promise<ApiResult<null>> {
   const contentType = await readUploadContentType(file);
   if (contentType === null) {
@@ -362,8 +398,12 @@ export async function uploadDocument(
       },
     };
   }
+  const params = new URLSearchParams();
+  if (filter?.appointmentId) params.set("appointment_id", filter.appointmentId);
+  if (filter?.followUpId) params.set("follow_up_id", filter.followUpId);
+  const query = params.toString() === "" ? "" : `?${params.toString()}`;
   return sendRequest(
-    `/api/patients/${encodeURIComponent(patientId)}/documents`,
+    `/api/patients/${encodeURIComponent(patientId)}/documents${query}`,
     {
       method: "POST",
       headers: {
@@ -373,6 +413,18 @@ export async function uploadDocument(
       body: file,
     },
     UPLOAD_TIMEOUT_MS,
+  );
+}
+
+export function updateDocumentLinks(
+  patientId: string,
+  documentId: string,
+  body: { appointment_id?: string | null; follow_up_id?: string | null },
+): Promise<ApiResult<null>> {
+  return sendJson(
+    "PATCH",
+    `/api/patients/${encodeURIComponent(patientId)}/documents/${encodeURIComponent(documentId)}`,
+    body,
   );
 }
 
@@ -875,7 +927,16 @@ function timelineSubjectData(kind: TimelineKind, value: unknown): TimelineSubjec
   if (kind === "care_session_recorded") return sessionSubjectData(value);
   if (kind.startsWith("follow_up_")) return followUpSubjectData(value);
   if (kind.startsWith("recall_")) return recallSubjectData(value);
+  if (kind === "document_uploaded") return documentSubjectData(value);
   return undefined;
+}
+
+function documentSubjectData(value: unknown): TimelineDocumentSubject | undefined {
+  if (!isRecord(value)) return undefined;
+  const documentId = stringField(value, "document_id");
+  const filename = stringField(value, "filename");
+  if (documentId === null || filename === null) return undefined;
+  return { document_id: documentId, filename };
 }
 
 function visitSubjectData(value: unknown): TimelineVisitSubject | undefined {
@@ -951,7 +1012,9 @@ function documentItemData(value: unknown): DocumentItem | null {
   if (id === null || filename === null || sizeBytes === null || uploadedAt === null) return null;
   if (!isDocumentContentType(contentType)) return null;
   const uploadedBy = timelineActorData(value.uploaded_by);
-  if (uploadedBy === null) return null;
+  const appointment = documentAppointmentData(value.appointment);
+  const followUp = documentFollowUpData(value.follow_up);
+  if (uploadedBy === null || appointment === undefined || followUp === undefined) return null;
   return {
     id,
     filename,
@@ -959,7 +1022,28 @@ function documentItemData(value: unknown): DocumentItem | null {
     size_bytes: sizeBytes,
     uploaded_at: uploadedAt,
     uploaded_by: uploadedBy,
+    appointment,
+    follow_up: followUp,
   };
+}
+
+function documentAppointmentData(value: unknown): DocumentAppointmentLink | null | undefined {
+  if (value === null) return null;
+  if (!isRecord(value)) return undefined;
+  const id = stringField(value, "id");
+  const startsAt = stringField(value, "starts_at");
+  const typeName = stringField(value, "type_name");
+  if (id === null || startsAt === null || typeName === null) return undefined;
+  return { id, starts_at: startsAt, type_name: typeName };
+}
+
+function documentFollowUpData(value: unknown): DocumentFollowUpLink | null | undefined {
+  if (value === null) return null;
+  if (!isRecord(value)) return undefined;
+  const id = stringField(value, "id");
+  const dueOn = stringField(value, "due_on");
+  if (id === null || dueOn === null) return undefined;
+  return { id, due_on: dueOn };
 }
 
 function isDocumentContentType(value: unknown): value is DocumentContentType {

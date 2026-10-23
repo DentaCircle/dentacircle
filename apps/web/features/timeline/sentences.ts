@@ -2,6 +2,7 @@ import { formatDueOn } from "@/features/care/follow-up-line";
 import type {
   TimelineCareItemSubject,
   TimelineFollowUpSubject,
+  TimelineDocumentSubject,
   TimelineItem,
   TimelineRecallSubject,
   TimelineSessionSubject,
@@ -47,6 +48,9 @@ const RECALL_LEAD: Record<string, string> = {
 
 export function entrySentence(item: TimelineItem): string {
   if (item.kind === "patient_registered") return "Patient registered";
+  if (item.kind === "document_uploaded" && isDocument(item.subject)) {
+    return `Document uploaded: ${item.subject.filename}`;
+  }
   const visitLead = VISIT_LEAD[item.kind];
   if (visitLead !== undefined && isVisit(item.subject)) {
     return `${visitLead}: ${item.subject.type_name} with ${item.subject.clinician_name}`;
@@ -67,6 +71,10 @@ export function entrySentence(item: TimelineItem): string {
     return `${recallLead}: ${item.subject.type_name}, due ${formatDueOn(item.subject.due_on)}`;
   }
   return item.kind;
+}
+
+function isDocument(subject: TimelineItem["subject"]): subject is TimelineDocumentSubject {
+  return subject !== null && "document_id" in subject && "filename" in subject;
 }
 
 function isVisit(subject: TimelineItem["subject"]): subject is TimelineVisitSubject {

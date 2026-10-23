@@ -19,9 +19,11 @@ test("a visit links to that calendar day and care links to the care page", () =>
   const visit = event("visit", "2026-10-12T10:00:00+05:30", "visit_completed");
   const care = event("care", "2026-10-12T10:05:00+05:30", "care_item_completed");
   const followUp = event("follow-up", "2026-10-12T10:06:00+05:30", "follow_up_created");
+  const uploaded = event("uploaded", "2026-10-12T10:07:00+05:30", "document_uploaded");
   expect(entryHref(patientId, visit)).toBe("/calendar?view=day&date=2026-10-12");
   expect(entryHref(patientId, care)).toBe("/patients/patient-1/care");
   expect(entryHref(patientId, followUp)).toBeNull();
+  expect(entryHref(patientId, uploaded)).toBe("/patients/patient-1/documents/doc-1");
 });
 
 function event(
@@ -41,7 +43,9 @@ function event(
         ? { name: "Scaling" }
         : kind.startsWith("follow_up_")
           ? { due_on: "2026-10-19" }
-          : null;
+          : kind === "document_uploaded"
+            ? { document_id: "doc-1", filename: "report.pdf" }
+            : null;
   return {
     id,
     kind,

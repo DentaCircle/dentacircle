@@ -42,6 +42,8 @@ test("the picker problems match the API texts", () => {
 
 test("only the known notice is accepted from the address", () => {
   expect(isDocumentNotice("uploaded")).toBe(true);
+  expect(isDocumentNotice("linked")).toBe(true);
+  expect(isDocumentNotice("unlinked")).toBe(true);
   expect(isDocumentNotice("deleted")).toBe(false);
   expect(isDocumentNotice(undefined)).toBe(false);
 });

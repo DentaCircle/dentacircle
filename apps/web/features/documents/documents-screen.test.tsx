@@ -1,10 +1,12 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { expect, test, vi } from "vitest";
 
 import {
   DocumentsScreen,
   type DocumentsScreenProps,
 } from "@/features/documents/documents-screen";
+import type { DocumentRowData } from "@/features/documents/rows";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -12,7 +14,7 @@ vi.mock("next/navigation", () => ({
 
 const patientId = "00000000-0000-4000-8000-000000000010";
 
-const row = {
+const row: DocumentRowData = {
   id: "doc-1",
   filename: "report.pdf",
   type: "PDF",
@@ -20,6 +22,9 @@ const row = {
   uploadedBy: "Sample Desk",
   uploadedAt: "2026-10-12 10:05",
   href: `/api/patients/${patientId}/documents/doc-1/file`,
+  viewerHref: `/patients/${patientId}/documents/doc-1`,
+  links: [],
+  contentType: "application/pdf",
 };
 
 function props(overrides: Partial<DocumentsScreenProps>): DocumentsScreenProps {
@@ -120,6 +125,34 @@ test("pages link to the next and previous page", () => {
     "href",
     `/patients/${patientId}/documents?page=3`,
   );
+});
+
+test("a visit filter shows its heading, an unlink, and the other documents", async () => {
+  const user = userEvent.setup();
+  render(
+    <DocumentsScreen
+      {...props({
+        context: { kind: "visit", id: "visit-1" },
+        contextHeading: "Documents for Consultation, 2026-10-12 10:00",
+        rows: [{ ...row, links: ["Visit: Consultation, 2026-10-12 10:00"] }],
+        linkable: [{ id: "doc-2", filename: "other.pdf" }],
+        notice: "linked",
+      })}
+    />,
+  );
+  expect(
+    screen.getByRole("heading", { name: "Documents for Consultation, 2026-10-12 10:00" }),
+  ).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Show all documents" })).toHaveAttribute(
+    "href",
+    `/patients/${patientId}/documents?page=1`,
+  );
+  expect(screen.getByRole("status")).toHaveTextContent("Document linked.");
+  expect(screen.getByRole("button", { name: "Unlink" })).toBeInTheDocument();
+  expect(screen.getByText("Visit: Consultation, 2026-10-12 10:00")).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Link a document that is already uploaded" }));
+  expect(screen.getByText("other.pdf")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Link" })).toBeInTheDocument();
 });
 
 test("the first and last pages have no link in that direction", () => {

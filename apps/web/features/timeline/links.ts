@@ -22,5 +22,12 @@ export function entryHref(patientId: string, item: TimelineItem): string | null 
     return calendarHref({ view: "day", date, clinician: null });
   }
   if (item.kind.startsWith("care_")) return `/patients/${patientId}/care`;
+  if (
+    item.kind === "document_uploaded" &&
+    item.subject !== null &&
+    "document_id" in item.subject
+  ) {
+    return `/patients/${patientId}/documents/${item.subject.document_id}`;
+  }
   return null;
 }
