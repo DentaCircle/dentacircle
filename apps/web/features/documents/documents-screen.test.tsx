@@ -1,0 +1,129 @@
+import { render, screen } from "@testing-library/react";
+import { expect, test, vi } from "vitest";
+
+import {
+  DocumentsScreen,
+  type DocumentsScreenProps,
+} from "@/features/documents/documents-screen";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
+const patientId = "00000000-0000-4000-8000-000000000010";
+
+const row = {
+  id: "doc-1",
+  filename: "report.pdf",
+  type: "PDF",
+  size: "2.0 KB",
+  uploadedBy: "Sample Desk",
+  uploadedAt: "2026-10-12 10:05",
+  href: `/api/patients/${patientId}/documents/doc-1/file`,
+};
+
+function props(overrides: Partial<DocumentsScreenProps>): DocumentsScreenProps {
+  return {
+    status: "ready",
+    patientId,
+    rows: [row],
+    page: 1,
+    pageSize: 20,
+    total: 1,
+    canUpload: true,
+    isPatientInactive: false,
+    notice: null,
+    ...overrides,
+  };
+}
+
+test("shows each row with its name, type, size, who, when and a download link", () => {
+  render(<DocumentsScreen {...props({})} />);
+
+  expect(screen.getByRole("heading", { name: "Documents" })).toBeInTheDocument();
+  expect(screen.getByText("report.pdf")).toBeInTheDocument();
+  expect(screen.getByText("PDF")).toBeInTheDocument();
+  expect(screen.getByText("2.0 KB")).toBeInTheDocument();
+  expect(screen.getByText("Sample Desk, 2026-10-12 10:05")).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Download" })).toHaveAttribute("href", row.href);
+  expect(screen.getByLabelText("File")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Upload" })).toBeInTheDocument();
+});
+
+test("the file name is shown as text, never as markup", () => {
+  render(
+    <DocumentsScreen
+      {...props({ rows: [{ ...row, filename: "<img src=x onerror=alert(1)>.pdf" }] })}
+    />,
+  );
+  expect(screen.getByText("<img src=x onerror=alert(1)>.pdf")).toBeInTheDocument();
+  expect(document.querySelector("img")).toBeNull();
+});
+
+test("the empty state keeps the upload form", () => {
+  render(<DocumentsScreen {...props({ status: "empty", rows: [], total: 0 })} />);
+  expect(screen.getByText("No documents for this patient yet.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Upload" })).toBeInTheDocument();
+});
+
+test("an inactive patient has no upload form and the page says why", () => {
+  render(<DocumentsScreen {...props({ isPatientInactive: true })} />);
+  expect(
+    screen.getByText("This patient is inactive, so new documents cannot be added."),
+  ).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Upload" })).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("File")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Download" })).toBeInTheDocument();
+});
+
+test("an inactive patient with no documents still says why", () => {
+  render(
+    <DocumentsScreen {...props({ status: "empty", rows: [], total: 0, isPatientInactive: true })} />,
+  );
+  expect(screen.getByText("No documents for this patient yet.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Upload" })).not.toBeInTheDocument();
+});
+
+test("the no-access, not-found and error states show no list and no form", () => {
+  const blank = { rows: [], total: 0, canUpload: false };
+  const { rerender } = render(<DocumentsScreen {...props({ ...blank, status: "forbidden" })} />);
+  expect(screen.getByRole("alert")).toHaveTextContent("You do not have access.");
+
+  rerender(<DocumentsScreen {...props({ ...blank, status: "not-found" })} />);
+  expect(screen.getByRole("alert")).toHaveTextContent("Not found.");
+
+  rerender(<DocumentsScreen {...props({ ...blank, status: "error" })} />);
+  expect(screen.getByRole("alert")).toHaveTextContent("Documents could not be loaded.");
+
+  expect(screen.queryByRole("button", { name: "Upload" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Download" })).not.toBeInTheDocument();
+});
+
+test("a role that cannot upload sees the list without the form", () => {
+  render(<DocumentsScreen {...props({ canUpload: false })} />);
+  expect(screen.getByText("report.pdf")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Upload" })).not.toBeInTheDocument();
+});
+
+test("shows the upload notice", () => {
+  render(<DocumentsScreen {...props({ notice: "uploaded" })} />);
+  expect(screen.getByRole("status")).toHaveTextContent("Document uploaded.");
+});
+
+test("pages link to the next and previous page", () => {
+  render(<DocumentsScreen {...props({ page: 2, total: 41 })} />);
+  expect(screen.getByRole("link", { name: "Previous" })).toHaveAttribute(
+    "href",
+    `/patients/${patientId}/documents?page=1`,
+  );
+  expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute(
+    "href",
+    `/patients/${patientId}/documents?page=3`,
+  );
+});
+
+test("the first and last pages have no link in that direction", () => {
+  render(<DocumentsScreen {...props({ page: 1, total: 1 })} />);
+  expect(screen.queryByRole("link", { name: "Previous" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Next" })).not.toBeInTheDocument();
+});

@@ -4,6 +4,7 @@ import {
   NETWORK_ERROR_MESSAGE,
   parseErrorBody,
   TIMEOUT_ERROR_MESSAGE,
+  UPLOAD_TIMEOUT_MS,
   type ApiError,
   type ApiResult,
 } from "@/lib/api/errors";
@@ -260,6 +261,24 @@ export type TimelinePage = {
   page_size: number;
 };
 
+export type DocumentContentType = "application/pdf" | "image/png" | "image/jpeg";
+
+export type DocumentItem = {
+  id: string;
+  filename: string;
+  content_type: DocumentContentType;
+  size_bytes: number;
+  uploaded_at: string;
+  uploaded_by: { id: string; name: string };
+};
+
+export type DocumentPage = {
+  items: DocumentItem[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
 const TIMELINE_KINDS: readonly TimelineKind[] = [
   "patient_registered",
   "visit_booked",
@@ -304,6 +323,33 @@ export function listTimeline(
     `/patients/${encodeURIComponent(patientId)}/timeline?${params.toString()}`,
     timelinePageData,
     cookieHeaders(cookieHeader),
+  );
+}
+
+export function listDocuments(
+  cookieHeader: string,
+  patientId: string,
+  page: number,
+  pageSize = 20,
+): Promise<ApiResult<DocumentPage>> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  return getJson(
+    `/patients/${encodeURIComponent(patientId)}/documents?${params.toString()}`,
+    documentPageData,
+    cookieHeaders(cookieHeader),
+  );
+}
+
+/** Sends the file as the raw request body. The API reads the name from the query string. */
+export function uploadDocument(patientId: string, file: File): Promise<ApiResult<null>> {
+  const name = encodeURIComponent(file.name);
+  return sendRequest(
+    `/api/patients/${encodeURIComponent(patientId)}/documents?filename=${name}`,
+    { method: "POST", headers: { "content-type": file.type }, body: file },
+    UPLOAD_TIMEOUT_MS,
   );
 }
 
@@ -466,12 +512,34 @@ async function getJson<T>(
   }
 }
 
-async function sendEmpty(method: "POST", path: string): Promise<ApiResult<null>> {
+function sendEmpty(method: "POST", path: string): Promise<ApiResult<null>> {
+  return sendRequest(path, { method });
+}
+
+function sendJson(
+  method: "POST" | "PATCH",
+  path: string,
+  body: unknown,
+): Promise<ApiResult<null>> {
+  return sendRequest(path, {
+    method,
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+async function sendRequest(
+  path: string,
+  init: RequestInit,
+  timeoutMs?: number,
+): Promise<ApiResult<null>> {
   try {
-    const response = await fetchWithTimeout(path, {
-      method,
-      credentials: "same-origin",
-    });
+    const response = await fetchWithTimeout(
+      path,
+      { ...init, credentials: "same-origin" },
+      undefined,
+      timeoutMs,
+    );
     if (!response.ok) {
       return { ok: false, error: parseErrorBody(response.status, await readJson(response)) };
     }
@@ -483,27 +551,6 @@ async function sendEmpty(method: "POST", path: string): Promise<ApiResult<null>>
     return { ok: false, error: { kind: "network", message: NETWORK_ERROR_MESSAGE } };
   }
 }
-
-async function sendJson(method: "POST" | "PATCH", path: string, body: unknown): Promise<ApiResult<null>> {
-  try {
-    const response = await fetchWithTimeout(path, {
-      method,
-      headers: { "content-type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) {
-      return { ok: false, error: parseErrorBody(response.status, await readJson(response)) };
-    }
-    return { ok: true, data: null };
-  } catch (error) {
-    if (isTimeoutError(error)) {
-      return { ok: false, error: { kind: "timeout", message: TIMEOUT_ERROR_MESSAGE } };
-    }
-    return { ok: false, error: { kind: "network", message: NETWORK_ERROR_MESSAGE } };
-  }
-}
-
 
 function healthData(value: unknown): HealthResponse | null {
   if (typeof value !== "object" || value === null || !("status" in value)) return null;
@@ -854,6 +901,46 @@ function recallSubjectData(value: unknown): TimelineRecallSubject | undefined {
   const typeName = stringField(value, "type_name");
   if (dueOn === null || typeName === null) return undefined;
   return { due_on: dueOn, type_name: typeName };
+}
+
+function documentPageData(value: unknown): DocumentPage | null {
+  if (!isRecord(value) || !Array.isArray(value.items)) return null;
+  const page = numberField(value, "page");
+  const pageSize = numberField(value, "page_size");
+  const total = numberField(value, "total");
+  if (page === null || pageSize === null || total === null) return null;
+  const items: DocumentItem[] = [];
+  for (const item of value.items) {
+    const row = documentItemData(item);
+    if (row === null) return null;
+    items.push(row);
+  }
+  return { items, page, page_size: pageSize, total };
+}
+
+function documentItemData(value: unknown): DocumentItem | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const filename = stringField(value, "filename");
+  const sizeBytes = numberField(value, "size_bytes");
+  const uploadedAt = stringField(value, "uploaded_at");
+  const contentType = value.content_type;
+  if (id === null || filename === null || sizeBytes === null || uploadedAt === null) return null;
+  if (!isDocumentContentType(contentType)) return null;
+  const uploadedBy = timelineActorData(value.uploaded_by);
+  if (uploadedBy === null) return null;
+  return {
+    id,
+    filename,
+    content_type: contentType,
+    size_bytes: sizeBytes,
+    uploaded_at: uploadedAt,
+    uploaded_by: uploadedBy,
+  };
+}
+
+function isDocumentContentType(value: unknown): value is DocumentContentType {
+  return value === "application/pdf" || value === "image/png" || value === "image/jpeg";
 }
 
 function followUpEnvelope(value: unknown): { follow_up: FollowUp | null } | null {

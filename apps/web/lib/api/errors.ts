@@ -2,6 +2,8 @@ export const GENERIC_ERROR_MESSAGE = "The response could not be read.";
 export const NETWORK_ERROR_MESSAGE = "The API could not be reached.";
 export const TIMEOUT_ERROR_MESSAGE = "The API did not respond in time.";
 export const REQUEST_TIMEOUT_MS = 5_000;
+/** A file of up to 8 MiB needs longer than an ordinary call on a slow link. */
+export const UPLOAD_TIMEOUT_MS = 60_000;
 
 export type ApiError =
   | {

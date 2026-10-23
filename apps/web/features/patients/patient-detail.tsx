@@ -55,6 +55,11 @@ export function PatientDetail({
           ) : null}
           {status === "ready" && patient !== null ? (
             <Button asChild variant="outline" size="sm">
+              <Link href={`/patients/${patient.id}/documents`}>Documents</Link>
+            </Button>
+          ) : null}
+          {status === "ready" && patient !== null ? (
+            <Button asChild variant="outline" size="sm">
               <Link href={`/patients/${patient.id}/timeline`}>Timeline</Link>
             </Button>
           ) : null}

@@ -48,6 +48,10 @@ test("shows the patient, an edit link and a status button", () => {
     "href",
     "/patients/00000000-0000-4000-8000-000000000010/care",
   );
+  expect(screen.getByRole("link", { name: "Documents" })).toHaveAttribute(
+    "href",
+    "/patients/00000000-0000-4000-8000-000000000010/documents",
+  );
   expect(screen.getByRole("link", { name: "Timeline" })).toHaveAttribute(
     "href",
     "/patients/00000000-0000-4000-8000-000000000010/timeline",
@@ -83,6 +87,7 @@ test("hides edit and the status button when the role cannot edit", () => {
 
   expect(screen.getByText("Active")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Care" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Documents" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Timeline" })).toHaveAttribute(
     "href",
     "/patients/00000000-0000-4000-8000-000000000010/timeline",
