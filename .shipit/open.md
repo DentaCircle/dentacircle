@@ -15,3 +15,10 @@
 - **`patient_id` on upcoming appointments.** `GET /patients/{id}/appointments` includes
   `patient_id` on each row though the S1.3 brief did not require it. Next action: remove in
   a small API tidy-up if you want the response minimal, or keep for shared appointment shapes.
+- **`test_appointment_concurrency` flake.** Full `make check` can fail with a Postgres deadlock
+  on the appointment exclusion constraint; the test often passes alone. Next action: a small
+  maintenance slice to stabilize the test (retries, isolation, or ordering).
+- **Next dev proxy after a >10 MB body.** A request larger than Next's default proxy limit can
+  leave the connection unusable for the next call through `:3000/api`. S3.1 relies on the
+  8 MiB API limit and the browser pre-check. Next action: decide in hardening whether to
+  raise `proxyClientMaxBodySize` or document the limit for operators.

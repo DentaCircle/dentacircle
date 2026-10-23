@@ -257,6 +257,19 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   response validation behind a feature-local lifecycle that cancels superseded requests and
   rejects stale results. Booking and rescheduling share timeout transport and distinguish a
   patient scheduling conflict from a clinician slot conflict with fixed safe copy.
+- **Document upload (decided in S3.1):** a file is sent as the raw request body with the name
+  in a query parameter, not multipart, so no `python-multipart` dependency. Allowed types are
+  PDF, PNG and JPEG, decided from the first bytes of the file, up to 8 MiB counted while the
+  body is read (under Next's 10 MB proxy default). Files sit behind a `DocumentStorage`
+  interface in `integrations/storage/`; the only real adapter writes to local disk under
+  `STORAGE_ROOT`, with a server-built key `{clinic_id}/{document_id}`. The file is stored
+  first, then the row and audit event are committed, and the file is deleted if that fails.
+  `receptionist`, `clinician` and `clinic_admin` upload, list and download; `inventory_admin`
+  may not. Inactive patients get no new uploads but their documents stay readable. Downloads
+  are attachment-only with `nosniff`; inline viewing waits for S3.2. Filenames never go into
+  audit rows, logs, error bodies or storage keys. No delete, no document type, date or
+  description, and no timeline entry yet. The timeline kind is added in S3.2, because it
+  changes an existing check constraint.
 
 ## Open decisions (need the developer's call)
 
@@ -408,3 +421,11 @@ HTTP routes: follow-up and recall paths, Due and All open queue views, clinician
 today, the neither outcome, cancel of a booked follow-up visit, the full timeline kind
 sequence, and role plus tenancy guards. `docs/demo-m3.md` is the browser walk-through for
 the same story (linked from README). This slice added no new routes or UI.
+
+Staff with `clinician`, `receptionist` or `clinic_admin` can open `/patients/[id]/documents`,
+upload a PDF, PNG or JPEG up to 8 MiB, see a newest-first list, and download the file as an
+attachment. Files sit behind a `DocumentStorage` interface; the local adapter writes under
+`STORAGE_ROOT` (migration `0015`). A successful upload writes one `document` create audit
+event without the filename. Inactive patients cannot upload; existing files stay readable.
+`inventory_admin` is refused. There is no viewer, delete, timeline entry, or links to visits
+yet (S3.2).
