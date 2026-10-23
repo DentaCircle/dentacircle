@@ -208,6 +208,7 @@ async def _read_body(request: Request) -> bytes:
 
 
 def _field_error(exc: DocumentFieldError) -> RequestValidationError:
+    location: tuple[str, ...]
     if exc.location == "filename":
         location = ("header", DOCUMENT_FILENAME_HEADER.lower())
     elif exc.location == "body":
