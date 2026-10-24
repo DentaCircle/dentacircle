@@ -318,6 +318,7 @@ describe("listDocuments", () => {
     uploaded_by: { id: "user-1", name: "Sample Desk" },
     appointment: null,
     follow_up: null,
+    lab_work: null,
   };
 
   test("reads one page with the session cookie, and uses the 5 second timeout", async () => {
@@ -372,6 +373,7 @@ describe("listDocumentsInBrowser", () => {
       uploaded_by: { id: "user-1", name: "Sample Desk" },
       appointment: null,
       follow_up: null,
+      lab_work: null,
     };
     const fetchMock = stubFetch(
       jsonResponse(200, { items: [item], total: 101, page: 2, page_size: 100 }),

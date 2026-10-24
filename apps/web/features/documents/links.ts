@@ -1,11 +1,17 @@
 import { wallDate, wallTime } from "@/features/appointments/wall-time";
 import { formatDueOn } from "@/features/care/follow-up-line";
 import type { DocumentNotice } from "@/features/documents/notices";
-import type { DocumentAppointmentLink, DocumentFollowUpLink } from "@/lib/api/client";
+import type {
+  DocumentAppointmentLink,
+  DocumentFollowUpLink,
+  DocumentLabWorkLink,
+  LabWorkStatus,
+} from "@/lib/api/client";
 
 export type DocumentContext =
   | { kind: "visit"; id: string }
-  | { kind: "follow-up"; id: string };
+  | { kind: "follow-up"; id: string }
+  | { kind: "lab"; id: string };
 
 /** The documents list refuses a larger page. The picker asks for the next page when there are more. */
 export const LINK_EXISTING_PAGE_SIZE = 100;
@@ -14,11 +20,13 @@ export function isLinkedToContext(
   item: {
     appointment: { id: string } | null;
     follow_up: { id: string } | null;
+    lab_work: { id: string } | null;
   },
   context: DocumentContext,
 ): boolean {
   if (context.kind === "visit") return item.appointment?.id === context.id;
-  return item.follow_up?.id === context.id;
+  if (context.kind === "follow-up") return item.follow_up?.id === context.id;
+  return item.lab_work?.id === context.id;
 }
 
 export function documentsHref(
@@ -31,6 +39,7 @@ export function documentsHref(
   params.set("page", String(page));
   if (context?.kind === "visit") params.set("appointment_id", context.id);
   if (context?.kind === "follow-up") params.set("follow_up_id", context.id);
+  if (context?.kind === "lab") params.set("lab_work_id", context.id);
   if (notice !== undefined) params.set("notice", notice);
   return `/patients/${patientId}/documents?${params.toString()}`;
 }
@@ -57,6 +66,17 @@ export function visitLinkText(link: DocumentAppointmentLink): string {
 
 export function followUpLinkText(link: DocumentFollowUpLink): string {
   return `Follow-up due ${formatDueOn(link.due_on)}`;
+}
+
+const LAB_STATUS_TEXT: Record<LabWorkStatus, string> = {
+  pending: "Pending",
+  ready: "Ready",
+  collected: "Collected",
+  cancelled: "Cancelled",
+};
+
+export function labLinkText(link: DocumentLabWorkLink): string {
+  return `Lab work: ${link.title}, ${LAB_STATUS_TEXT[link.status]}`;
 }
 
 export function pageFromQuery(value: string | undefined): number {

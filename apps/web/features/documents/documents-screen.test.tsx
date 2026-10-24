@@ -215,6 +215,7 @@ function listed(id: string, filename: string, appointmentId: string | null): Doc
             type_name: "Consultation",
           },
     follow_up: null,
+    lab_work: null,
   };
 }
 

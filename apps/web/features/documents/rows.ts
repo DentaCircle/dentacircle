@@ -1,5 +1,11 @@
 import { wallDate, wallTime } from "@/features/appointments/wall-time";
-import { downloadHref, followUpLinkText, viewerHref, visitLinkText } from "@/features/documents/links";
+import {
+  downloadHref,
+  followUpLinkText,
+  labLinkText,
+  viewerHref,
+  visitLinkText,
+} from "@/features/documents/links";
 import { sizeLabel, typeLabel } from "@/features/documents/sizes";
 import type { DocumentItem } from "@/lib/api/client";
 
@@ -22,6 +28,7 @@ export function documentRow(patientId: string, item: DocumentItem): DocumentRowD
   const links: string[] = [];
   if (item.appointment !== null) links.push(visitLinkText(item.appointment));
   if (item.follow_up !== null) links.push(followUpLinkText(item.follow_up));
+  if (item.lab_work !== null) links.push(labLinkText(item.lab_work));
   return {
     id: item.id,
     filename: item.filename,

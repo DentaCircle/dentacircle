@@ -4,6 +4,7 @@ import type {
   TimelineFollowUpSubject,
   TimelineDocumentSubject,
   TimelineItem,
+  TimelineLabWorkSubject,
   TimelineRecallSubject,
   TimelineSessionSubject,
   TimelineVisitSubject,
@@ -46,6 +47,13 @@ const RECALL_LEAD: Record<string, string> = {
   recall_cancelled: "Recall cancelled",
 };
 
+const LAB_LEAD: Record<string, string> = {
+  lab_work_created: "Lab work added",
+  lab_work_ready: "Lab work ready",
+  lab_work_collected: "Lab work collected by the patient",
+  lab_work_cancelled: "Lab work cancelled",
+};
+
 export function entrySentence(item: TimelineItem): string {
   if (item.kind === "patient_registered") return "Patient registered";
   if (item.kind === "document_uploaded" && isDocument(item.subject)) {
@@ -65,6 +73,10 @@ export function entrySentence(item: TimelineItem): string {
   const followUpLead = FOLLOW_UP_LEAD[item.kind];
   if (followUpLead !== undefined && isFollowUp(item.subject)) {
     return `${followUpLead}, due ${formatDueOn(item.subject.due_on)}`;
+  }
+  const labLead = LAB_LEAD[item.kind];
+  if (labLead !== undefined && isLabWork(item.subject)) {
+    return `${labLead}: ${item.subject.title}`;
   }
   const recallLead = RECALL_LEAD[item.kind];
   if (recallLead !== undefined && isRecall(item.subject)) {
@@ -91,6 +103,10 @@ function isSession(subject: TimelineItem["subject"]): subject is TimelineSession
 
 function isFollowUp(subject: TimelineItem["subject"]): subject is TimelineFollowUpSubject {
   return subject !== null && "due_on" in subject && !("type_name" in subject);
+}
+
+function isLabWork(subject: TimelineItem["subject"]): subject is TimelineLabWorkSubject {
+  return subject !== null && "lab_work_id" in subject && "title" in subject;
 }
 
 function isRecall(subject: TimelineItem["subject"]): subject is TimelineRecallSubject {

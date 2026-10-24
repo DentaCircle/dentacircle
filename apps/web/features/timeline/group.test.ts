@@ -24,6 +24,8 @@ test("a visit links to that calendar day and care links to the care page", () =>
   expect(entryHref(patientId, care)).toBe("/patients/patient-1/care");
   expect(entryHref(patientId, followUp)).toBeNull();
   expect(entryHref(patientId, uploaded)).toBe("/patients/patient-1/documents/doc-1");
+  const lab = event("lab", "2026-10-12T10:08:00+05:30", "lab_work_created");
+  expect(entryHref(patientId, lab)).toBe("/patients/patient-1/lab");
 });
 
 function event(
@@ -45,7 +47,9 @@ function event(
           ? { due_on: "2026-10-19" }
           : kind === "document_uploaded"
             ? { document_id: "doc-1", filename: "report.pdf" }
-            : null;
+            : kind.startsWith("lab_work_")
+              ? { lab_work_id: "lab-1", title: "Crown" }
+              : null;
   return {
     id,
     kind,
