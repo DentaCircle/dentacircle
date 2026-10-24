@@ -31,6 +31,7 @@ TIMELINE_KINDS = (
     "recall_completed",
     "recall_released",
     "recall_cancelled",
+    "document_uploaded",
 )
 
 VISIT_STATUS_KIND = {
@@ -64,6 +65,7 @@ _SUBJECT_COLUMNS = (
     "care_session_id",
     "follow_up_id",
     "recall_id",
+    "document_id",
 )
 
 
@@ -81,6 +83,8 @@ def subject_column(kind: str) -> str | None:
         return "follow_up_id"
     if kind.startswith("recall_"):
         return "recall_id"
+    if kind == "document_uploaded":
+        return "document_id"
     return None
 
 
@@ -93,6 +97,7 @@ def subject_check_sql() -> str:
         f"(kind = 'care_session_recorded' AND {_only('care_session_id')})",
         _group("follow_up_", "follow_up_id"),
         _group("recall_", "recall_id"),
+        f"(kind = 'document_uploaded' AND {_only('document_id')})",
     ]
     return " OR ".join(clauses)
 

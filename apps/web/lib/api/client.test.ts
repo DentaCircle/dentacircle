@@ -10,6 +10,7 @@ import {
   getReadiness,
   listAppointments,
   listDocuments,
+  listDocumentsInBrowser,
   listPatients,
   uploadDocument,
 } from "@/lib/api/client";
@@ -315,6 +316,8 @@ describe("listDocuments", () => {
     size_bytes: 20,
     uploaded_at: "2026-10-12T10:05:00+05:30",
     uploaded_by: { id: "user-1", name: "Sample Desk" },
+    appointment: null,
+    follow_up: null,
   };
 
   test("reads one page with the session cookie, and uses the 5 second timeout", async () => {
@@ -355,6 +358,33 @@ describe("listDocuments", () => {
       ok: false,
       error: { kind: "api", status: 404, code: "not_found", message: "Not Found", requestId: "r-1" },
     });
+  });
+});
+
+describe("listDocumentsInBrowser", () => {
+  test("reads one page through the web proxy", async () => {
+    const item = {
+      id: "doc-1",
+      filename: "report.pdf",
+      content_type: "application/pdf",
+      size_bytes: 20,
+      uploaded_at: "2026-10-12T10:05:00+05:30",
+      uploaded_by: { id: "user-1", name: "Sample Desk" },
+      appointment: null,
+      follow_up: null,
+    };
+    const fetchMock = stubFetch(
+      jsonResponse(200, { items: [item], total: 101, page: 2, page_size: 100 }),
+    );
+
+    await expect(listDocumentsInBrowser("p 1", 2, 100)).resolves.toEqual({
+      ok: true,
+      data: { items: [item], total: 101, page: 2, page_size: 100 },
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/patients/p%201/documents?page=2&page_size=100",
+      expect.objectContaining({ credentials: "same-origin" }),
+    );
   });
 });
 

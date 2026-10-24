@@ -53,6 +53,31 @@
         "title": "AppointmentCreate",
         "type": "object"
       },
+      "AppointmentLinkBody": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "starts_at": {
+            "format": "date-time",
+            "title": "Starts At",
+            "type": "string"
+          },
+          "type_name": {
+            "title": "Type Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "starts_at",
+          "type_name"
+        ],
+        "title": "AppointmentLinkBody",
+        "type": "object"
+      },
       "AppointmentResponse": {
         "properties": {
           "appointment_type": {
@@ -559,6 +584,16 @@
       },
       "DocumentBody": {
         "properties": {
+          "appointment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppointmentLinkBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "content_type": {
             "enum": [
               "application/pdf",
@@ -571,6 +606,16 @@
           "filename": {
             "title": "Filename",
             "type": "string"
+          },
+          "follow_up": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FollowUpLinkBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "format": "uuid",
@@ -596,9 +641,43 @@
           "content_type",
           "size_bytes",
           "uploaded_at",
-          "uploaded_by"
+          "uploaded_by",
+          "appointment",
+          "follow_up"
         ],
         "title": "DocumentBody",
+        "type": "object"
+      },
+      "DocumentLinksUpdate": {
+        "additionalProperties": false,
+        "description": "A present field is set (UUID) or cleared (null). An omitted field stays as it is.",
+        "properties": {
+          "appointment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appointment Id"
+          },
+          "follow_up_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Follow Up Id"
+          }
+        },
+        "title": "DocumentLinksUpdate",
         "type": "object"
       },
       "DocumentListResponse": {
@@ -630,6 +709,25 @@
           "page_size"
         ],
         "title": "DocumentListResponse",
+        "type": "object"
+      },
+      "DocumentSubjectBody": {
+        "properties": {
+          "document_id": {
+            "format": "uuid",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_id",
+          "filename"
+        ],
+        "title": "DocumentSubjectBody",
         "type": "object"
       },
       "ErrorBody": {
@@ -747,6 +845,26 @@
           "starts_at"
         ],
         "title": "FollowUpBookBody",
+        "type": "object"
+      },
+      "FollowUpLinkBody": {
+        "properties": {
+          "due_on": {
+            "format": "date",
+            "title": "Due On",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "due_on"
+        ],
+        "title": "FollowUpLinkBody",
         "type": "object"
       },
       "FollowUpListResponse": {
@@ -1595,7 +1713,8 @@
               "recall_booked",
               "recall_completed",
               "recall_released",
-              "recall_cancelled"
+              "recall_cancelled",
+              "document_uploaded"
             ],
             "title": "Kind",
             "type": "string"
@@ -1621,6 +1740,9 @@
               },
               {
                 "$ref": "#/components/schemas/RecallSubjectBody"
+              },
+              {
+                "$ref": "#/components/schemas/DocumentSubjectBody"
               },
               {
                 "type": "null"
@@ -3807,6 +3929,40 @@
               "title": "Page Size",
               "type": "integer"
             }
+          },
+          {
+            "in": "query",
+            "name": "appointment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Appointment Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "follow_up_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Follow Up Id"
+            }
           }
         ],
         "responses": {
@@ -3855,6 +4011,40 @@
               "format": "uuid",
               "title": "Patient Id",
               "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "appointment_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Appointment Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "follow_up_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Follow Up Id"
             }
           },
           {
@@ -3955,9 +4145,9 @@
         "summary": "Post Document"
       }
     },
-    "/patients/{patient_id}/documents/{document_id}/file": {
+    "/patients/{patient_id}/documents/{document_id}": {
       "get": {
-        "operationId": "get_document_file_patients__patient_id__documents__document_id__file_get",
+        "operationId": "get_one_document_patients__patient_id__documents__document_id__get",
         "parameters": [
           {
             "in": "path",
@@ -3984,13 +4174,165 @@
           "200": {
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBody"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get One Document"
+      },
+      "patch": {
+        "operationId": "patch_document_links_patients__patient_id__documents__document_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DocumentLinksUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DocumentBody"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "patient_inactive"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "summary": "Patch Document Links"
+      }
+    },
+    "/patients/{patient_id}/documents/{document_id}/file": {
+      "get": {
+        "operationId": "get_document_file_patients__patient_id__documents__document_id__file_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "disposition",
+            "required": false,
+            "schema": {
+              "default": "attachment",
+              "enum": [
+                "inline",
+                "attachment"
+              ],
+              "title": "Disposition",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
                 "schema": {}
               },
               "application/pdf": {},
               "image/jpeg": {},
               "image/png": {}
             },
-            "description": "The file bytes, as an attachment."
+            "description": "The file bytes. disposition=inline or attachment (the default)."
           },
           "404": {
             "content": {

@@ -29,6 +29,8 @@ _COLUMNS = {
     "content_type",
     "size_bytes",
     "storage_key",
+    "appointment_id",
+    "follow_up_id",
     "created_at",
 }
 
@@ -46,7 +48,7 @@ def test_upgrade_downgrade_upgrade(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0015_documents"
+    assert _version(throwaway_database_url) == "0016_document_links"
     assert "document" in _public_tables(throwaway_database_url)
     assert _columns(throwaway_database_url) == _COLUMNS
     assert "DESC" in _index_def(throwaway_database_url)
@@ -57,7 +59,7 @@ def test_upgrade_downgrade_upgrade(
     assert "timeline_event" in _public_tables(throwaway_database_url)
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0015_documents"
+    assert _version(throwaway_database_url) == "0016_document_links"
     assert "document" in _public_tables(throwaway_database_url)
 
 

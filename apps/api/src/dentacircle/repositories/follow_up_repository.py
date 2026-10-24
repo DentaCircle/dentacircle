@@ -22,6 +22,14 @@ class FollowUpRepository:
         follow_up.clinic_id = self._clinic_id
         self._session.add(follow_up)
 
+    def get_for_patient(self, follow_up_id: UUID, patient_id: UUID) -> FollowUp | None:
+        """This clinic's follow-up for this patient, or none. Status does not matter."""
+        statement = scoped_select(FollowUp, self._clinic_id).where(
+            FollowUp.id == follow_up_id,
+            FollowUp.patient_id == patient_id,
+        )
+        return self._session.scalars(statement).one_or_none()
+
     def get(self, follow_up_id: UUID, *, lock: bool = False) -> FollowUp | None:
         """This clinic's follow-up, or none. Other clinics are not found."""
         statement = scoped_select(FollowUp, self._clinic_id).where(FollowUp.id == follow_up_id)

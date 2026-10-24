@@ -28,6 +28,11 @@ test("care, follow-up, recall and registration each have a sentence", () => {
   expect(
     entrySentence(item("recall_created", { due_on: "2027-04-12", type_name: "Scaling" })),
   ).toBe("Recall created: Scaling, due 12 Apr 2027");
+  expect(
+    entrySentence(
+      item("document_uploaded", { document_id: "doc-1", filename: "report.pdf" }),
+    ),
+  ).toBe("Document uploaded: report.pdf");
 });
 
 function item(kind: TimelineItem["kind"], subject: TimelineItem["subject"]): TimelineItem {

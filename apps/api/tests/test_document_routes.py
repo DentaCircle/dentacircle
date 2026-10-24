@@ -2,9 +2,11 @@
 
 import logging
 from collections.abc import Iterator
+from datetime import datetime, timedelta
 from typing import cast
 from urllib.parse import quote
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 from fastapi import FastAPI
@@ -23,6 +25,8 @@ from dentacircle.domain.document import (
 from dentacircle.integrations.storage import get_storage
 from dentacircle.integrations.storage.memory import MemoryStorage
 from dentacircle.main import create_app
+from dentacircle.models.app_user import AppUser
+from dentacircle.models.appointment_type import AppointmentType
 from dentacircle.models.audit_event import AuditEvent
 from dentacircle.models.document import Document
 from dentacircle.models.patient import Patient
@@ -81,17 +85,25 @@ def _post(
     name: str | None = _NAME,
     data: bytes | Iterator[bytes] = _PDF,
     content_type: str | None = "application/pdf",
+    appointment_id: str | None = None,
+    follow_up_id: str | None = None,
 ) -> Response:
     headers: dict[str, str] = {}
     if content_type is not None:
         headers["Content-Type"] = content_type
     if name is not None:
         headers[DOCUMENT_FILENAME_HEADER] = quote(name, safe="")
+    params: dict[str, str] = {}
+    if appointment_id is not None:
+        params["appointment_id"] = appointment_id
+    if follow_up_id is not None:
+        params["follow_up_id"] = follow_up_id
     response: Response = api.post(
         f"/patients/{patient_id}/documents",
         cookies=cookies if cookies is not None else _cookie(api),
         content=data,
         headers=headers,
+        params=params,
     )
     return response
 
@@ -152,11 +164,15 @@ def test_an_upload_returns_201_and_the_item(api: TestClient, storage: MemoryStor
         "size_bytes",
         "uploaded_at",
         "uploaded_by",
+        "appointment",
+        "follow_up",
     }
     assert body["filename"] == "report.pdf"
     assert body["content_type"] == "application/pdf"
     assert body["size_bytes"] == len(_PDF)
     assert set(body["uploaded_by"]) == {"id", "name"}
+    assert body["appointment"] is None
+    assert body["follow_up"] is None
     assert body["uploaded_at"].endswith("+05:30")
     assert list(storage.files) == [f"{_clinic_id()}/{body['id']}"]
 
@@ -434,6 +450,8 @@ def test_the_list_shape_order_and_paging(api: TestClient) -> None:
         "size_bytes",
         "uploaded_at",
         "uploaded_by",
+        "appointment",
+        "follow_up",
     }
     paged = api.get(
         f"/patients/{patient_id}/documents", cookies=cookies, params={"page": 2, "page_size": 1}
@@ -568,6 +586,273 @@ def test_list_and_download_write_no_audit_row(api: TestClient) -> None:
     assert _count(AuditEvent) == before
 
 
+# --- viewer, links, timeline -------------------------------------------------------
+
+_ZONE = ZoneInfo("Asia/Kolkata")
+_CSP = "sandbox; default-src 'none'"
+
+
+def test_inline_and_attachment_keep_the_safe_headers(api: TestClient) -> None:
+    patient_id = _patient(api)
+    cookies = _cookie(api)
+    pdf = _upload_ok(api, patient_id, "report.pdf")
+    png = _post(api, patient_id, data=_PNG, content_type="image/png", name="scan.png").json()
+    jpeg = _post(api, patient_id, data=_JPEG, content_type="image/jpeg", name="scan.jpg").json()
+
+    attached = api.get(f"/patients/{patient_id}/documents/{pdf['id']}/file", cookies=cookies)
+    assert attached.headers["content-disposition"].startswith("attachment;")
+    assert "content-security-policy" not in attached.headers
+
+    inline_pdf = api.get(
+        f"/patients/{patient_id}/documents/{pdf['id']}/file",
+        cookies=cookies,
+        params={"disposition": "inline"},
+    )
+    assert inline_pdf.status_code == 200
+    assert inline_pdf.headers["content-type"] == "application/pdf"
+    assert inline_pdf.headers["content-disposition"].startswith("inline;")
+    assert inline_pdf.headers["x-content-type-options"] == "nosniff"
+    assert inline_pdf.headers["cache-control"] == "private, no-store"
+    assert "content-security-policy" not in inline_pdf.headers
+
+    inline_png = api.get(
+        f"/patients/{patient_id}/documents/{png['id']}/file",
+        cookies=cookies,
+        params={"disposition": "inline"},
+    )
+    assert inline_png.headers["content-type"] == "image/png"
+    assert inline_png.headers["content-security-policy"] == _CSP
+    assert inline_png.headers["x-content-type-options"] == "nosniff"
+
+    inline_jpeg = api.get(
+        f"/patients/{patient_id}/documents/{jpeg['id']}/file",
+        cookies=cookies,
+        params={"disposition": "inline"},
+    )
+    assert inline_jpeg.headers["content-security-policy"] == _CSP
+
+    attached_png = api.get(
+        f"/patients/{patient_id}/documents/{png['id']}/file",
+        cookies=cookies,
+        params={"disposition": "attachment"},
+    )
+    assert "content-security-policy" not in attached_png.headers
+    other = api.get(
+        f"/patients/{patient_id}/documents/{pdf['id']}/file",
+        cookies=cookies,
+        params={"disposition": "preview"},
+    )
+    assert other.status_code == 422
+
+
+def test_one_document_is_readable_for_an_inactive_patient(api: TestClient) -> None:
+    patient_id = _patient(api)
+    document = _upload_ok(api, patient_id)
+    _set_inactive(patient_id)
+    cookies = _cookie(api)
+    found = api.get(f"/patients/{patient_id}/documents/{document['id']}", cookies=cookies)
+    assert found.status_code == 200
+    assert found.json()["id"] == document["id"]
+    other = _patient(api)
+    hidden = api.get(f"/patients/{other}/documents/{document['id']}", cookies=cookies)
+    assert hidden.status_code == 404
+    api.cookies.clear()
+    assert api.get(f"/patients/{patient_id}/documents/{document['id']}").status_code == 401
+    assert (
+        api.get(
+            f"/patients/{patient_id}/documents/{document['id']}",
+            cookies=_cookie(api, "inventory@x.test"),
+        ).status_code
+        == 403
+    )
+
+
+def test_patch_checks_run_session_role_input_then_not_found(api: TestClient) -> None:
+    patient_id = _patient(api)
+    document = _upload_ok(api, patient_id)
+    missing = str(uuid4())
+    path = f"/patients/{missing}/documents/{document['id']}"
+    api.cookies.clear()
+    assert api.patch(path, json={}).status_code == 401
+    denied = api.patch(path, cookies=_cookie(api, "inventory@x.test"), json={})
+    assert denied.status_code == 403
+    cookies = _cookie(api)
+    empty = api.patch(path, cookies=cookies, json={})
+    assert empty.status_code == 422
+    assert empty.json()["error"]["code"] == "validation_error"
+    bad = api.patch(
+        f"/patients/{patient_id}/documents/not-a-uuid",
+        cookies=cookies,
+        json={"appointment_id": None},
+    )
+    assert bad.status_code == 422
+    unknown = api.patch(path, cookies=cookies, json={"appointment_id": None})
+    assert unknown.status_code == 404
+    _set_inactive(patient_id)
+    refused = api.patch(
+        f"/patients/{patient_id}/documents/{document['id']}",
+        cookies=cookies,
+        json={"appointment_id": None},
+    )
+    assert refused.status_code == 409
+    assert refused.json()["error"]["code"] == "patient_inactive"
+
+
+def test_a_link_set_at_upload_and_a_bad_id_stores_nothing(api: TestClient) -> None:
+    patient_id = _patient(api)
+    visit_id = _book(api, patient_id)
+    follow_up_id = _follow_up(api, patient_id)
+    created = _post(
+        api,
+        patient_id,
+        appointment_id=visit_id,
+        follow_up_id=follow_up_id,
+        name="linked.pdf",
+    )
+    assert created.status_code == 201
+    body = created.json()
+    assert body["appointment"]["id"] == visit_id
+    assert body["appointment"]["type_name"] == "Consultation"
+    assert body["follow_up"]["id"] == follow_up_id
+    before = _count(Document)
+    missing = _post(api, patient_id, appointment_id=str(uuid4()), name="nope.pdf")
+    assert missing.status_code == 404
+    assert _count(Document) == before
+    listed = api.get(
+        f"/patients/{patient_id}/documents",
+        cookies=_cookie(api),
+        params={"appointment_id": visit_id},
+    )
+    assert listed.status_code == 200
+    assert [item["id"] for item in listed.json()["items"]] == [body["id"]]
+    foreign = api.get(
+        f"/patients/{patient_id}/documents",
+        cookies=_cookie(api),
+        params={"appointment_id": str(uuid4())},
+    )
+    assert foreign.status_code == 200
+    assert foreign.json()["items"] == []
+    assert foreign.json()["total"] == 0
+
+
+@pytest.mark.parametrize("role", _ROLES)
+def test_roles_for_a_link_change(api: TestClient, role: str) -> None:
+    patient_id = _patient(api)
+    document = _upload_ok(api, patient_id)
+    visit_id = _book(api, patient_id)
+    response = api.patch(
+        f"/patients/{patient_id}/documents/{document['id']}",
+        cookies=_cookie(api, _EMAILS[role]),
+        json={"appointment_id": visit_id},
+    )
+    if role in DOCUMENT_WRITE_ROLES:
+        assert response.status_code == 200
+        assert response.json()["appointment"]["id"] == visit_id
+    else:
+        assert response.status_code == 403
+
+
+def test_an_upload_shows_on_the_timeline_with_the_current_name(api: TestClient) -> None:
+    patient_id = _patient(api)
+    document = _upload_ok(api, patient_id, "chairside.pdf")
+    found = api.get(f"/patients/{patient_id}/timeline", cookies=_cookie(api))
+    assert found.status_code == 200
+    uploaded = [item for item in found.json()["items"] if item["kind"] == "document_uploaded"]
+    assert len(uploaded) == 1
+    assert uploaded[0]["subject"] == {
+        "document_id": document["id"],
+        "filename": "chairside.pdf",
+    }
+
+
+def test_link_errors_do_not_echo_the_name_or_the_id(
+    api: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    patient_id = _patient(api)
+    document = _upload_ok(api, patient_id, "distinctive-filename-marker.pdf")
+    visit_id = _book(api, patient_id)
+    marker = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+    cookies = _cookie(api)
+    _set_inactive(patient_id)
+    with caplog.at_level(logging.DEBUG):
+        missing = api.patch(
+            f"/patients/{uuid4()}/documents/{document['id']}",
+            cookies=cookies,
+            json={"appointment_id": marker},
+        )
+        refused = api.patch(
+            f"/patients/{patient_id}/documents/{document['id']}",
+            cookies=cookies,
+            json={"appointment_id": visit_id},
+        )
+        invalid = api.patch(
+            f"/patients/{patient_id}/documents/{document['id']}",
+            cookies=cookies,
+            json={},
+        )
+        listed = api.get(
+            f"/patients/{patient_id}/documents",
+            cookies=cookies,
+            params={"appointment_id": marker},
+        )
+    assert missing.status_code == 404
+    assert refused.status_code == 409
+    assert invalid.status_code == 422
+    assert listed.status_code == 200
+    for response in (missing, refused, invalid, listed):
+        assert "distinctive-filename-marker" not in response.text
+        assert marker not in response.text
+    log = _server_log(caplog)
+    assert "distinctive-filename-marker" not in log
+    assert marker not in log
+
+
+def _book(api: TestClient, patient_id: str) -> str:
+    with Session(get_engine()) as session:
+        clinician = session.scalars(
+            select(AppUser).where(AppUser.email == "clinician@x.test")
+        ).one()
+        consultation = next(
+            row
+            for row in session.scalars(
+                select(AppointmentType).where(AppointmentType.clinic_id == clinician.clinic_id)
+            )
+            if row.name == "Consultation"
+        )
+        clinician_id = str(clinician.id)
+        type_id = str(consultation.id)
+    response = api.post(
+        "/appointments",
+        cookies=_cookie(api),
+        json={
+            "patient_id": patient_id,
+            "clinician_id": clinician_id,
+            "appointment_type_id": type_id,
+            "starts_at": _future_at().isoformat(),
+        },
+    )
+    assert response.status_code == 201, response.text
+    return str(response.json()["id"])
+
+
+def _follow_up(api: TestClient, patient_id: str) -> str:
+    due_on = (datetime.now(_ZONE).date() + timedelta(days=7)).isoformat()
+    response = api.post(
+        f"/patients/{patient_id}/follow-up",
+        cookies=_cookie(api),
+        json={"due_on": due_on},
+    )
+    assert response.status_code == 201, response.text
+    return str(response.json()["follow_up"]["id"])
+
+
+def _future_at() -> datetime:
+    day = datetime.now(_ZONE).date() + timedelta(days=1)
+    while day.weekday() == 6:
+        day += timedelta(days=1)
+    return datetime(day.year, day.month, day.day, 10, 0, tzinfo=_ZONE)
+
+
 # --- the route table ---------------------------------------------------------------
 
 
@@ -585,9 +870,17 @@ def test_every_document_route_names_its_roles(monkeypatch: pytest.MonkeyPatch) -
         DOCUMENT_READ_ROLES
     )
     document_routes = [key for key in found if "documents" in key[1]]
+    assert found[("GET", "/patients/{patient_id}/documents/{document_id}")] == set(
+        DOCUMENT_READ_ROLES
+    )
+    assert found[("PATCH", "/patients/{patient_id}/documents/{document_id}")] == set(
+        DOCUMENT_WRITE_ROLES
+    )
     assert sorted(document_routes) == [
         ("GET", "/patients/{patient_id}/documents"),
+        ("GET", "/patients/{patient_id}/documents/{document_id}"),
         ("GET", "/patients/{patient_id}/documents/{document_id}/file"),
+        ("PATCH", "/patients/{patient_id}/documents/{document_id}"),
         ("POST", "/patients/{patient_id}/documents"),
     ]
     assert "inventory_admin" not in set().union(*(found[key] for key in document_routes))

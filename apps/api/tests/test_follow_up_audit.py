@@ -56,10 +56,12 @@ def test_create_and_update_record_the_actor_and_not_the_values(database: str) ->
         assert created[0].actor_user_id == actor_id
         assert created[0].entity_type == "follow_up"
         assert any(event.action == "status_change" for event in visit_events)
-        stored = _audit_text(session)
+        follow_up = session.get(FollowUp, follow_up_id)
+        assert follow_up is not None
+        stored = _audit_sensitive_text(session)
         assert _NAME not in stored
         assert _TITLE not in stored
-        assert "2026-10-24" not in stored
+        assert follow_up.due_on.isoformat() not in stored
     _advance(clinic_id, other_id, second, _LATER)
     with Session(get_engine()) as session:
         change_status(session, clinic_id, other_id, _ROLES, second, "completed", _LATER)
@@ -69,7 +71,7 @@ def test_create_and_update_record_the_actor_and_not_the_values(database: str) ->
         updated = next(event for event in events if event.action == "update")
         assert updated.changed_fields == ["appointment_id"]
         assert updated.actor_user_id == other_id
-        assert "2026-10-24" not in _audit_text(session)
+        assert follow_up.due_on.isoformat() not in _audit_sensitive_text(session)
         row = session.get(FollowUp, follow_up_id)
         assert row is not None
         assert row.appointment_id == second
@@ -186,9 +188,21 @@ def _only_id(patient_id: UUID) -> UUID:
         return row.id
 
 
-def _audit_text(session: Session) -> str:
-    rows = session.execute(text("SELECT * FROM audit_event")).mappings().all()
-    return " ".join(str(value) for row in rows for value in row.values())
+def _audit_sensitive_text(session: Session) -> str:
+    """Action and field names only. Timestamps and ids are not checked for PHI."""
+    rows = (
+        session.execute(text("SELECT entity_type, action, changed_fields FROM audit_event"))
+        .mappings()
+        .all()
+    )
+    parts: list[str] = []
+    for row in rows:
+        parts.append(str(row["entity_type"]))
+        parts.append(str(row["action"]))
+        fields = row["changed_fields"]
+        if fields is not None:
+            parts.extend(str(name) for name in fields)
+    return " ".join(parts)
 
 
 def _audit_count() -> int:

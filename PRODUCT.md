@@ -267,10 +267,24 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   first, then the row and audit event are committed, and the file is deleted if that fails.
   `receptionist`, `clinician` and `clinic_admin` upload, list and download; `inventory_admin`
   may not. Inactive patients get no new uploads but their documents stay readable. Downloads
-  are attachment-only with `nosniff`; inline viewing waits for S3.2. Filenames never go into
-  audit rows, logs, error bodies or storage keys. No delete, no document type, date or
-  description, and no timeline entry yet. The timeline kind is added in S3.2, because it
-  changes an existing check constraint.
+  use `nosniff` and default to attachment; inline viewing and links are S3.2. Filenames never
+  go into audit rows, logs, error bodies or storage keys. No delete, no document type, date or
+  description at upload.
+- **Document viewer and links (decided in S3.2):** `GET .../file` takes optional
+  `disposition=inline` or `attachment` (default attachment). Inline images use
+  `Content-Security-Policy: sandbox; default-src 'none'` on the response; inline PDFs do not,
+  because Chrome's PDF viewer breaks under that CSP, so PDFs open in a new tab from the viewer
+  page with `inline` and `nosniff` only. `GET .../documents/{id}` returns one item. Optional
+  nullable `appointment_id` and `follow_up_id` on the document row link to the same patient in
+  the clinic; set or clear with `PATCH`, or at upload via query parameters. Wrong patient or
+  clinic is 404. Link changes refuse an inactive patient (409). Filter the list by visit or
+  follow-up id. Linking in the UI starts from the calendar visit row or the follow-up queue
+  (filtered documents page, upload with context, link or unlink existing files). No visit or
+  follow-up pickers from the unfiltered documents page alone. Timeline kind `document_uploaded`
+  with `document_id`; migration `0016` adds the column and recreates the timeline check
+  constraints. Upload writes the timeline row in the same transaction as the document row; link
+  changes do not. No backfill for S3.1 uploads. The timeline response includes the current
+  filename read live. Link updates write `document` `update` audit with field names only.
 
 ## Open decisions (need the developer's call)
 
@@ -424,9 +438,14 @@ sequence, and role plus tenancy guards. `docs/demo-m3.md` is the browser walk-th
 the same story (linked from README). This slice added no new routes or UI.
 
 Staff with `clinician`, `receptionist` or `clinic_admin` can open `/patients/[id]/documents`,
-upload a PDF, PNG or JPEG up to 8 MiB, see a newest-first list, and download the file as an
-attachment. Files sit behind a `DocumentStorage` interface; the local adapter writes under
-`STORAGE_ROOT` (migration `0015`). A successful upload writes one `document` create audit
-event without the filename. Inactive patients cannot upload; existing files stay readable.
-`inventory_admin` is refused. There is no viewer, delete, timeline entry, or links to visits
-yet (S3.2).
+upload a PDF, PNG or JPEG up to 8 MiB, see a newest-first list, open a file in the viewer
+(`/patients/[id]/documents/[documentId]`), and download it as an attachment or inline (images
+in-page; PDF via "Open in new tab", no iframe). Files sit behind a `DocumentStorage` interface;
+the local adapter writes under `STORAGE_ROOT` (migration `0015`). A document may link to one
+visit and one follow-up for the same patient (migration `0016`); calendar and follow-up queue
+rows link to a filtered documents page where staff upload with context, link existing files,
+or unlink. Link changes write a `document` update audit with field names only; inactive patients
+cannot change links. A successful upload writes one `document` create audit event and a
+`document_uploaded` timeline row in the same transaction as the row, without the filename in
+audit. Inactive patients cannot upload; existing files stay readable. `inventory_admin` is
+refused. There is no delete, rename, or lab links yet (S3.3).

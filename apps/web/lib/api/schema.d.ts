@@ -508,6 +508,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patients/{patient_id}/documents/{document_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get One Document */
+        get: operations["get_one_document_patients__patient_id__documents__document_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Patch Document Links */
+        patch: operations["patch_document_links_patients__patient_id__documents__document_id__patch"];
+        trace?: never;
+    };
     "/patients/{patient_id}/documents/{document_id}/file": {
         parameters: {
             query?: never;
@@ -698,6 +716,21 @@ export interface components {
              * Format: date-time
              */
             starts_at: string;
+        };
+        /** AppointmentLinkBody */
+        AppointmentLinkBody: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Type Name */
+            type_name: string;
         };
         /** AppointmentResponse */
         AppointmentResponse: {
@@ -916,6 +949,7 @@ export interface components {
         };
         /** DocumentBody */
         DocumentBody: {
+            appointment: components["schemas"]["AppointmentLinkBody"] | null;
             /**
              * Content Type
              * @enum {string}
@@ -923,6 +957,7 @@ export interface components {
             content_type: "application/pdf" | "image/png" | "image/jpeg";
             /** Filename */
             filename: string;
+            follow_up: components["schemas"]["FollowUpLinkBody"] | null;
             /**
              * Id
              * Format: uuid
@@ -937,6 +972,16 @@ export interface components {
             uploaded_at: string;
             uploaded_by: components["schemas"]["UploaderBody"];
         };
+        /**
+         * DocumentLinksUpdate
+         * @description A present field is set (UUID) or cleared (null). An omitted field stays as it is.
+         */
+        DocumentLinksUpdate: {
+            /** Appointment Id */
+            appointment_id?: string | null;
+            /** Follow Up Id */
+            follow_up_id?: string | null;
+        };
         /** DocumentListResponse */
         DocumentListResponse: {
             /** Items */
@@ -947,6 +992,16 @@ export interface components {
             page_size: number;
             /** Total */
             total: number;
+        };
+        /** DocumentSubjectBody */
+        DocumentSubjectBody: {
+            /**
+             * Document Id
+             * Format: uuid
+             */
+            document_id: string;
+            /** Filename */
+            filename: string;
         };
         /** ErrorBody */
         ErrorBody: {
@@ -1008,6 +1063,19 @@ export interface components {
              * Format: date-time
              */
             starts_at: string;
+        };
+        /** FollowUpLinkBody */
+        FollowUpLinkBody: {
+            /**
+             * Due On
+             * Format: date
+             */
+            due_on: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
         };
         /** FollowUpListResponse */
         FollowUpListResponse: {
@@ -1377,14 +1445,14 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "patient_registered" | "visit_booked" | "visit_rescheduled" | "visit_cancelled" | "visit_arrived" | "visit_started" | "visit_completed" | "visit_no_show" | "care_item_added" | "care_item_started" | "care_item_completed" | "care_item_cancelled" | "care_session_recorded" | "follow_up_created" | "follow_up_updated" | "follow_up_contacted" | "follow_up_booked" | "follow_up_completed" | "follow_up_released" | "follow_up_cancelled" | "recall_created" | "recall_updated" | "recall_contacted" | "recall_booked" | "recall_completed" | "recall_released" | "recall_cancelled";
+            kind: "patient_registered" | "visit_booked" | "visit_rescheduled" | "visit_cancelled" | "visit_arrived" | "visit_started" | "visit_completed" | "visit_no_show" | "care_item_added" | "care_item_started" | "care_item_completed" | "care_item_cancelled" | "care_session_recorded" | "follow_up_created" | "follow_up_updated" | "follow_up_contacted" | "follow_up_booked" | "follow_up_completed" | "follow_up_released" | "follow_up_cancelled" | "recall_created" | "recall_updated" | "recall_contacted" | "recall_booked" | "recall_completed" | "recall_released" | "recall_cancelled" | "document_uploaded";
             /**
              * Occurred At
              * Format: date-time
              */
             occurred_at: string;
             /** Subject */
-            subject: components["schemas"]["VisitSubjectBody"] | components["schemas"]["CareItemSubjectBody"] | components["schemas"]["CareSessionSubjectBody"] | components["schemas"]["FollowUpSubjectBody"] | components["schemas"]["RecallSubjectBody"] | null;
+            subject: components["schemas"]["VisitSubjectBody"] | components["schemas"]["CareItemSubjectBody"] | components["schemas"]["CareSessionSubjectBody"] | components["schemas"]["FollowUpSubjectBody"] | components["schemas"]["RecallSubjectBody"] | components["schemas"]["DocumentSubjectBody"] | null;
         };
         /** TimelineListResponse */
         TimelineListResponse: {
@@ -2896,6 +2964,8 @@ export interface operations {
             query?: {
                 page?: number;
                 page_size?: number;
+                appointment_id?: string | null;
+                follow_up_id?: string | null;
             };
             header?: never;
             path: {
@@ -2936,7 +3006,10 @@ export interface operations {
     };
     post_document_patients__patient_id__documents_post: {
         parameters: {
-            query?: never;
+            query?: {
+                appointment_id?: string | null;
+                follow_up_id?: string | null;
+            };
             header: {
                 "X-Document-Filename": string;
             };
@@ -3009,7 +3082,7 @@ export interface operations {
             };
         };
     };
-    get_document_file_patients__patient_id__documents__document_id__file_get: {
+    get_one_document_patients__patient_id__documents__document_id__get: {
         parameters: {
             query?: never;
             header?: never;
@@ -3021,7 +3094,104 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The file bytes, as an attachment. */
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    patch_document_links_patients__patient_id__documents__document_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: string;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DocumentLinksUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DocumentBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description patient_inactive */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_document_file_patients__patient_id__documents__document_id__file_get: {
+        parameters: {
+            query?: {
+                disposition?: "inline" | "attachment";
+            };
+            header?: never;
+            path: {
+                patient_id: string;
+                document_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The file bytes. disposition=inline or attachment (the default). */
             200: {
                 headers: {
                     [name: string]: unknown;

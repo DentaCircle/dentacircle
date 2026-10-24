@@ -42,6 +42,7 @@ export function AppointmentRow({
     <li className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b py-2 text-sm">
       <span className="font-medium">{timeRange}</span>
       <Link href={`/patients/${patientId}`}>{patientName}</Link>
+      <Link href={`/patients/${patientId}/documents?appointment_id=${id}`}>Documents</Link>
       <span>{displayId}</span>
       <span>{typeName}</span>
       <span>{clinicianName}</span>

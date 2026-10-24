@@ -5,12 +5,18 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { documentsHref } from "@/features/documents/links";
+import { documentsHref, type DocumentContext } from "@/features/documents/links";
 import { CHOOSE_A_FILE, problemMessage, uploadFailure } from "@/features/documents/notices";
 import { ACCEPT, fileProblem } from "@/features/documents/sizes";
 import { uploadDocument } from "@/lib/api/client";
 
-export function UploadForm({ patientId }: { patientId: string }) {
+export function UploadForm({
+  patientId,
+  context = null,
+}: {
+  patientId: string;
+  context?: DocumentContext | null;
+}) {
   const router = useRouter();
   const isSubmittingRef = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -35,13 +41,19 @@ export function UploadForm({ patientId }: { patientId: string }) {
         setMessage(problemMessage(problem));
         return;
       }
-      const result = await uploadDocument(patientId, file);
+      const filter =
+        context?.kind === "visit"
+          ? { appointmentId: context.id }
+          : context?.kind === "follow-up"
+            ? { followUpId: context.id }
+            : undefined;
+      const result = await uploadDocument(patientId, file, filter);
       if (!result.ok) {
         setMessage(uploadFailure(result.error));
         return;
       }
       formRef.current?.reset();
-      router.push(documentsHref(patientId, 1, "uploaded"));
+      router.push(documentsHref(patientId, 1, "uploaded", context));
       router.refresh();
     } finally {
       isSubmittingRef.current = false;

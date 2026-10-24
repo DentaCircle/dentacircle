@@ -59,8 +59,20 @@ class RecallSubject:
     type_name: str
 
 
+@dataclass(frozen=True)
+class DocumentSubject:
+    document_id: UUID
+    filename: str
+
+
 SubjectView = (
-    VisitSubject | CareItemSubject | CareSessionSubject | FollowUpSubject | RecallSubject | None
+    VisitSubject
+    | CareItemSubject
+    | CareSessionSubject
+    | FollowUpSubject
+    | RecallSubject
+    | DocumentSubject
+    | None
 )
 
 
@@ -93,6 +105,7 @@ def record(
     care_session_id: UUID | None = None,
     follow_up_id: UUID | None = None,
     recall_id: UUID | None = None,
+    document_id: UUID | None = None,
     occurred_at: datetime | None = None,
 ) -> None:
     """Append one step in the caller's transaction. The row is not updated later."""
@@ -104,6 +117,7 @@ def record(
         "care_session_id": care_session_id,
         "follow_up_id": follow_up_id,
         "recall_id": recall_id,
+        "document_id": document_id,
     }
     _check_subject(kind, subjects)
     moment = occurred_at if occurred_at is not None else datetime.now(UTC)
@@ -119,6 +133,7 @@ def record(
             care_session_id=care_session_id,
             follow_up_id=follow_up_id,
             recall_id=recall_id,
+            document_id=document_id,
         )
     )
 
@@ -167,6 +182,7 @@ class _Loaded:
     sessions: dict[UUID, tuple[str, ...]]
     follow_ups: dict[UUID, date]
     recalls: dict[UUID, tuple[date, str]]
+    documents: dict[UUID, str]
 
 
 def _loaded(repository: TimelineRepository, rows: list[TimelineEvent]) -> _Loaded:
@@ -185,6 +201,9 @@ def _loaded(repository: TimelineRepository, rows: list[TimelineEvent]) -> _Loade
             {row.follow_up_id for row in rows if row.follow_up_id is not None}
         ),
         recalls=repository.recalls({row.recall_id for row in rows if row.recall_id is not None}),
+        documents=repository.document_filenames(
+            {row.document_id for row in rows if row.document_id is not None}
+        ),
     )
 
 
@@ -204,6 +223,13 @@ def _item(row: TimelineEvent, zone: ZoneInfo, loaded: _Loaded) -> TimelineItemVi
 def _subject(row: TimelineEvent, zone: ZoneInfo, loaded: _Loaded) -> SubjectView:
     if row.kind == "patient_registered":
         return None
+    if row.kind == "document_uploaded":
+        if row.document_id is None:
+            raise RuntimeError("timeline event has no document")
+        filename = loaded.documents.get(row.document_id)
+        if filename is None:
+            raise RuntimeError("timeline event points at a missing document")
+        return DocumentSubject(document_id=row.document_id, filename=filename)
     if row.appointment_id is not None:
         found = loaded.visits.get(row.appointment_id)
         if found is None:

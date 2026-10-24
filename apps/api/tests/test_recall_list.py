@@ -293,7 +293,10 @@ def _book(api: TestClient, patient_id: str) -> tuple[str, str, str]:
 def _next_start() -> datetime:
     index = _SLOT["n"]
     _SLOT["n"] += 1
-    day = _today() + timedelta(days=1 + index // 4)
+    day = _today() + timedelta(days=1)
+    while day.weekday() == 6:
+        day += timedelta(days=1)
+    day += timedelta(days=index // 4)
     while day.weekday() == 6:
         day += timedelta(days=1)
     hour = 10 + (index % 4) * 2
