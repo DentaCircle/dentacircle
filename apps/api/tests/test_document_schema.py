@@ -49,7 +49,7 @@ def test_upgrade_downgrade_upgrade(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0017_lab_work"
+    assert _version(throwaway_database_url) == "0018_inventory"
     assert "document" in _public_tables(throwaway_database_url)
     assert _columns(throwaway_database_url) == _COLUMNS
     assert "DESC" in _index_def(throwaway_database_url)
@@ -60,7 +60,7 @@ def test_upgrade_downgrade_upgrade(
     assert "timeline_event" in _public_tables(throwaway_database_url)
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0017_lab_work"
+    assert _version(throwaway_database_url) == "0018_inventory"
     assert "document" in _public_tables(throwaway_database_url)
 
 

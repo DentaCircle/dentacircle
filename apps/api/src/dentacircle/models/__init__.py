@@ -12,6 +12,9 @@ from dentacircle.models.care_session_item import CareSessionItem
 from dentacircle.models.clinic import Clinic
 from dentacircle.models.document import Document
 from dentacircle.models.follow_up import FollowUp
+from dentacircle.models.inventory_batch import InventoryBatch
+from dentacircle.models.inventory_category import InventoryCategory
+from dentacircle.models.inventory_item import InventoryItem
 from dentacircle.models.lab_work import LabWork
 from dentacircle.models.patient import Patient
 from dentacircle.models.patient_number_counter import PatientNumberCounter
@@ -34,6 +37,9 @@ __all__ = [
     "ClinicWorkingHours",
     "Document",
     "FollowUp",
+    "InventoryBatch",
+    "InventoryCategory",
+    "InventoryItem",
     "LabWork",
     "Patient",
     "PatientNumberCounter",

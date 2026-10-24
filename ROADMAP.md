@@ -3,7 +3,7 @@
 The tracker. Phases are made of slices. A slice is one reviewable change, about half a day
 to a day of work, with a visible result. Tick a slice only after `/ship-seal`.
 
-**Now:** S4.1 (not started). M1 reached 2026-10-06. M3 reached 2026-10-21. S2.8 sealed 2026-10-21. S3.1 sealed 2026-10-23. S3.2 sealed 2026-10-23. S3.3 sealed 2026-10-24.
+**Now:** S4.1 (brief approved, not built). M1 reached 2026-10-06. M3 reached 2026-10-21. S2.8 sealed 2026-10-21. S3.1 sealed 2026-10-23. S3.2 sealed 2026-10-23. S3.3 sealed 2026-10-24.
 
 Milestones are demoable. Each one is a real stopping point.
 

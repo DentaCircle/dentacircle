@@ -301,6 +301,18 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   follow-up links; linking starts from the lab row). Lab timeline kinds `lab_work_created`,
   `lab_work_ready`, `lab_work_collected` and `lab_work_cancelled` need migration `0017` to
   recreate the timeline check constraints, approved here. Audit rows list field names only.
+- **Inventory items (decided in S4.1):** categories, items and batches are three new tables
+  (migration `0018`, additive). Quantities are whole numbers, so a smaller unit stands in for
+  fractions. A batch is a number plus an optional expiry date and holds no quantity. Stock
+  arrives only through S4.2 transactions, never as a typed or overwritten number. One
+  `low_stock_threshold` per item, no reorder threshold. Categories are a per-clinic table with
+  create and rename, no delete and no seeded defaults. Items are deactivated, never deleted.
+  Names are unique per clinic ignoring case, and batch numbers unique per item. `inventory_admin`
+  and `clinic_admin` write. They, plus `clinician`, read. `receptionist` has no access.
+  Supplier and purchase cost are left out (billing and financial analytics are out through M5);
+  confirm again at S4.2. `expired` is calculated from the clinic-local date. The expiring-soon
+  window belongs to S4.4. Audit rows list field names only. S4.1 stays one slice, reviewed in
+  six pieces.
 
 ## Open decisions (need the developer's call)
 
