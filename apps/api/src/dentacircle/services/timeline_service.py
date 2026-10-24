@@ -65,6 +65,12 @@ class DocumentSubject:
     filename: str
 
 
+@dataclass(frozen=True)
+class LabWorkSubject:
+    lab_work_id: UUID
+    title: str
+
+
 SubjectView = (
     VisitSubject
     | CareItemSubject
@@ -72,6 +78,7 @@ SubjectView = (
     | FollowUpSubject
     | RecallSubject
     | DocumentSubject
+    | LabWorkSubject
     | None
 )
 
@@ -106,6 +113,7 @@ def record(
     follow_up_id: UUID | None = None,
     recall_id: UUID | None = None,
     document_id: UUID | None = None,
+    lab_work_id: UUID | None = None,
     occurred_at: datetime | None = None,
 ) -> None:
     """Append one step in the caller's transaction. The row is not updated later."""
@@ -118,6 +126,7 @@ def record(
         "follow_up_id": follow_up_id,
         "recall_id": recall_id,
         "document_id": document_id,
+        "lab_work_id": lab_work_id,
     }
     _check_subject(kind, subjects)
     moment = occurred_at if occurred_at is not None else datetime.now(UTC)
@@ -134,6 +143,7 @@ def record(
             follow_up_id=follow_up_id,
             recall_id=recall_id,
             document_id=document_id,
+            lab_work_id=lab_work_id,
         )
     )
 
@@ -183,6 +193,7 @@ class _Loaded:
     follow_ups: dict[UUID, date]
     recalls: dict[UUID, tuple[date, str]]
     documents: dict[UUID, str]
+    lab_work: dict[UUID, str]
 
 
 def _loaded(repository: TimelineRepository, rows: list[TimelineEvent]) -> _Loaded:
@@ -203,6 +214,9 @@ def _loaded(repository: TimelineRepository, rows: list[TimelineEvent]) -> _Loade
         recalls=repository.recalls({row.recall_id for row in rows if row.recall_id is not None}),
         documents=repository.document_filenames(
             {row.document_id for row in rows if row.document_id is not None}
+        ),
+        lab_work=repository.lab_work_titles(
+            {row.lab_work_id for row in rows if row.lab_work_id is not None}
         ),
     )
 
@@ -230,6 +244,13 @@ def _subject(row: TimelineEvent, zone: ZoneInfo, loaded: _Loaded) -> SubjectView
         if filename is None:
             raise RuntimeError("timeline event points at a missing document")
         return DocumentSubject(document_id=row.document_id, filename=filename)
+    if row.kind.startswith("lab_work_"):
+        if row.lab_work_id is None:
+            raise RuntimeError("timeline event has no lab work")
+        title = loaded.lab_work.get(row.lab_work_id)
+        if title is None:
+            raise RuntimeError("timeline event points at missing lab work")
+        return LabWorkSubject(lab_work_id=row.lab_work_id, title=title)
     if row.appointment_id is not None:
         found = loaded.visits.get(row.appointment_id)
         if found is None:

@@ -37,12 +37,14 @@ class FollowUpRepository:
             statement = statement.with_for_update().execution_options(populate_existing=True)
         return self._session.scalars(statement).one_or_none()
 
-    def get_open(self, patient_id: UUID) -> FollowUp | None:
+    def get_open(self, patient_id: UUID, *, lock: bool = False) -> FollowUp | None:
         """The patient's open follow-up in this clinic, if there is one."""
         statement = scoped_select(FollowUp, self._clinic_id).where(
             FollowUp.patient_id == patient_id,
             FollowUp.status.in_(OPEN_FOLLOW_UP_STATUSES),
         )
+        if lock:
+            statement = statement.with_for_update().execution_options(populate_existing=True)
         return self._session.scalars(statement).one_or_none()
 
     def get_booked_for_appointment(
