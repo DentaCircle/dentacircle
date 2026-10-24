@@ -118,9 +118,7 @@ def upload_document(
     patient = PatientRepository(session, clinic_id).get(patient_id)
     if patient is None:
         raise PatientNotFoundError
-    _require_owned_links(
-        session, clinic_id, patient_id, appointment_id, follow_up_id, lab_work_id
-    )
+    _require_owned_links(session, clinic_id, patient_id, appointment_id, follow_up_id, lab_work_id)
     if patient.status != "active":
         raise DocumentPatientInactiveError
     document_id = uuid4()
@@ -367,9 +365,7 @@ def _appointment_link(
     )
 
 
-def _lab_work_link(
-    row: Document, lab_work: dict[UUID, tuple[str, str]]
-) -> LabWorkLinkView | None:
+def _lab_work_link(row: Document, lab_work: dict[UUID, tuple[str, str]]) -> LabWorkLinkView | None:
     if row.lab_work_id is None:
         return None
     found = lab_work.get(row.lab_work_id)

@@ -103,9 +103,7 @@ class DocumentRepository:
                 LabWork.id.in_(lab_work_ids),
             )
         )
-        return {
-            lab_work_id: (title, status) for lab_work_id, title, status in rows
-        }
+        return {lab_work_id: (title, status) for lab_work_id, title, status in rows}
 
     def uploader_names(self, user_ids: set[UUID]) -> dict[UUID, str]:
         """Names for these users, including deactivated ones."""

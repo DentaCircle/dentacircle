@@ -30,6 +30,7 @@ _HEAD_TABLES = [
     "clinic_working_hours",
     "document",
     "follow_up",
+    "lab_work",
     "patient",
     "patient_number_counter",
     "recall",
