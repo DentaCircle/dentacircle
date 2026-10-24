@@ -14,6 +14,7 @@ from dentacircle.models.care_item import CareItem
 from dentacircle.models.care_session_item import CareSessionItem
 from dentacircle.models.document import Document
 from dentacircle.models.follow_up import FollowUp
+from dentacircle.models.lab_work import LabWork
 from dentacircle.models.recall import Recall
 from dentacircle.models.timeline_event import TimelineEvent
 
@@ -132,6 +133,18 @@ class TimelineRepository:
             )
         )
         return {document_id: filename for document_id, filename in rows}
+
+    def lab_work_titles(self, lab_work_ids: set[UUID]) -> dict[UUID, str]:
+        """Current title, read live. The title is not stored on the event."""
+        if not lab_work_ids:
+            return {}
+        rows = self._session.execute(
+            select(LabWork.id, LabWork.title).where(
+                LabWork.clinic_id == self._clinic_id,
+                LabWork.id.in_(lab_work_ids),
+            )
+        )
+        return {lab_work_id: title for lab_work_id, title in rows}
 
     def recalls(self, recall_ids: set[UUID]) -> dict[UUID, tuple[date, str]]:
         """Due date and the current type name."""

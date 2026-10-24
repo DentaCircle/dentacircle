@@ -28,7 +28,12 @@ export function LinkButton({
   const isSubmittingRef = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const field = context.kind === "visit" ? "appointment_id" : "follow_up_id";
+  const field =
+    context.kind === "visit"
+      ? "appointment_id"
+      : context.kind === "follow-up"
+        ? "follow_up_id"
+        : "lab_work_id";
 
   async function onClick() {
     if (isSubmittingRef.current) return;

@@ -416,6 +416,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lab-work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Clinic Lab Work */
+        get: operations["get_clinic_lab_work_lab_work_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab-work/{lab_work_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get One Lab Work */
+        get: operations["get_one_lab_work_lab_work__lab_work_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/lab-work/{lab_work_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Lab Work Status */
+        post: operations["post_lab_work_status_lab_work__lab_work_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patients": {
         parameters: {
             query?: never;
@@ -555,6 +606,24 @@ export interface paths {
         put?: never;
         /** Post Follow Up */
         post: operations["post_follow_up_patients__patient_id__follow_up_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/patients/{patient_id}/lab-work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Patient Lab Work */
+        get: operations["get_patient_lab_work_patients__patient_id__lab_work_get"];
+        put?: never;
+        /** Post Lab Work */
+        post: operations["post_lab_work_patients__patient_id__lab_work_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -947,6 +1016,15 @@ export interface components {
              */
             due_on: string;
         };
+        /** CreateLabWorkBody */
+        CreateLabWorkBody: {
+            /** Appointment Id */
+            appointment_id?: string | null;
+            /** Expected On */
+            expected_on?: string | null;
+            /** Title */
+            title: string;
+        };
         /** DocumentBody */
         DocumentBody: {
             appointment: components["schemas"]["AppointmentLinkBody"] | null;
@@ -963,6 +1041,7 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            lab_work: components["schemas"]["LabWorkLinkBody"] | null;
             /** Size Bytes */
             size_bytes: number;
             /**
@@ -981,6 +1060,8 @@ export interface components {
             appointment_id?: string | null;
             /** Follow Up Id */
             follow_up_id?: string | null;
+            /** Lab Work Id */
+            lab_work_id?: string | null;
         };
         /** DocumentListResponse */
         DocumentListResponse: {
@@ -1110,6 +1191,66 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** LabWorkBody */
+        LabWorkBody: {
+            appointment: components["schemas"]["AppointmentLinkBody"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            created_by: components["schemas"]["ActorBody"];
+            /** Expected On */
+            expected_on: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Overdue */
+            overdue: boolean;
+            patient: components["schemas"]["PatientLinkBody"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "ready" | "collected" | "cancelled";
+            /** Title */
+            title: string;
+        };
+        /** LabWorkLinkBody */
+        LabWorkLinkBody: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
+            /** Title */
+            title: string;
+        };
+        /** LabWorkListResponse */
+        LabWorkListResponse: {
+            /** Items */
+            items: components["schemas"]["LabWorkBody"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** LabWorkSubjectBody */
+        LabWorkSubjectBody: {
+            /**
+             * Lab Work Id
+             * Format: uuid
+             */
+            lab_work_id: string;
+            /** Title */
+            title: string;
+        };
         /** LoginRequest */
         LoginRequest: {
             /** Email */
@@ -1142,6 +1283,20 @@ export interface components {
             date_of_birth?: string | null;
             /** Full Name */
             full_name: string;
+            /** Phone */
+            phone: string;
+        };
+        /** PatientLinkBody */
+        PatientLinkBody: {
+            /** Display Id */
+            display_id: string;
+            /** Full Name */
+            full_name: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
             /** Phone */
             phone: string;
         };
@@ -1445,14 +1600,14 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "patient_registered" | "visit_booked" | "visit_rescheduled" | "visit_cancelled" | "visit_arrived" | "visit_started" | "visit_completed" | "visit_no_show" | "care_item_added" | "care_item_started" | "care_item_completed" | "care_item_cancelled" | "care_session_recorded" | "follow_up_created" | "follow_up_updated" | "follow_up_contacted" | "follow_up_booked" | "follow_up_completed" | "follow_up_released" | "follow_up_cancelled" | "recall_created" | "recall_updated" | "recall_contacted" | "recall_booked" | "recall_completed" | "recall_released" | "recall_cancelled" | "document_uploaded";
+            kind: "patient_registered" | "visit_booked" | "visit_rescheduled" | "visit_cancelled" | "visit_arrived" | "visit_started" | "visit_completed" | "visit_no_show" | "care_item_added" | "care_item_started" | "care_item_completed" | "care_item_cancelled" | "care_session_recorded" | "follow_up_created" | "follow_up_updated" | "follow_up_contacted" | "follow_up_booked" | "follow_up_completed" | "follow_up_released" | "follow_up_cancelled" | "recall_created" | "recall_updated" | "recall_contacted" | "recall_booked" | "recall_completed" | "recall_released" | "recall_cancelled" | "document_uploaded" | "lab_work_created" | "lab_work_ready" | "lab_work_collected" | "lab_work_cancelled";
             /**
              * Occurred At
              * Format: date-time
              */
             occurred_at: string;
             /** Subject */
-            subject: components["schemas"]["VisitSubjectBody"] | components["schemas"]["CareItemSubjectBody"] | components["schemas"]["CareSessionSubjectBody"] | components["schemas"]["FollowUpSubjectBody"] | components["schemas"]["RecallSubjectBody"] | components["schemas"]["DocumentSubjectBody"] | null;
+            subject: components["schemas"]["VisitSubjectBody"] | components["schemas"]["CareItemSubjectBody"] | components["schemas"]["CareSessionSubjectBody"] | components["schemas"]["FollowUpSubjectBody"] | components["schemas"]["RecallSubjectBody"] | components["schemas"]["DocumentSubjectBody"] | components["schemas"]["LabWorkSubjectBody"] | null;
         };
         /** TimelineListResponse */
         TimelineListResponse: {
@@ -1582,6 +1737,14 @@ export interface components {
              * @enum {string}
              */
             status: "started" | "completed" | "cancelled";
+        };
+        /** StatusBody */
+        dentacircle__api__lab_work__StatusBody: {
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "ready" | "collected" | "cancelled";
         };
     };
     responses: never;
@@ -2693,6 +2856,132 @@ export interface operations {
             };
         };
     };
+    get_clinic_lab_work_lab_work_get: {
+        parameters: {
+            query?: {
+                view?: "open" | "all";
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabWorkListResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_one_lab_work_lab_work__lab_work_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabWorkBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_lab_work_status_lab_work__lab_work_id__status_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lab_work_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["dentacircle__api__lab_work__StatusBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabWorkBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description invalid_status */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_patients_patients_get: {
         parameters: {
             query?: {
@@ -2966,6 +3255,7 @@ export interface operations {
                 page_size?: number;
                 appointment_id?: string | null;
                 follow_up_id?: string | null;
+                lab_work_id?: string | null;
             };
             header?: never;
             path: {
@@ -3009,6 +3299,7 @@ export interface operations {
             query?: {
                 appointment_id?: string | null;
                 follow_up_id?: string | null;
+                lab_work_id?: string | null;
             };
             header: {
                 "X-Document-Filename": string;
@@ -3297,6 +3588,102 @@ export interface operations {
                 };
             };
             /** @description follow_up_open or patient_inactive */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_patient_lab_work_patients__patient_id__lab_work_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabWorkListResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    post_lab_work_patients__patient_id__lab_work_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLabWorkBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LabWorkBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description patient_inactive */
             409: {
                 headers: {
                     [name: string]: unknown;

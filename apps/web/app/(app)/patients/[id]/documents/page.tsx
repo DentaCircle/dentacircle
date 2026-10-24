@@ -9,6 +9,7 @@ import { documentRow } from "@/features/documents/rows";
 import { sessionCookieHeader } from "@/features/patients/session";
 import {
   getAppointment,
+  getLabWork,
   getPatient,
   listDocuments,
   type DocumentItem,
@@ -23,6 +24,7 @@ type DocumentsPageProps = {
     notice?: string;
     appointment_id?: string;
     follow_up_id?: string;
+    lab_work_id?: string;
   }>;
 };
 
@@ -42,7 +44,9 @@ export default async function DocumentsPage({ params, searchParams }: DocumentsP
       ? { appointmentId: context.id }
       : context?.kind === "follow-up"
         ? { followUpId: context.id }
-        : undefined;
+        : context?.kind === "lab"
+          ? { labWorkId: context.id }
+          : undefined;
   const [documents, patient] = await Promise.all([
     listDocuments(cookieHeader, id, page, 20, filter),
     getPatient(cookieHeader, id),
@@ -70,12 +74,16 @@ export default async function DocumentsPage({ params, searchParams }: DocumentsP
 function readContext(query: {
   appointment_id?: string;
   follow_up_id?: string;
+  lab_work_id?: string;
 }): DocumentContext | null {
   if (query.appointment_id !== undefined && query.appointment_id !== "") {
     return { kind: "visit", id: query.appointment_id };
   }
   if (query.follow_up_id !== undefined && query.follow_up_id !== "") {
     return { kind: "follow-up", id: query.follow_up_id };
+  }
+  if (query.lab_work_id !== undefined && query.lab_work_id !== "") {
+    return { kind: "lab", id: query.lab_work_id };
   }
   return null;
 }
@@ -91,6 +99,11 @@ async function contextHeading(
     const dueOn = items.find((item) => item.follow_up !== null)?.follow_up?.due_on;
     if (dueOn === undefined) return "Documents for this follow-up";
     return `Documents for the follow-up due ${formatDueOn(dueOn)}`;
+  }
+  if (context.kind === "lab") {
+    const found = await getLabWork(cookieHeader, context.id);
+    if (!found.ok || found.data.patient.id !== patientId) return "Documents for this lab work";
+    return `Documents for ${found.data.title}`;
   }
   const visit = await getAppointment(cookieHeader, context.id);
   if (!visit.ok || visit.data.patient.id !== patientId) return "Documents for this visit";

@@ -582,6 +582,46 @@
         "title": "CreateFollowUpBody",
         "type": "object"
       },
+      "CreateLabWorkBody": {
+        "additionalProperties": false,
+        "properties": {
+          "appointment_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Appointment Id"
+          },
+          "expected_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected On"
+          },
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "CreateLabWorkBody",
+        "type": "object"
+      },
       "DocumentBody": {
         "properties": {
           "appointment": {
@@ -622,6 +662,16 @@
             "title": "Id",
             "type": "string"
           },
+          "lab_work": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LabWorkLinkBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "size_bytes": {
             "title": "Size Bytes",
             "type": "integer"
@@ -643,7 +693,8 @@
           "uploaded_at",
           "uploaded_by",
           "appointment",
-          "follow_up"
+          "follow_up",
+          "lab_work"
         ],
         "title": "DocumentBody",
         "type": "object"
@@ -675,6 +726,18 @@
               }
             ],
             "title": "Follow Up Id"
+          },
+          "lab_work_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lab Work Id"
           }
         },
         "title": "DocumentLinksUpdate",
@@ -957,6 +1020,153 @@
         "title": "HealthResponse",
         "type": "object"
       },
+      "LabWorkBody": {
+        "properties": {
+          "appointment": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppointmentLinkBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_by": {
+            "$ref": "#/components/schemas/ActorBody"
+          },
+          "expected_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected On"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "overdue": {
+            "title": "Overdue",
+            "type": "boolean"
+          },
+          "patient": {
+            "$ref": "#/components/schemas/PatientLinkBody"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "ready",
+              "collected",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "title",
+          "expected_on",
+          "overdue",
+          "appointment",
+          "patient",
+          "created_at",
+          "created_by"
+        ],
+        "title": "LabWorkBody",
+        "type": "object"
+      },
+      "LabWorkLinkBody": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status"
+        ],
+        "title": "LabWorkLinkBody",
+        "type": "object"
+      },
+      "LabWorkListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LabWorkBody"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "LabWorkListResponse",
+        "type": "object"
+      },
+      "LabWorkSubjectBody": {
+        "properties": {
+          "lab_work_id": {
+            "format": "uuid",
+            "title": "Lab Work Id",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "lab_work_id",
+          "title"
+        ],
+        "title": "LabWorkSubjectBody",
+        "type": "object"
+      },
       "LoginRequest": {
         "properties": {
           "email": {
@@ -1054,6 +1264,35 @@
           "phone"
         ],
         "title": "PatientCreate",
+        "type": "object"
+      },
+      "PatientLinkBody": {
+        "properties": {
+          "display_id": {
+            "title": "Display Id",
+            "type": "string"
+          },
+          "full_name": {
+            "title": "Full Name",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "display_id",
+          "full_name",
+          "phone"
+        ],
+        "title": "PatientLinkBody",
         "type": "object"
       },
       "PatientListResponse": {
@@ -1714,7 +1953,11 @@
               "recall_completed",
               "recall_released",
               "recall_cancelled",
-              "document_uploaded"
+              "document_uploaded",
+              "lab_work_created",
+              "lab_work_ready",
+              "lab_work_collected",
+              "lab_work_cancelled"
             ],
             "title": "Kind",
             "type": "string"
@@ -1743,6 +1986,9 @@
               },
               {
                 "$ref": "#/components/schemas/DocumentSubjectBody"
+              },
+              {
+                "$ref": "#/components/schemas/LabWorkSubjectBody"
               },
               {
                 "type": "null"
@@ -2043,6 +2289,26 @@
             "enum": [
               "started",
               "completed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "StatusBody",
+        "type": "object"
+      },
+      "dentacircle__api__lab_work__StatusBody": {
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "enum": [
+              "pending",
+              "ready",
+              "collected",
               "cancelled"
             ],
             "title": "Status",
@@ -3502,6 +3768,194 @@
         "summary": "Ready"
       }
     },
+    "/lab-work": {
+      "get": {
+        "operationId": "get_clinic_lab_work_lab_work_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "open",
+              "enum": [
+                "open",
+                "all"
+              ],
+              "title": "View",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 92233720368547759,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabWorkListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "summary": "Get Clinic Lab Work"
+      }
+    },
+    "/lab-work/{lab_work_id}": {
+      "get": {
+        "operationId": "get_one_lab_work_lab_work__lab_work_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lab_work_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Lab Work Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabWorkBody"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get One Lab Work"
+      }
+    },
+    "/lab-work/{lab_work_id}/status": {
+      "post": {
+        "operationId": "post_lab_work_status_lab_work__lab_work_id__status_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "lab_work_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Lab Work Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/dentacircle__api__lab_work__StatusBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabWorkBody"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "invalid_status"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "summary": "Post Lab Work Status"
+      }
+    },
     "/patients": {
       "get": {
         "operationId": "get_patients_patients_get",
@@ -3963,6 +4417,23 @@
               ],
               "title": "Follow Up Id"
             }
+          },
+          {
+            "in": "query",
+            "name": "lab_work_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lab Work Id"
+            }
           }
         ],
         "responses": {
@@ -4045,6 +4516,23 @@
                 }
               ],
               "title": "Follow Up Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lab_work_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lab Work Id"
             }
           },
           {
@@ -4474,6 +4962,148 @@
           }
         },
         "summary": "Post Follow Up"
+      }
+    },
+    "/patients/{patient_id}/lab-work": {
+      "get": {
+        "operationId": "get_patient_lab_work_patients__patient_id__lab_work_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 92233720368547759,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabWorkListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "summary": "Get Patient Lab Work"
+      },
+      "post": {
+        "operationId": "post_lab_work_patients__patient_id__lab_work_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateLabWorkBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabWorkBody"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "patient_inactive"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "summary": "Post Lab Work"
       }
     },
     "/patients/{patient_id}/status": {

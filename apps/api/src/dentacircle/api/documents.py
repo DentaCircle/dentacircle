@@ -35,6 +35,7 @@ from dentacircle.services.document_service import (
     DocumentPatientInactiveError,
     DocumentView,
     FollowUpLinkView,
+    LabWorkLinkView,
     get_document,
     list_documents,
     open_document,
@@ -76,6 +77,12 @@ class FollowUpLinkBody(BaseModel):
     due_on: date
 
 
+class LabWorkLinkBody(BaseModel):
+    id: UUID
+    title: str
+    status: str
+
+
 class DocumentBody(BaseModel):
     id: UUID
     filename: str
@@ -85,6 +92,7 @@ class DocumentBody(BaseModel):
     uploaded_by: UploaderBody
     appointment: AppointmentLinkBody | None
     follow_up: FollowUpLinkBody | None
+    lab_work: LabWorkLinkBody | None
 
 
 class DocumentLinksUpdate(BaseModel):
@@ -94,6 +102,7 @@ class DocumentLinksUpdate(BaseModel):
 
     appointment_id: UUID | None = None
     follow_up_id: UUID | None = None
+    lab_work_id: UUID | None = None
 
     @model_validator(mode="after")
     def at_least_one_field(self) -> "DocumentLinksUpdate":
@@ -173,6 +182,7 @@ async def post_document(
     storage: StorageDep,
     appointment_id: Annotated[UUID | None, Query()] = None,
     follow_up_id: Annotated[UUID | None, Query()] = None,
+    lab_work_id: Annotated[UUID | None, Query()] = None,
 ) -> DocumentBody:
     """The raw file is the request body. The name is in a header so access logs stay clean."""
     try:
@@ -198,6 +208,7 @@ async def post_document(
             data,
             appointment_id=appointment_id,
             follow_up_id=follow_up_id,
+            lab_work_id=lab_work_id,
         )
     except DocumentFieldError as exc:
         raise _field_error(exc) from None
@@ -221,6 +232,7 @@ def get_documents(
     page_size: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
     appointment_id: Annotated[UUID | None, Query()] = None,
     follow_up_id: Annotated[UUID | None, Query()] = None,
+    lab_work_id: Annotated[UUID | None, Query()] = None,
 ) -> DocumentListResponse:
     try:
         found = list_documents(
@@ -231,6 +243,7 @@ def get_documents(
             page_size,
             appointment_id=appointment_id,
             follow_up_id=follow_up_id,
+            lab_work_id=lab_work_id,
         )
     except (PatientNotFoundError, ClinicNotFoundError):
         raise HTTPException(status_code=404) from None
@@ -278,6 +291,8 @@ def patch_document_links(
             appointment_id=body.appointment_id,
             set_follow_up="follow_up_id" in body.model_fields_set,
             follow_up_id=body.follow_up_id,
+            set_lab_work="lab_work_id" in body.model_fields_set,
+            lab_work_id=body.lab_work_id,
         )
     except (DocumentNotFoundError, PatientNotFoundError, ClinicNotFoundError):
         raise HTTPException(status_code=404) from None
@@ -343,6 +358,7 @@ def _document(row: DocumentView) -> DocumentBody:
         uploaded_by=UploaderBody(id=row.uploaded_by.id, name=row.uploaded_by.name),
         appointment=_appointment_link(row.appointment),
         follow_up=_follow_up_link(row.follow_up),
+        lab_work=_lab_work_link(row.lab_work),
     )
 
 
@@ -350,6 +366,12 @@ def _appointment_link(link: AppointmentLinkView | None) -> AppointmentLinkBody |
     if link is None:
         return None
     return AppointmentLinkBody(id=link.id, starts_at=link.starts_at, type_name=link.type_name)
+
+
+def _lab_work_link(link: LabWorkLinkView | None) -> LabWorkLinkBody | None:
+    if link is None:
+        return None
+    return LabWorkLinkBody(id=link.id, title=link.title, status=link.status)
 
 
 def _follow_up_link(link: FollowUpLinkView | None) -> FollowUpLinkBody | None:

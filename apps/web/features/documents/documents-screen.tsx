@@ -40,7 +40,9 @@ export function DocumentsScreen({
       ? "No documents for this visit yet."
       : context?.kind === "follow-up"
         ? "No documents for this follow-up yet."
-        : "No documents for this patient yet.";
+        : context?.kind === "lab"
+          ? "No documents for this lab work yet."
+          : "No documents for this patient yet.";
   return (
     <section className="flex max-w-lg flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">

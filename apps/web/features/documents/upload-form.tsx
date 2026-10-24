@@ -46,7 +46,9 @@ export function UploadForm({
           ? { appointmentId: context.id }
           : context?.kind === "follow-up"
             ? { followUpId: context.id }
-            : undefined;
+            : context?.kind === "lab"
+              ? { labWorkId: context.id }
+              : undefined;
       const result = await uploadDocument(patientId, file, filter);
       if (!result.ok) {
         setMessage(uploadFailure(result.error));

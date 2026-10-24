@@ -275,6 +275,76 @@ def create_manual_follow_up(
     return _view(follow_up)
 
 
+def place_follow_up_for_ready_lab(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    patient: Patient,
+    today: date,
+    occurred_at: datetime,
+) -> None:
+    """Create or pull forward the open follow-up when lab work becomes ready.
+
+    The caller has already locked the patient, then the lab row. This locks the
+    follow-up after those two. An inactive patient is left unchanged. A booked
+    follow-up, and one already due, are left unchanged. Collecting or cancelling
+    lab work does not call this.
+    """
+    if patient.status != "active":
+        return
+    repository = FollowUpRepository(session, clinic_id)
+    existing = repository.get_open(patient.id, lock=True)
+    if existing is None:
+        follow_up = FollowUp(
+            id=uuid4(),
+            patient_id=patient.id,
+            appointment_id=None,
+            status="scheduled",
+            due_on=today,
+        )
+        repository.add(follow_up)
+        record(
+            session,
+            clinic_id,
+            actor_user_id,
+            "follow_up",
+            follow_up.id,
+            "create",
+            changed_fields=[],
+        )
+        record_timeline(
+            session,
+            clinic_id,
+            actor_user_id,
+            patient.id,
+            "follow_up_created",
+            follow_up_id=follow_up.id,
+            occurred_at=occurred_at,
+        )
+        return
+    if existing.status == "booked" or existing.due_on <= today:
+        return
+    existing.due_on = today
+    record(
+        session,
+        clinic_id,
+        actor_user_id,
+        "follow_up",
+        existing.id,
+        "update",
+        changed_fields=["due_on"],
+    )
+    record_timeline(
+        session,
+        clinic_id,
+        actor_user_id,
+        patient.id,
+        "follow_up_updated",
+        follow_up_id=existing.id,
+        occurred_at=occurred_at,
+    )
+
+
 def get_open_follow_up(session: Session, clinic_id: UUID, patient_id: UUID) -> FollowUpView | None:
     """The patient's open follow-up, or none. A missing patient is not an empty result."""
     if PatientRepository(session, clinic_id).get(patient_id) is None:

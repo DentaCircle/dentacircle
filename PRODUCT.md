@@ -285,6 +285,22 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   constraints. Upload writes the timeline row in the same transaction as the document row; link
   changes do not. No backfill for S3.1 uploads. The timeline response includes the current
   filename read live. Link updates write `document` `update` audit with field names only.
+- **Lab work (decided in S3.3):** external lab work is tracked per patient, with statuses that
+  follow the patient, not the clinic-to-lab hand-off: `pending` (requested, not back),
+  `ready` (back at the clinic, waiting for the patient), `collected` (the patient took it),
+  `cancelled`. Moves: `pending` to `ready` or `cancelled`, `ready` to `collected` or
+  `cancelled`. No skipping, `collected` and `cancelled` are final, no undo. A title (up to 200
+  characters) and optional expected date and related visit; no notes, lab name or cost.
+  `clinician`, `receptionist` and `clinic_admin` read and write; `inventory_admin` may not.
+  New work is refused for an inactive patient, but its open work can still move. `overdue` is
+  calculated (a `pending` item past its expected date), never stored. Marking `ready` for an
+  active patient creates an open follow-up due today with no visit, or pulls a `scheduled` or
+  `contacted` follow-up forward to today and keeps its status. A `booked` follow-up is left
+  alone. Collecting or cancelling touches no follow-up, and the coordinator closes it.
+  Documents link to one lab item (nullable `document.lab_work_id`, same rules as the visit and
+  follow-up links; linking starts from the lab row). Lab timeline kinds `lab_work_created`,
+  `lab_work_ready`, `lab_work_collected` and `lab_work_cancelled` need migration `0017` to
+  recreate the timeline check constraints, approved here. Audit rows list field names only.
 
 ## Open decisions (need the developer's call)
 
@@ -448,4 +464,15 @@ or unlink. Link changes write a `document` update audit with field names only; i
 cannot change links. A successful upload writes one `document` create audit event and a
 `document_uploaded` timeline row in the same transaction as the row, without the filename in
 audit. Inactive patients cannot upload; existing files stay readable. `inventory_admin` is
-refused. There is no delete, rename, or lab links yet (S3.3).
+refused. A document may also link to one lab item for the same patient; staff set or clear that
+link at upload, from a lab-filtered documents page, or with `PATCH`. Link changes write a
+`document` update audit with field names only. There is no delete or rename yet.
+
+The same three roles can record external lab work per patient on `/patients/[id]/lab` and on
+the clinic `/lab` list (Open and All). Statuses are pending, ready, collected and cancelled,
+with the moves in PRODUCT decisions above. Marking ready for an active patient creates or pulls
+forward an open follow-up due today. Each row links to documents filtered by that lab item.
+Lab rows show on the patient timeline. Status moves and creates write `lab_work` audit events
+and the four lab timeline kinds in the same transaction as the row (migration `0017`).
+`inventory_admin` is refused. New lab work is refused for an inactive patient; existing items
+can still move and list.

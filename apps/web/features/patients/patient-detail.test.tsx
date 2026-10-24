@@ -48,6 +48,10 @@ test("shows the patient, an edit link and a status button", () => {
     "href",
     "/patients/00000000-0000-4000-8000-000000000010/care",
   );
+  expect(screen.getByRole("link", { name: "Lab" })).toHaveAttribute(
+    "href",
+    `/patients/${patient.id}/lab`,
+  );
   expect(screen.getByRole("link", { name: "Documents" })).toHaveAttribute(
     "href",
     "/patients/00000000-0000-4000-8000-000000000010/documents",

@@ -68,6 +68,11 @@ class TimelineEvent(Base):
             ["document.id", "document.clinic_id"],
             name="fk_timeline_event_document_id_clinic_id",
         ),
+        ForeignKeyConstraint(
+            ["lab_work_id", "clinic_id"],
+            ["lab_work.id", "lab_work.clinic_id"],
+            name="fk_timeline_event_lab_work_id_clinic_id",
+        ),
         Index(
             "ix_timeline_event_patient_order",
             "clinic_id",
@@ -92,3 +97,4 @@ class TimelineEvent(Base):
     follow_up_id: Mapped[UUID | None] = mapped_column()
     recall_id: Mapped[UUID | None] = mapped_column()
     document_id: Mapped[UUID | None] = mapped_column()
+    lab_work_id: Mapped[UUID | None] = mapped_column()

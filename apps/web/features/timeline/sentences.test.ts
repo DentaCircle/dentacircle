@@ -33,6 +33,9 @@ test("care, follow-up, recall and registration each have a sentence", () => {
       item("document_uploaded", { document_id: "doc-1", filename: "report.pdf" }),
     ),
   ).toBe("Document uploaded: report.pdf");
+  expect(
+    entrySentence(item("lab_work_ready", { lab_work_id: "lab-1", title: "Crown" })),
+  ).toBe("Lab work ready: Crown");
 });
 
 function item(kind: TimelineItem["kind"], subject: TimelineItem["subject"]): TimelineItem {

@@ -223,7 +223,11 @@ export type TimelineKind =
   | "recall_completed"
   | "recall_released"
   | "recall_cancelled"
-  | "document_uploaded";
+  | "document_uploaded"
+  | "lab_work_created"
+  | "lab_work_ready"
+  | "lab_work_collected"
+  | "lab_work_cancelled";
 
 export type TimelineVisitSubject = {
   appointment_id: string;
@@ -242,6 +246,8 @@ export type TimelineRecallSubject = { due_on: string; type_name: string };
 
 export type TimelineDocumentSubject = { document_id: string; filename: string };
 
+export type TimelineLabWorkSubject = { lab_work_id: string; title: string };
+
 export type TimelineSubject =
   | TimelineVisitSubject
   | TimelineCareItemSubject
@@ -249,6 +255,7 @@ export type TimelineSubject =
   | TimelineFollowUpSubject
   | TimelineRecallSubject
   | TimelineDocumentSubject
+  | TimelineLabWorkSubject
   | null;
 
 export type TimelineItem = {
@@ -276,6 +283,8 @@ export type DocumentAppointmentLink = {
 
 export type DocumentFollowUpLink = { id: string; due_on: string };
 
+export type DocumentLabWorkLink = { id: string; title: string; status: LabWorkStatus };
+
 export type DocumentItem = {
   id: string;
   filename: string;
@@ -285,6 +294,7 @@ export type DocumentItem = {
   uploaded_by: { id: string; name: string };
   appointment: DocumentAppointmentLink | null;
   follow_up: DocumentFollowUpLink | null;
+  lab_work: DocumentLabWorkLink | null;
 };
 
 export type DocumentPage = {
@@ -323,6 +333,10 @@ const TIMELINE_KINDS: readonly TimelineKind[] = [
   "recall_released",
   "recall_cancelled",
   "document_uploaded",
+  "lab_work_created",
+  "lab_work_ready",
+  "lab_work_collected",
+  "lab_work_cancelled",
 ];
 
 export function listTimeline(
@@ -345,6 +359,7 @@ export function listTimeline(
 export type DocumentListFilter = {
   appointmentId?: string;
   followUpId?: string;
+  labWorkId?: string;
 };
 
 export function listDocuments(
@@ -360,6 +375,7 @@ export function listDocuments(
   });
   if (filter?.appointmentId) params.set("appointment_id", filter.appointmentId);
   if (filter?.followUpId) params.set("follow_up_id", filter.followUpId);
+  if (filter?.labWorkId) params.set("lab_work_id", filter.labWorkId);
   return getJson(
     `/patients/${encodeURIComponent(patientId)}/documents?${params.toString()}`,
     documentPageData,
@@ -417,6 +433,7 @@ export async function uploadDocument(
   const params = new URLSearchParams();
   if (filter?.appointmentId) params.set("appointment_id", filter.appointmentId);
   if (filter?.followUpId) params.set("follow_up_id", filter.followUpId);
+  if (filter?.labWorkId) params.set("lab_work_id", filter.labWorkId);
   const query = params.toString() === "" ? "" : `?${params.toString()}`;
   return sendRequest(
     `/api/patients/${encodeURIComponent(patientId)}/documents${query}`,
@@ -432,10 +449,96 @@ export async function uploadDocument(
   );
 }
 
+export type LabWorkStatus = "pending" | "ready" | "collected" | "cancelled";
+
+export type LabWorkListView = "open" | "all";
+
+export type LabWorkItem = {
+  id: string;
+  status: LabWorkStatus;
+  title: string;
+  expected_on: string | null;
+  overdue: boolean;
+  appointment: DocumentAppointmentLink | null;
+  patient: { id: string; display_id: string; full_name: string; phone: string };
+  created_at: string;
+  created_by: { id: string; name: string };
+};
+
+export type LabWorkPage = {
+  items: LabWorkItem[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export function getLabWork(
+  cookieHeader: string,
+  labWorkId: string,
+): Promise<ApiResult<LabWorkItem>> {
+  return getJson(
+    `/lab-work/${encodeURIComponent(labWorkId)}`,
+    labWorkItemData,
+    cookieHeaders(cookieHeader),
+  );
+}
+
+export function listPatientLabWork(
+  cookieHeader: string,
+  patientId: string,
+  page: number,
+  pageSize = 20,
+): Promise<ApiResult<LabWorkPage>> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  return getJson(
+    `/patients/${encodeURIComponent(patientId)}/lab-work?${params.toString()}`,
+    labWorkPageData,
+    cookieHeaders(cookieHeader),
+  );
+}
+
+export function listClinicLabWork(
+  cookieHeader: string,
+  view: LabWorkListView,
+  page: number,
+  pageSize = 20,
+): Promise<ApiResult<LabWorkPage>> {
+  const params = new URLSearchParams({
+    view,
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  return getJson(`/lab-work?${params.toString()}`, labWorkPageData, cookieHeaders(cookieHeader));
+}
+
+export function createLabWork(
+  patientId: string,
+  title: string,
+  expectedOn: string,
+): Promise<ApiResult<null>> {
+  const body: { title: string; expected_on?: string } = { title };
+  if (expectedOn !== "") body.expected_on = expectedOn;
+  return sendJson("POST", `/api/patients/${encodeURIComponent(patientId)}/lab-work`, body);
+}
+
+export function changeLabWorkStatus(
+  labWorkId: string,
+  status: "ready" | "collected" | "cancelled",
+): Promise<ApiResult<null>> {
+  return sendJson("POST", `/api/lab-work/${encodeURIComponent(labWorkId)}/status`, { status });
+}
+
 export function updateDocumentLinks(
   patientId: string,
   documentId: string,
-  body: { appointment_id?: string | null; follow_up_id?: string | null },
+  body: {
+    appointment_id?: string | null;
+    follow_up_id?: string | null;
+    lab_work_id?: string | null;
+  },
 ): Promise<ApiResult<null>> {
   return sendJson(
     "PATCH",
@@ -964,7 +1067,16 @@ function timelineSubjectData(kind: TimelineKind, value: unknown): TimelineSubjec
   if (kind.startsWith("follow_up_")) return followUpSubjectData(value);
   if (kind.startsWith("recall_")) return recallSubjectData(value);
   if (kind === "document_uploaded") return documentSubjectData(value);
+  if (kind.startsWith("lab_work_")) return labWorkSubjectData(value);
   return undefined;
+}
+
+function labWorkSubjectData(value: unknown): TimelineLabWorkSubject | undefined {
+  if (!isRecord(value)) return undefined;
+  const labWorkId = stringField(value, "lab_work_id");
+  const title = stringField(value, "title");
+  if (labWorkId === null || title === null) return undefined;
+  return { lab_work_id: labWorkId, title };
 }
 
 function documentSubjectData(value: unknown): TimelineDocumentSubject | undefined {
@@ -1050,7 +1162,15 @@ function documentItemData(value: unknown): DocumentItem | null {
   const uploadedBy = timelineActorData(value.uploaded_by);
   const appointment = documentAppointmentData(value.appointment);
   const followUp = documentFollowUpData(value.follow_up);
-  if (uploadedBy === null || appointment === undefined || followUp === undefined) return null;
+  const labWork = documentLabWorkData(value.lab_work);
+  if (
+    uploadedBy === null ||
+    appointment === undefined ||
+    followUp === undefined ||
+    labWork === undefined
+  ) {
+    return null;
+  }
   return {
     id,
     filename,
@@ -1060,7 +1180,76 @@ function documentItemData(value: unknown): DocumentItem | null {
     uploaded_by: uploadedBy,
     appointment,
     follow_up: followUp,
+    lab_work: labWork,
   };
+}
+
+function isLabWorkStatus(value: unknown): value is LabWorkStatus {
+  return value === "pending" || value === "ready" || value === "collected" || value === "cancelled";
+}
+
+function labWorkPageData(value: unknown): LabWorkPage | null {
+  if (!isRecord(value) || !Array.isArray(value.items)) return null;
+  const page = numberField(value, "page");
+  const pageSize = numberField(value, "page_size");
+  const total = numberField(value, "total");
+  if (page === null || pageSize === null || total === null) return null;
+  const items: LabWorkItem[] = [];
+  for (const item of value.items) {
+    const row = labWorkItemData(item);
+    if (row === null) return null;
+    items.push(row);
+  }
+  return { items, page, page_size: pageSize, total };
+}
+
+function labWorkItemData(value: unknown): LabWorkItem | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const title = stringField(value, "title");
+  const createdAt = stringField(value, "created_at");
+  const status = value.status;
+  if (id === null || title === null || createdAt === null || !isLabWorkStatus(status)) return null;
+  if (typeof value.overdue !== "boolean") return null;
+  const expectedOn = value.expected_on;
+  if (expectedOn !== null && typeof expectedOn !== "string") return null;
+  const appointment = documentAppointmentData(value.appointment);
+  const patient = labPatientData(value.patient);
+  const createdBy = timelineActorData(value.created_by);
+  if (appointment === undefined || patient === null || createdBy === null) return null;
+  return {
+    id,
+    status,
+    title,
+    expected_on: expectedOn,
+    overdue: value.overdue,
+    appointment,
+    patient,
+    created_at: createdAt,
+    created_by: createdBy,
+  };
+}
+
+function labPatientData(
+  value: unknown,
+): { id: string; display_id: string; full_name: string; phone: string } | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const displayId = stringField(value, "display_id");
+  const fullName = stringField(value, "full_name");
+  const phone = stringField(value, "phone");
+  if (id === null || displayId === null || fullName === null || phone === null) return null;
+  return { id, display_id: displayId, full_name: fullName, phone };
+}
+
+function documentLabWorkData(value: unknown): DocumentLabWorkLink | null | undefined {
+  if (value === null) return null;
+  if (!isRecord(value)) return undefined;
+  const id = stringField(value, "id");
+  const title = stringField(value, "title");
+  const status = value.status;
+  if (id === null || title === null || !isLabWorkStatus(status)) return undefined;
+  return { id, title, status };
 }
 
 function documentAppointmentData(value: unknown): DocumentAppointmentLink | null | undefined {
