@@ -514,6 +514,135 @@ export function listClinicLabWork(
   return getJson(`/lab-work?${params.toString()}`, labWorkPageData, cookieHeaders(cookieHeader));
 }
 
+export type InventoryCategory = { id: string; name: string; item_count: number };
+export type InventoryItemStatus = "active" | "inactive";
+export type InventoryListStatus = "active" | "inactive" | "all";
+export type InventoryItem = {
+  id: string;
+  name: string;
+  category: { id: string; name: string };
+  unit: string;
+  low_stock_threshold: number;
+  status: InventoryItemStatus;
+  batch_count: number;
+};
+export type InventoryBatch = {
+  id: string;
+  batch_number: string;
+  expiry_on: string | null;
+  expired: boolean;
+  created_at: string;
+};
+export type InventoryItemDetail = InventoryItem & { batches: InventoryBatch[] };
+export type InventoryItemPage = {
+  items: InventoryItem[];
+  total: number;
+  page: number;
+  page_size: number;
+};
+
+export function listInventoryCategories(
+  cookieHeader: string,
+): Promise<ApiResult<InventoryCategory[]>> {
+  return getJson("/inventory/categories", inventoryCategoryListData, cookieHeaders(cookieHeader));
+}
+
+export function listInventoryItems(
+  cookieHeader: string,
+  status: InventoryListStatus,
+  categoryId: string,
+  query: string,
+  page: number,
+): Promise<ApiResult<InventoryItemPage>> {
+  const params = new URLSearchParams({
+    status,
+    page: String(page),
+    page_size: "20",
+  });
+  if (categoryId !== "") params.set("category_id", categoryId);
+  if (query !== "") params.set("q", query);
+  return getJson(
+    `/inventory/items?${params.toString()}`,
+    inventoryItemPageData,
+    cookieHeaders(cookieHeader),
+  );
+}
+
+export function getInventoryItem(
+  cookieHeader: string,
+  itemId: string,
+): Promise<ApiResult<InventoryItemDetail>> {
+  return getJson(
+    `/inventory/items/${encodeURIComponent(itemId)}`,
+    inventoryItemDetailData,
+    cookieHeaders(cookieHeader),
+  );
+}
+
+export function createInventoryCategory(name: string): Promise<ApiResult<null>> {
+  return sendJson("POST", "/api/inventory/categories", { name });
+}
+
+export function renameInventoryCategory(categoryId: string, name: string): Promise<ApiResult<null>> {
+  return sendJson("PATCH", `/api/inventory/categories/${encodeURIComponent(categoryId)}`, { name });
+}
+
+export function createInventoryItem(input: {
+  name: string;
+  categoryId: string;
+  unit: string;
+  lowStockThreshold: string;
+}): Promise<ApiResult<null>> {
+  const threshold = Number(input.lowStockThreshold);
+  return sendJson("POST", "/api/inventory/items", {
+    name: input.name,
+    category_id: input.categoryId,
+    unit: input.unit,
+    low_stock_threshold: Number.isInteger(threshold) ? threshold : input.lowStockThreshold,
+  });
+}
+
+export function updateInventoryItem(
+  itemId: string,
+  input: { name: string; categoryId: string; unit: string; lowStockThreshold: string },
+): Promise<ApiResult<null>> {
+  const threshold = Number(input.lowStockThreshold);
+  return sendJson("PATCH", `/api/inventory/items/${encodeURIComponent(itemId)}`, {
+    name: input.name,
+    category_id: input.categoryId,
+    unit: input.unit,
+    low_stock_threshold: Number.isInteger(threshold) ? threshold : input.lowStockThreshold,
+  });
+}
+
+export function setInventoryItemStatus(
+  itemId: string,
+  status: InventoryItemStatus,
+): Promise<ApiResult<null>> {
+  return sendJson("POST", `/api/inventory/items/${encodeURIComponent(itemId)}/status`, { status });
+}
+
+export function createInventoryBatch(
+  itemId: string,
+  batchNumber: string,
+  expiryOn: string,
+): Promise<ApiResult<null>> {
+  const body: { batch_number: string; expiry_on?: string } = { batch_number: batchNumber };
+  if (expiryOn !== "") body.expiry_on = expiryOn;
+  return sendJson("POST", `/api/inventory/items/${encodeURIComponent(itemId)}/batches`, body);
+}
+
+export function updateInventoryBatch(
+  batchId: string,
+  batchNumber: string,
+  expiryOn: string,
+): Promise<ApiResult<null>> {
+  return sendJson("PATCH", `/api/inventory/batches/${encodeURIComponent(batchId)}`, {
+    batch_number: batchNumber,
+    expiry_on: expiryOn === "" ? null : expiryOn,
+  });
+}
+
 export function createLabWork(
   patientId: string,
   title: string,
@@ -1431,6 +1560,103 @@ function careItemData(value: unknown): CareItem | null {
     return null;
   }
   return { id, name, status, created_at: createdAt };
+}
+
+function inventoryCategoryListData(value: unknown): InventoryCategory[] | null {
+  if (!Array.isArray(value)) return null;
+  const categories: InventoryCategory[] = [];
+  for (const item of value) {
+    const category = inventoryCategoryData(item);
+    if (category === null) return null;
+    categories.push(category);
+  }
+  return categories;
+}
+
+function inventoryCategoryData(value: unknown): InventoryCategory | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const name = stringField(value, "name");
+  const itemCount = numberField(value, "item_count");
+  if (id === null || name === null || itemCount === null) return null;
+  return { id, name, item_count: itemCount };
+}
+
+function inventoryItemPageData(value: unknown): InventoryItemPage | null {
+  if (!isRecord(value) || !Array.isArray(value.items)) return null;
+  const page = numberField(value, "page");
+  const pageSize = numberField(value, "page_size");
+  const total = numberField(value, "total");
+  if (page === null || pageSize === null || total === null) return null;
+  const items: InventoryItem[] = [];
+  for (const item of value.items) {
+    const row = inventoryItemData(item);
+    if (row === null) return null;
+    items.push(row);
+  }
+  return { items, page, page_size: pageSize, total };
+}
+
+function inventoryItemDetailData(value: unknown): InventoryItemDetail | null {
+  const item = inventoryItemData(value);
+  if (item === null || !isRecord(value) || !Array.isArray(value.batches)) return null;
+  const batches: InventoryBatch[] = [];
+  for (const batch of value.batches) {
+    const row = inventoryBatchData(batch);
+    if (row === null) return null;
+    batches.push(row);
+  }
+  return { ...item, batches };
+}
+
+function inventoryItemData(value: unknown): InventoryItem | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const name = stringField(value, "name");
+  const unit = stringField(value, "unit");
+  const threshold = numberField(value, "low_stock_threshold");
+  const batchCount = numberField(value, "batch_count");
+  const status = value.status;
+  const category = inventoryCategoryLinkData(value.category);
+  if (id === null || name === null || unit === null || threshold === null || batchCount === null) {
+    return null;
+  }
+  if (category === null || (status !== "active" && status !== "inactive")) return null;
+  return {
+    id,
+    name,
+    category,
+    unit,
+    low_stock_threshold: threshold,
+    status,
+    batch_count: batchCount,
+  };
+}
+
+function inventoryCategoryLinkData(value: unknown): { id: string; name: string } | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const name = stringField(value, "name");
+  if (id === null || name === null) return null;
+  return { id, name };
+}
+
+function inventoryBatchData(value: unknown): InventoryBatch | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const batchNumber = stringField(value, "batch_number");
+  const createdAt = stringField(value, "created_at");
+  const expiry = value.expiry_on;
+  if (id === null || batchNumber === null || createdAt === null) return null;
+  if (expiry !== null && typeof expiry !== "string") return null;
+  if (typeof value.expired !== "boolean") return null;
+  return {
+    id,
+    batch_number: batchNumber,
+    expiry_on: expiry,
+    expired: value.expired,
+    created_at: createdAt,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
