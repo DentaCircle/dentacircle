@@ -37,6 +37,7 @@ _SESSION = "17171717-1717-1717-1717-171717171717"
 _FOLLOW_UP = "18181818-1818-1818-1818-181818181818"
 _RECALL = "19191919-1919-1919-1919-191919191919"
 _DOCUMENT = "21212121-2121-2121-2121-212121212121"
+_LAB = "23232323-2323-2323-2323-232323232323"
 
 _COLUMNS = {
     "id",
@@ -52,6 +53,7 @@ _COLUMNS = {
     "follow_up_id",
     "recall_id",
     "document_id",
+    "lab_work_id",
 }
 
 
@@ -68,7 +70,7 @@ def test_upgrade_downgrade_upgrade(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0016_document_links"
+    assert _version(throwaway_database_url) == "0017_lab_work"
     assert "timeline_event" in _public_tables(throwaway_database_url)
     assert _columns(throwaway_database_url) == _COLUMNS
     assert "DESC" in _index_def(throwaway_database_url)
@@ -79,7 +81,7 @@ def test_upgrade_downgrade_upgrade(
     assert "recall" in _public_tables(throwaway_database_url)
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0016_document_links"
+    assert _version(throwaway_database_url) == "0017_lab_work"
     assert "timeline_event" in _public_tables(throwaway_database_url)
 
 
@@ -105,7 +107,7 @@ def test_downgrade_removes_document_uploaded_rows_before_the_old_check(
     assert kinds == ["patient_registered"]
     assert ids == [kept]
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0016_document_links"
+    assert _version(throwaway_database_url) == "0017_lab_work"
     assert "document_id" in _columns(throwaway_database_url)
     clear_engine()
     with Session(get_engine()) as session:
@@ -216,6 +218,7 @@ def _subject_for(kind: str) -> dict[str, str]:
         "follow_up_id": _FOLLOW_UP,
         "recall_id": _RECALL,
         "document_id": _DOCUMENT,
+        "lab_work_id": _LAB,
     }
     return {column: ids[column]}
 
@@ -232,6 +235,7 @@ def _insert(
     follow_up_id: str | None = None,
     recall_id: str | None = None,
     document_id: str | None = None,
+    lab_work_id: str | None = None,
 ) -> str:
     event_id = str(uuid4())
     session.execute(
@@ -239,10 +243,10 @@ def _insert(
             "INSERT INTO timeline_event"
             " (id, clinic_id, patient_id, actor_user_id, kind,"
             "  appointment_id, care_item_id, care_session_id, follow_up_id, recall_id,"
-            "  document_id)"
+            "  document_id, lab_work_id)"
             " VALUES (:id, :clinic_id, :patient_id, :actor_user_id, :kind,"
             "  :appointment_id, :care_item_id, :care_session_id, :follow_up_id, :recall_id,"
-            "  :document_id)"
+            "  :document_id, :lab_work_id)"
         ),
         {
             "id": event_id,
@@ -256,6 +260,7 @@ def _insert(
             "follow_up_id": follow_up_id,
             "recall_id": recall_id,
             "document_id": document_id,
+            "lab_work_id": lab_work_id,
         },
     )
     return event_id
@@ -353,6 +358,14 @@ def _seed(session: Session) -> None:
             "user_id": _USER,
             "storage_key": f"{_CLINIC}/{_DOCUMENT}",
         },
+    )
+    session.execute(
+        text(
+            "INSERT INTO lab_work"
+            " (id, clinic_id, patient_id, title, status, created_by_user_id)"
+            " VALUES (:id, :clinic_id, :patient_id, 'Crown', 'pending', :user_id)"
+        ),
+        {"id": _LAB, "clinic_id": _CLINIC, "patient_id": _PATIENT, "user_id": _USER},
     )
 
 

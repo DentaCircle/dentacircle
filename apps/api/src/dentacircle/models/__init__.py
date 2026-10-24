@@ -12,6 +12,7 @@ from dentacircle.models.care_session_item import CareSessionItem
 from dentacircle.models.clinic import Clinic
 from dentacircle.models.document import Document
 from dentacircle.models.follow_up import FollowUp
+from dentacircle.models.lab_work import LabWork
 from dentacircle.models.patient import Patient
 from dentacircle.models.patient_number_counter import PatientNumberCounter
 from dentacircle.models.recall import Recall
@@ -33,6 +34,7 @@ __all__ = [
     "ClinicWorkingHours",
     "Document",
     "FollowUp",
+    "LabWork",
     "Patient",
     "PatientNumberCounter",
     "Recall",

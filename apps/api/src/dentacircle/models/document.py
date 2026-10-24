@@ -51,6 +51,11 @@ class Document(Base):
             ["follow_up.id", "follow_up.clinic_id"],
             name="fk_document_follow_up_id_clinic_id",
         ),
+        ForeignKeyConstraint(
+            ["lab_work_id", "clinic_id"],
+            ["lab_work.id", "lab_work.clinic_id"],
+            name="fk_document_lab_work_id_clinic_id",
+        ),
         Index(
             "ix_document_patient_order",
             "clinic_id",
@@ -60,6 +65,7 @@ class Document(Base):
         ),
         Index("ix_document_clinic_appointment", "clinic_id", "appointment_id"),
         Index("ix_document_clinic_follow_up", "clinic_id", "follow_up_id"),
+        Index("ix_document_clinic_lab_work", "clinic_id", "lab_work_id"),
     )
 
     id: Mapped[UUID] = mapped_column(primary_key=True)
@@ -72,4 +78,5 @@ class Document(Base):
     storage_key: Mapped[str] = mapped_column()
     appointment_id: Mapped[UUID | None] = mapped_column()
     follow_up_id: Mapped[UUID | None] = mapped_column()
+    lab_work_id: Mapped[UUID | None] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
