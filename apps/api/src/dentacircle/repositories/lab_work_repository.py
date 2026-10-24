@@ -2,10 +2,10 @@
 
 from collections.abc import Collection
 from datetime import datetime
-from typing import cast
+from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import Result, Select, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from dentacircle.core.tenancy import scoped_select
@@ -42,10 +42,10 @@ class LabWorkRepository:
 
     def get_with_patient(self, lab_work_id: UUID) -> tuple[LabWork, Patient] | None:
         statement = self._joined().where(LabWork.id == lab_work_id)
-        row = self._session.execute(statement).one_or_none()
-        if row is None:
+        found = self._session.execute(statement).one_or_none()
+        if found is None:
             return None
-        lab_work, patient = row
+        lab_work, patient = found
         return lab_work, patient
 
     def list_for_patient(
@@ -61,7 +61,8 @@ class LabWorkRepository:
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
-        return _rows(self._session.execute(statement)), int(total or 0)
+        rows = self._session.execute(statement).all()
+        return [(lab_work, patient) for lab_work, patient in rows], int(total or 0)
 
     def list_for_clinic(
         self,
@@ -86,7 +87,8 @@ class LabWorkRepository:
             .offset((page - 1) * page_size)
             .limit(page_size)
         )
-        return _rows(self._session.execute(statement)), int(total or 0)
+        rows = self._session.execute(statement).all()
+        return [(lab_work, patient) for lab_work, patient in rows], int(total or 0)
 
     def appointment_links(self, appointment_ids: set[UUID]) -> dict[UUID, tuple[datetime, str]]:
         """Start and current type name, read live, for this clinic only."""
@@ -118,7 +120,7 @@ class LabWorkRepository:
         )
         return {row.id: row.full_name for row in rows}
 
-    def _joined(self) -> Select[tuple[LabWork, Patient]]:
+    def _joined(self) -> Any:
         return (
             select(LabWork, Patient)
             .join(
@@ -127,7 +129,3 @@ class LabWorkRepository:
             )
             .where(LabWork.clinic_id == self._clinic_id)
         )
-
-
-def _rows(found: Result[tuple[LabWork, Patient]]) -> list[tuple[LabWork, Patient]]:
-    return [(lab_work, patient) for lab_work, patient in found]

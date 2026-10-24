@@ -21,6 +21,7 @@ from dentacircle.services.timeline_service import (
     CareSessionSubject,
     DocumentSubject,
     FollowUpSubject,
+    LabWorkSubject,
     RecallSubject,
     TimelineItemView,
     VisitSubject,
@@ -60,6 +61,10 @@ TimelineKind = Literal[
     "recall_released",
     "recall_cancelled",
     "document_uploaded",
+    "lab_work_created",
+    "lab_work_ready",
+    "lab_work_collected",
+    "lab_work_cancelled",
 ]
 
 MAX_PAGE = (2**63 - 1) // MAX_PAGE_SIZE + 1
@@ -100,6 +105,11 @@ class DocumentSubjectBody(BaseModel):
     filename: str
 
 
+class LabWorkSubjectBody(BaseModel):
+    lab_work_id: UUID
+    title: str
+
+
 SubjectBody = (
     VisitSubjectBody
     | CareItemSubjectBody
@@ -107,6 +117,7 @@ SubjectBody = (
     | FollowUpSubjectBody
     | RecallSubjectBody
     | DocumentSubjectBody
+    | LabWorkSubjectBody
     | None
 )
 
@@ -198,4 +209,6 @@ def _subject(row: TimelineItemView) -> SubjectBody:
         return RecallSubjectBody(due_on=subject.due_on, type_name=subject.type_name)
     if isinstance(subject, DocumentSubject):
         return DocumentSubjectBody(document_id=subject.document_id, filename=subject.filename)
+    if isinstance(subject, LabWorkSubject):
+        return LabWorkSubjectBody(lab_work_id=subject.lab_work_id, title=subject.title)
     raise RuntimeError("timeline event has an unknown subject")
