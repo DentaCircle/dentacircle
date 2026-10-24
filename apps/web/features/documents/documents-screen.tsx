@@ -19,7 +19,6 @@ export type DocumentsScreenProps = {
   notice: DocumentNotice | null;
   context?: DocumentContext | null;
   contextHeading?: string | null;
-  linkable?: { id: string; filename: string }[];
 };
 
 export function DocumentsScreen({
@@ -34,7 +33,6 @@ export function DocumentsScreen({
   notice,
   context = null,
   contextHeading = null,
-  linkable = [],
 }: DocumentsScreenProps) {
   const isLoaded = status === "ready" || status === "empty";
   const emptyText =
@@ -66,7 +64,7 @@ export function DocumentsScreen({
         <UploadForm patientId={patientId} context={context} />
       ) : null}
       {isLoaded && context !== null ? (
-        <LinkExisting patientId={patientId} context={context} rows={linkable} />
+        <LinkExisting patientId={patientId} context={context} />
       ) : null}
       {status === "empty" ? <p>{emptyText}</p> : null}
       {status === "ready" ? (

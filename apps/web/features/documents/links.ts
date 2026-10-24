@@ -7,6 +7,20 @@ export type DocumentContext =
   | { kind: "visit"; id: string }
   | { kind: "follow-up"; id: string };
 
+/** The documents list refuses a larger page. The picker asks for the next page when there are more. */
+export const LINK_EXISTING_PAGE_SIZE = 100;
+
+export function isLinkedToContext(
+  item: {
+    appointment: { id: string } | null;
+    follow_up: { id: string } | null;
+  },
+  context: DocumentContext,
+): boolean {
+  if (context.kind === "visit") return item.appointment?.id === context.id;
+  return item.follow_up?.id === context.id;
+}
+
 export function documentsHref(
   patientId: string,
   page = 1,

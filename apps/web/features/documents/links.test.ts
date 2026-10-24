@@ -1,7 +1,12 @@
 import { expect, test } from "vitest";
 
 import { canUseDocuments } from "@/features/documents/access";
-import { documentsHref, downloadHref, pageFromQuery } from "@/features/documents/links";
+import {
+  documentsHref,
+  downloadHref,
+  isLinkedToContext,
+  pageFromQuery,
+} from "@/features/documents/links";
 import { documentRow } from "@/features/documents/rows";
 
 test("links are built from the ids", () => {
@@ -12,6 +17,17 @@ test("links are built from the ids", () => {
     "/patients/p-1/documents?page=1&appointment_id=visit-1",
   );
   expect(downloadHref("p-1", "d-1")).toBe("/api/patients/p-1/documents/d-1/file");
+});
+
+test("a document linked to this visit or follow-up is not offered again", () => {
+  const unlinked = { appointment: null, follow_up: null };
+  const visit = { appointment: { id: "visit-1" }, follow_up: null };
+  const followUp = { appointment: null, follow_up: { id: "fu-1" } };
+  expect(isLinkedToContext(unlinked, { kind: "visit", id: "visit-1" })).toBe(false);
+  expect(isLinkedToContext(visit, { kind: "visit", id: "visit-1" })).toBe(true);
+  expect(isLinkedToContext(visit, { kind: "visit", id: "visit-2" })).toBe(false);
+  expect(isLinkedToContext(followUp, { kind: "follow-up", id: "fu-1" })).toBe(true);
+  expect(isLinkedToContext(followUp, { kind: "visit", id: "visit-1" })).toBe(false);
 });
 
 test("a bad page falls back to 1", () => {

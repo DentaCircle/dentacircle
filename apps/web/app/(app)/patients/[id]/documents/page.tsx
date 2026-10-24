@@ -43,26 +43,13 @@ export default async function DocumentsPage({ params, searchParams }: DocumentsP
       : context?.kind === "follow-up"
         ? { followUpId: context.id }
         : undefined;
-  const [documents, patient, others] = await Promise.all([
+  const [documents, patient] = await Promise.all([
     listDocuments(cookieHeader, id, page, 20, filter),
     getPatient(cookieHeader, id),
-    context === null
-      ? Promise.resolve(null)
-      : listDocuments(cookieHeader, id, 1, 100),
   ]);
   if (!documents.ok) return <DocumentsScreen {...failureProps(documents.error, id, page)} />;
   if (!patient.ok) return <DocumentsScreen {...failureProps(patient.error, id, page)} />;
-  if (others !== null && !others.ok) {
-    return <DocumentsScreen {...failureProps(others.error, id, page)} />;
-  }
   const heading = await contextHeading(cookieHeader, id, context, documents.data.items);
-  const linkedIds = new Set(documents.data.items.map((item) => item.id));
-  const linkable =
-    others === null
-      ? []
-      : others.data.items
-          .filter((item) => !linkedIds.has(item.id) && !alreadyLinked(item, context))
-          .map((item) => ({ id: item.id, filename: item.filename }));
   return (
     <DocumentsScreen
       status={documents.data.total === 0 ? "empty" : "ready"}
@@ -76,7 +63,6 @@ export default async function DocumentsPage({ params, searchParams }: DocumentsP
       notice={notice}
       context={context}
       contextHeading={heading}
-      linkable={linkable}
     />
   );
 }
@@ -92,12 +78,6 @@ function readContext(query: {
     return { kind: "follow-up", id: query.follow_up_id };
   }
   return null;
-}
-
-function alreadyLinked(item: DocumentItem, context: DocumentContext | null): boolean {
-  if (context?.kind === "visit") return item.appointment?.id === context.id;
-  if (context?.kind === "follow-up") return item.follow_up?.id === context.id;
-  return false;
 }
 
 async function contextHeading(

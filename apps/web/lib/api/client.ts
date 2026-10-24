@@ -367,6 +367,22 @@ export function listDocuments(
   );
 }
 
+/** The browser list goes through the `/api` rewrite so the session cookie is sent. */
+export function listDocumentsInBrowser(
+  patientId: string,
+  page: number,
+  pageSize = 20,
+): Promise<ApiResult<DocumentPage>> {
+  const params = new URLSearchParams({
+    page: String(page),
+    page_size: String(pageSize),
+  });
+  return getJsonFromBrowser(
+    `/api/patients/${encodeURIComponent(patientId)}/documents?${params.toString()}`,
+    documentPageData,
+  );
+}
+
 export function getDocument(
   cookieHeader: string,
   patientId: string,
@@ -560,6 +576,26 @@ export function listUpcomingAppointments(
 function cookieHeaders(cookieHeader: string): HeadersInit | undefined {
   if (cookieHeader === "") return undefined;
   return { cookie: cookieHeader };
+}
+
+async function getJsonFromBrowser<T>(
+  path: string,
+  parse: (value: unknown) => T | null,
+): Promise<ApiResult<T>> {
+  try {
+    const response = await fetchWithTimeout(path, { credentials: "same-origin" });
+    if (!response.ok) {
+      return { ok: false, error: parseErrorBody(response.status, await readJson(response)) };
+    }
+    const data = parse(await readJson(response));
+    if (data === null) return { ok: false, error: genericApiError(response.status) };
+    return { ok: true, data };
+  } catch (error) {
+    if (isTimeoutError(error)) {
+      return { ok: false, error: { kind: "timeout", message: TIMEOUT_ERROR_MESSAGE } };
+    }
+    return { ok: false, error: { kind: "network", message: NETWORK_ERROR_MESSAGE } };
+  }
 }
 
 async function getJson<T>(
