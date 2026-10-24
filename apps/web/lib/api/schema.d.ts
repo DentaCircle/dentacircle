@@ -1041,6 +1041,7 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            lab_work: components["schemas"]["LabWorkLinkBody"] | null;
             /** Size Bytes */
             size_bytes: number;
             /**
@@ -1059,6 +1060,8 @@ export interface components {
             appointment_id?: string | null;
             /** Follow Up Id */
             follow_up_id?: string | null;
+            /** Lab Work Id */
+            lab_work_id?: string | null;
         };
         /** DocumentListResponse */
         DocumentListResponse: {
@@ -1212,6 +1215,18 @@ export interface components {
              * @enum {string}
              */
             status: "pending" | "ready" | "collected" | "cancelled";
+            /** Title */
+            title: string;
+        };
+        /** LabWorkLinkBody */
+        LabWorkLinkBody: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
             /** Title */
             title: string;
         };
@@ -3240,6 +3255,7 @@ export interface operations {
                 page_size?: number;
                 appointment_id?: string | null;
                 follow_up_id?: string | null;
+                lab_work_id?: string | null;
             };
             header?: never;
             path: {
@@ -3283,6 +3299,7 @@ export interface operations {
             query?: {
                 appointment_id?: string | null;
                 follow_up_id?: string | null;
+                lab_work_id?: string | null;
             };
             header: {
                 "X-Document-Filename": string;

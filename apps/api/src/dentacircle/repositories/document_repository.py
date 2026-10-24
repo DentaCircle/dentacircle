@@ -13,6 +13,7 @@ from dentacircle.models.appointment import Appointment
 from dentacircle.models.appointment_type import AppointmentType
 from dentacircle.models.document import Document
 from dentacircle.models.follow_up import FollowUp
+from dentacircle.models.lab_work import LabWork
 
 
 class DocumentRepository:
@@ -39,6 +40,7 @@ class DocumentRepository:
         *,
         appointment_id: UUID | None = None,
         follow_up_id: UUID | None = None,
+        lab_work_id: UUID | None = None,
     ) -> tuple[list[Document], int]:
         """Newest first: created_at, then id. A filter keeps only rows with that link."""
         where = [Document.clinic_id == self._clinic_id, Document.patient_id == patient_id]
@@ -46,6 +48,8 @@ class DocumentRepository:
             where.append(Document.appointment_id == appointment_id)
         if follow_up_id is not None:
             where.append(Document.follow_up_id == follow_up_id)
+        if lab_work_id is not None:
+            where.append(Document.lab_work_id == lab_work_id)
         total = self._session.scalar(select(func.count()).select_from(Document).where(*where))
         statement = (
             scoped_select(Document, self._clinic_id)
@@ -88,6 +92,20 @@ class DocumentRepository:
             )
         )
         return {follow_up_id: due_on for follow_up_id, due_on in rows}
+
+    def lab_work_links(self, lab_work_ids: set[UUID]) -> dict[UUID, tuple[str, str]]:
+        """Current title and status, read live, for this clinic only."""
+        if not lab_work_ids:
+            return {}
+        rows = self._session.execute(
+            select(LabWork.id, LabWork.title, LabWork.status).where(
+                LabWork.clinic_id == self._clinic_id,
+                LabWork.id.in_(lab_work_ids),
+            )
+        )
+        return {
+            lab_work_id: (title, status) for lab_work_id, title, status in rows
+        }
 
     def uploader_names(self, user_ids: set[UUID]) -> dict[UUID, str]:
         """Names for these users, including deactivated ones."""

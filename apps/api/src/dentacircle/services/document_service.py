@@ -21,6 +21,7 @@ from dentacircle.repositories.appointment_repository import AppointmentRepositor
 from dentacircle.repositories.clinic_day_repository import ClinicDayRepository
 from dentacircle.repositories.document_repository import DocumentRepository
 from dentacircle.repositories.follow_up_repository import FollowUpRepository
+from dentacircle.repositories.lab_work_repository import LabWorkRepository
 from dentacircle.repositories.patient_repository import PatientRepository
 from dentacircle.services.audit_service import record
 from dentacircle.services.clinic_day_service import ClinicNotFoundError
@@ -58,6 +59,13 @@ class FollowUpLinkView:
 
 
 @dataclass(frozen=True)
+class LabWorkLinkView:
+    id: UUID
+    title: str
+    status: str
+
+
+@dataclass(frozen=True)
 class DocumentView:
     id: UUID
     filename: str
@@ -67,6 +75,7 @@ class DocumentView:
     uploaded_by: UploaderView
     appointment: AppointmentLinkView | None
     follow_up: FollowUpLinkView | None
+    lab_work: LabWorkLinkView | None
 
 
 @dataclass(frozen=True)
@@ -101,6 +110,7 @@ def upload_document(
     *,
     appointment_id: UUID | None = None,
     follow_up_id: UUID | None = None,
+    lab_work_id: UUID | None = None,
 ) -> DocumentView:
     """Store the bytes, then commit the row, its audit event and timeline step together."""
     cleaned = clean_filename(filename)
@@ -108,7 +118,9 @@ def upload_document(
     patient = PatientRepository(session, clinic_id).get(patient_id)
     if patient is None:
         raise PatientNotFoundError
-    _require_owned_links(session, clinic_id, patient_id, appointment_id, follow_up_id)
+    _require_owned_links(
+        session, clinic_id, patient_id, appointment_id, follow_up_id, lab_work_id
+    )
     if patient.status != "active":
         raise DocumentPatientInactiveError
     document_id = uuid4()
@@ -122,6 +134,7 @@ def upload_document(
         storage_key=f"{clinic_id}/{document_id}",
         appointment_id=appointment_id,
         follow_up_id=follow_up_id,
+        lab_work_id=lab_work_id,
     )
     storage.put(document.storage_key, data)
     try:
@@ -143,6 +156,7 @@ def list_documents(
     *,
     appointment_id: UUID | None = None,
     follow_up_id: UUID | None = None,
+    lab_work_id: UUID | None = None,
 ) -> DocumentPage:
     """This clinic's documents for the patient, newest first. An unknown patient is an error.
 
@@ -156,6 +170,7 @@ def list_documents(
         page_size,
         appointment_id=appointment_id,
         follow_up_id=follow_up_id,
+        lab_work_id=lab_work_id,
     )
     return DocumentPage(
         items=_views(session, clinic_id, rows),
@@ -187,6 +202,8 @@ def update_document_links(
     appointment_id: UUID | None,
     set_follow_up: bool,
     follow_up_id: UUID | None,
+    set_lab_work: bool = False,
+    lab_work_id: UUID | None = None,
 ) -> DocumentView:
     """Set or clear links. An omitted side is left as it is. A no-op writes no audit event."""
     patient = PatientRepository(session, clinic_id).get(patient_id)
@@ -198,7 +215,10 @@ def update_document_links(
         raise DocumentNotFoundError
     next_appointment = appointment_id if set_appointment else row.appointment_id
     next_follow_up = follow_up_id if set_follow_up else row.follow_up_id
-    _require_owned_links(session, clinic_id, patient_id, next_appointment, next_follow_up)
+    next_lab_work = lab_work_id if set_lab_work else row.lab_work_id
+    _require_owned_links(
+        session, clinic_id, patient_id, next_appointment, next_follow_up, next_lab_work
+    )
     if patient.status != "active":
         raise DocumentPatientInactiveError
     changed: list[str] = []
@@ -208,6 +228,9 @@ def update_document_links(
     if set_follow_up and row.follow_up_id != follow_up_id:
         row.follow_up_id = follow_up_id
         changed.append("follow_up_id")
+    if set_lab_work and row.lab_work_id != lab_work_id:
+        row.lab_work_id = lab_work_id
+        changed.append("lab_work_id")
     if changed:
         record(
             session,
@@ -269,8 +292,9 @@ def _require_owned_links(
     patient_id: UUID,
     appointment_id: UUID | None,
     follow_up_id: UUID | None,
+    lab_work_id: UUID | None,
 ) -> None:
-    """Both links, when set, belong to this patient in this clinic. Otherwise 404."""
+    """Each link, when set, belongs to this patient in this clinic. Otherwise 404."""
     if appointment_id is not None:
         visit = AppointmentRepository(session, clinic_id).get_for_patient(
             appointment_id, patient_id
@@ -280,6 +304,10 @@ def _require_owned_links(
     if follow_up_id is not None:
         follow_up = FollowUpRepository(session, clinic_id).get_for_patient(follow_up_id, patient_id)
         if follow_up is None:
+            raise DocumentNotFoundError
+    if lab_work_id is not None:
+        lab_work = LabWorkRepository(session, clinic_id).get_for_patient(lab_work_id, patient_id)
+        if lab_work is None:
             raise DocumentNotFoundError
 
 
@@ -293,7 +321,10 @@ def _views(session: Session, clinic_id: UUID, rows: list[Document]) -> list[Docu
     follow_ups = repository.follow_up_links(
         {row.follow_up_id for row in rows if row.follow_up_id is not None}
     )
-    return [_view(row, zone, names, appointments, follow_ups) for row in rows]
+    lab_work = repository.lab_work_links(
+        {row.lab_work_id for row in rows if row.lab_work_id is not None}
+    )
+    return [_view(row, zone, names, appointments, follow_ups, lab_work) for row in rows]
 
 
 def _view(
@@ -302,6 +333,7 @@ def _view(
     names: dict[UUID, str],
     appointments: dict[UUID, tuple[datetime, str]],
     follow_ups: dict[UUID, date],
+    lab_work: dict[UUID, tuple[str, str]],
 ) -> DocumentView:
     name = names.get(row.uploaded_by_user_id)
     if name is None:
@@ -315,6 +347,7 @@ def _view(
         uploaded_by=UploaderView(id=row.uploaded_by_user_id, name=name),
         appointment=_appointment_link(row, zone, appointments),
         follow_up=_follow_up_link(row, follow_ups),
+        lab_work=_lab_work_link(row, lab_work),
     )
 
 
@@ -332,6 +365,18 @@ def _appointment_link(
         starts_at=starts_at.astimezone(zone),
         type_name=type_name,
     )
+
+
+def _lab_work_link(
+    row: Document, lab_work: dict[UUID, tuple[str, str]]
+) -> LabWorkLinkView | None:
+    if row.lab_work_id is None:
+        return None
+    found = lab_work.get(row.lab_work_id)
+    if found is None:
+        raise RuntimeError("document points at missing lab work")
+    title, status = found
+    return LabWorkLinkView(id=row.lab_work_id, title=title, status=status)
 
 
 def _follow_up_link(row: Document, follow_ups: dict[UUID, date]) -> FollowUpLinkView | None:

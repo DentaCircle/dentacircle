@@ -662,6 +662,16 @@
             "title": "Id",
             "type": "string"
           },
+          "lab_work": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LabWorkLinkBody"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "size_bytes": {
             "title": "Size Bytes",
             "type": "integer"
@@ -683,7 +693,8 @@
           "uploaded_at",
           "uploaded_by",
           "appointment",
-          "follow_up"
+          "follow_up",
+          "lab_work"
         ],
         "title": "DocumentBody",
         "type": "object"
@@ -715,6 +726,18 @@
               }
             ],
             "title": "Follow Up Id"
+          },
+          "lab_work_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lab Work Id"
           }
         },
         "title": "DocumentLinksUpdate",
@@ -1068,6 +1091,30 @@
           "created_by"
         ],
         "title": "LabWorkBody",
+        "type": "object"
+      },
+      "LabWorkLinkBody": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status"
+        ],
+        "title": "LabWorkLinkBody",
         "type": "object"
       },
       "LabWorkListResponse": {
@@ -4370,6 +4417,23 @@
               ],
               "title": "Follow Up Id"
             }
+          },
+          {
+            "in": "query",
+            "name": "lab_work_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lab Work Id"
+            }
           }
         ],
         "responses": {
@@ -4452,6 +4516,23 @@
                 }
               ],
               "title": "Follow Up Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lab_work_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Lab Work Id"
             }
           },
           {

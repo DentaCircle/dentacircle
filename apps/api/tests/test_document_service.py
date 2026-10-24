@@ -28,6 +28,7 @@ from dentacircle.services.document_service import (
     upload_document,
 )
 from dentacircle.services.follow_up_service import create_manual_follow_up
+from dentacircle.services.lab_work_service import create_lab_work
 from dentacircle.services.patient_service import PatientNotFoundError, register_patient
 from dentacircle.services.provisioning_service import create_user, get_or_create_clinic
 from dentacircle.services.timeline_service import DocumentSubject, list_timeline
@@ -52,6 +53,7 @@ def _upload(
     actor_id: UUID | None = None,
     appointment_id: UUID | None = None,
     follow_up_id: UUID | None = None,
+    lab_work_id: UUID | None = None,
 ) -> DocumentView:
     with Session(get_engine()) as session:
         return upload_document(
@@ -65,6 +67,7 @@ def _upload(
             data,
             appointment_id=appointment_id,
             follow_up_id=follow_up_id,
+            lab_work_id=lab_work_id,
         )
 
 
@@ -643,6 +646,105 @@ def test_a_filter_returns_only_linked_documents_and_a_foreign_id_is_empty(databa
         assert missing.items == []
 
 
+def test_a_document_can_link_lab_work_for_the_same_patient(database: str) -> None:
+    clinic = world()
+    lab_id = _lab(clinic)
+    view = _upload(clinic, MemoryStorage(), lab_work_id=lab_id)
+    assert view.lab_work is not None
+    assert view.lab_work.id == lab_id
+    assert view.lab_work.title == "Crown"
+    assert view.lab_work.status == "pending"
+    assert view.appointment is None
+    assert view.follow_up is None
+    with Session(get_engine()) as session:
+        linked = update_document_links(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            clinic.patient_id,
+            view.id,
+            set_appointment=False,
+            appointment_id=None,
+            set_follow_up=False,
+            follow_up_id=None,
+            set_lab_work=True,
+            lab_work_id=lab_id,
+        )
+    assert linked.lab_work is not None
+    assert [event.action for event in _document_audits()] == ["create"]
+    with Session(get_engine()) as session:
+        cleared = update_document_links(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            clinic.patient_id,
+            view.id,
+            set_appointment=False,
+            appointment_id=None,
+            set_follow_up=False,
+            follow_up_id=None,
+            set_lab_work=True,
+            lab_work_id=None,
+        )
+    assert cleared.lab_work is None
+    update = next(event for event in _document_audits() if event.action == "update")
+    assert update.changed_fields == ["lab_work_id"]
+    assert str(lab_id) not in update.changed_fields
+    assert _timeline_kinds(clinic).count("document_uploaded") == 1
+
+
+def test_another_patients_lab_work_is_not_found_and_nothing_is_stored(database: str) -> None:
+    clinic = world()
+    other = _other_patient(clinic)
+    lab_id = _lab(clinic, patient_id=other)
+    storage = MemoryStorage()
+    with pytest.raises(DocumentNotFoundError):
+        _upload(clinic, storage, lab_work_id=lab_id)
+    assert storage.files == {}
+    assert _count(Document) == 0
+
+
+def test_a_lab_filter_returns_only_linked_documents_and_a_foreign_id_is_empty(
+    database: str,
+) -> None:
+    clinic = world()
+    lab_id = _lab(clinic)
+    other_lab = _lab(clinic, patient_id=_other_patient(clinic), title="Bridge")
+    linked = _upload(clinic, MemoryStorage(), lab_work_id=lab_id)
+    _upload(clinic, MemoryStorage())
+    with Session(get_engine()) as session:
+        found = list_documents(
+            session, clinic.clinic_id, clinic.patient_id, 1, 20, lab_work_id=lab_id
+        )
+        assert [item.id for item in found.items] == [linked.id]
+        foreign = list_documents(
+            session, clinic.clinic_id, clinic.patient_id, 1, 20, lab_work_id=other_lab
+        )
+        assert foreign.items == []
+        assert foreign.total == 0
+
+
+def test_an_inactive_patient_cannot_link_lab_work(database: str) -> None:
+    clinic = world()
+    lab_id = _lab(clinic)
+    view = _upload(clinic, MemoryStorage())
+    _set_patient_status(clinic.patient_id, "inactive")
+    with Session(get_engine()) as session, pytest.raises(DocumentPatientInactiveError):
+        update_document_links(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            clinic.patient_id,
+            view.id,
+            set_appointment=False,
+            appointment_id=None,
+            set_follow_up=False,
+            follow_up_id=None,
+            set_lab_work=True,
+            lab_work_id=lab_id,
+        )
+
+
 def test_the_timeline_reads_the_current_filename(database: str) -> None:
     clinic = world()
     view = _upload(clinic, MemoryStorage(), filename="first.pdf")
@@ -704,6 +806,22 @@ def _book_for(clinic: World, patient_id: UUID) -> UUID:
         )
         session.commit()
         return visit.id
+
+
+def _lab(clinic: World, *, patient_id: UUID | None = None, title: str = "Crown") -> UUID:
+    with Session(get_engine()) as session:
+        created = create_lab_work(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            patient_id or clinic.patient_id,
+            title,
+            None,
+            None,
+            NOW,
+        )
+        session.commit()
+        return created.id
 
 
 def _visit_in_other_clinic(clinic_id: UUID, actor_id: UUID) -> UUID:

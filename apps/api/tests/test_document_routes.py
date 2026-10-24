@@ -87,6 +87,7 @@ def _post(
     content_type: str | None = "application/pdf",
     appointment_id: str | None = None,
     follow_up_id: str | None = None,
+    lab_work_id: str | None = None,
 ) -> Response:
     headers: dict[str, str] = {}
     if content_type is not None:
@@ -98,6 +99,8 @@ def _post(
         params["appointment_id"] = appointment_id
     if follow_up_id is not None:
         params["follow_up_id"] = follow_up_id
+    if lab_work_id is not None:
+        params["lab_work_id"] = lab_work_id
     response: Response = api.post(
         f"/patients/{patient_id}/documents",
         cookies=cookies if cookies is not None else _cookie(api),
@@ -166,6 +169,7 @@ def test_an_upload_returns_201_and_the_item(api: TestClient, storage: MemoryStor
         "uploaded_by",
         "appointment",
         "follow_up",
+        "lab_work",
     }
     assert body["filename"] == "report.pdf"
     assert body["content_type"] == "application/pdf"
@@ -173,6 +177,7 @@ def test_an_upload_returns_201_and_the_item(api: TestClient, storage: MemoryStor
     assert set(body["uploaded_by"]) == {"id", "name"}
     assert body["appointment"] is None
     assert body["follow_up"] is None
+    assert body["lab_work"] is None
     assert body["uploaded_at"].endswith("+05:30")
     assert list(storage.files) == [f"{_clinic_id()}/{body['id']}"]
 
@@ -452,6 +457,7 @@ def test_the_list_shape_order_and_paging(api: TestClient) -> None:
         "uploaded_by",
         "appointment",
         "follow_up",
+        "lab_work",
     }
     paged = api.get(
         f"/patients/{patient_id}/documents", cookies=cookies, params={"page": 2, "page_size": 1}
@@ -851,6 +857,59 @@ def _future_at() -> datetime:
     while day.weekday() == 6:
         day += timedelta(days=1)
     return datetime(day.year, day.month, day.day, 10, 0, tzinfo=_ZONE)
+
+
+def test_a_document_links_to_lab_work_and_a_bad_id_stores_nothing(api: TestClient) -> None:
+    patient_id = _patient(api)
+    created = api.post(
+        f"/patients/{patient_id}/lab-work",
+        cookies=_cookie(api),
+        json={"title": "Crown"},
+    )
+    assert created.status_code == 201
+    lab_id = created.json()["id"]
+    uploaded = _post(
+        api,
+        patient_id,
+        lab_work_id=lab_id,
+        name="Result.png",
+        data=_PNG,
+        content_type="image/png",
+    )
+    assert uploaded.status_code == 201
+    body = uploaded.json()
+    assert body["lab_work"] == {"id": lab_id, "title": "Crown", "status": "pending"}
+    listed = api.get(
+        f"/patients/{patient_id}/documents",
+        cookies=_cookie(api),
+        params={"lab_work_id": lab_id},
+    )
+    assert listed.status_code == 200
+    assert [item["id"] for item in listed.json()["items"]] == [body["id"]]
+    foreign = api.get(
+        f"/patients/{patient_id}/documents",
+        cookies=_cookie(api),
+        params={"lab_work_id": str(uuid4())},
+    )
+    assert foreign.status_code == 200
+    assert foreign.json()["items"] == []
+    missing = _post(api, patient_id, lab_work_id=str(uuid4()))
+    assert missing.status_code == 404
+    assert _count(Document) == 1
+    cleared = api.patch(
+        f"/patients/{patient_id}/documents/{body['id']}",
+        cookies=_cookie(api),
+        json={"lab_work_id": None},
+    )
+    assert cleared.status_code == 200
+    assert cleared.json()["lab_work"] is None
+    relinked = api.patch(
+        f"/patients/{patient_id}/documents/{body['id']}",
+        cookies=_cookie(api),
+        json={"lab_work_id": lab_id},
+    )
+    assert relinked.status_code == 200
+    assert relinked.json()["lab_work"]["id"] == lab_id
 
 
 # --- the route table ---------------------------------------------------------------
