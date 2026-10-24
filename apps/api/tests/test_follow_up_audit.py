@@ -190,9 +190,11 @@ def _only_id(patient_id: UUID) -> UUID:
 
 def _audit_sensitive_text(session: Session) -> str:
     """Action and field names only. Timestamps and ids are not checked for PHI."""
-    rows = session.execute(
-        text("SELECT entity_type, action, changed_fields FROM audit_event")
-    ).mappings().all()
+    rows = (
+        session.execute(text("SELECT entity_type, action, changed_fields FROM audit_event"))
+        .mappings()
+        .all()
+    )
     parts: list[str] = []
     for row in rows:
         parts.append(str(row["entity_type"]))
