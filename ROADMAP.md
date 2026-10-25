@@ -3,7 +3,7 @@
 The tracker. Phases are made of slices. A slice is one reviewable change, about half a day
 to a day of work, with a visible result. Tick a slice only after `/ship-seal`.
 
-**Now:** S4.1 (brief approved, not built). M1 reached 2026-10-06. M3 reached 2026-10-21. S2.8 sealed 2026-10-21. S3.1 sealed 2026-10-23. S3.2 sealed 2026-10-23. S3.3 sealed 2026-10-24.
+**Now:** S4.2 (not briefed). S4.1 sealed 2026-10-25. M1 reached 2026-10-06. M3 reached 2026-10-21. S2.8 sealed 2026-10-21. S3.1 sealed 2026-10-23. S3.2 sealed 2026-10-23. S3.3 sealed 2026-10-24.
 
 Milestones are demoable. Each one is a real stopping point.
 
@@ -51,7 +51,7 @@ Milestones are demoable. Each one is a real stopping point.
 
 ## Phase 4: Inventory (M4)
 
-- [ ] S4.1 Inventory items, categories, batches, expiry
+- [x] S4.1 Inventory items, categories, batches, expiry
 - [ ] S4.2 Restock and transactions (append-only)
 - [ ] S4.3 Procedure resource rules and consumption on care session completion
 - [ ] S4.4 Alerts: low stock, expiring soon, out of stock

@@ -488,3 +488,10 @@ Lab rows show on the patient timeline. Status moves and creates write `lab_work`
 and the four lab timeline kinds in the same transaction as the row (migration `0017`).
 `inventory_admin` is refused. New lab work is refused for an inactive patient; existing items
 can still move and list.
+
+`inventory_admin` and `clinic_admin` can set up categories, items and batches on `/inventory`
+and `/inventory/[id]`. A clinician can read those pages and cannot change them. A receptionist
+is refused. A batch is a number plus an optional expiry; `expired` is calculated from the
+clinic-local date and is not stored. Items are deactivated, never deleted. Nothing changes
+stock yet. Creates, edits and status changes write audit events with field names only
+(migration `0018`).
