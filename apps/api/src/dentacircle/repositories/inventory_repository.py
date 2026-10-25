@@ -2,13 +2,15 @@
 
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, func, select
 from sqlalchemy.orm import Session
 
 from dentacircle.core.tenancy import scoped_select
+from dentacircle.models.app_user import AppUser
 from dentacircle.models.inventory_batch import InventoryBatch
 from dentacircle.models.inventory_category import InventoryCategory
 from dentacircle.models.inventory_item import InventoryItem
+from dentacircle.models.inventory_transaction import InventoryTransaction
 
 
 class InventoryRepository:
@@ -27,6 +29,10 @@ class InventoryRepository:
     def add_batch(self, batch: InventoryBatch) -> None:
         batch.clinic_id = self._clinic_id
         self._session.add(batch)
+
+    def add_transaction(self, transaction: InventoryTransaction) -> None:
+        transaction.clinic_id = self._clinic_id
+        self._session.add(transaction)
 
     def get_category(self, category_id: UUID, *, lock: bool = False) -> InventoryCategory | None:
         statement = scoped_select(InventoryCategory, self._clinic_id).where(
@@ -98,12 +104,24 @@ class InventoryRepository:
         query: str | None,
         page: int,
         page_size: int,
-    ) -> tuple[list[tuple[InventoryItem, InventoryCategory, int]], int]:
+    ) -> tuple[list[tuple[InventoryItem, InventoryCategory, int, int]], int]:
         batch_count = (
             select(func.count(InventoryBatch.id))
             .where(
                 InventoryBatch.item_id == InventoryItem.id,
                 InventoryBatch.clinic_id == self._clinic_id,
+            )
+            .correlate(InventoryItem)
+            .scalar_subquery()
+        )
+        stock = (
+            select(func.coalesce(func.sum(InventoryTransaction.quantity_change), 0))
+            .select_from(InventoryTransaction)
+            .join(InventoryBatch, _same_clinic_batch())
+            .where(
+                InventoryTransaction.clinic_id == self._clinic_id,
+                InventoryBatch.clinic_id == self._clinic_id,
+                InventoryBatch.item_id == InventoryItem.id,
             )
             .correlate(InventoryItem)
             .scalar_subquery()
@@ -119,7 +137,7 @@ class InventoryRepository:
             select(func.count()).select_from(InventoryItem).where(*filters)
         )
         statement = (
-            select(InventoryItem, InventoryCategory, batch_count)
+            select(InventoryItem, InventoryCategory, batch_count, stock)
             .join(
                 InventoryCategory,
                 (InventoryCategory.id == InventoryItem.category_id)
@@ -131,7 +149,9 @@ class InventoryRepository:
             .limit(page_size)
         )
         rows = self._session.execute(statement).all()
-        return [(item, category, int(count)) for item, category, count in rows], int(total or 0)
+        return [
+            (item, category, int(count), int(on_hand)) for item, category, count, on_hand in rows
+        ], int(total or 0)
 
     def category_for_item(self, item: InventoryItem) -> InventoryCategory | None:
         return self.get_category(item.category_id)
@@ -174,6 +194,89 @@ class InventoryRepository:
             )
         )
         return list(self._session.scalars(statement))
+
+    def batch_quantity(self, batch_id: UUID) -> int:
+        """Sum of this clinic's movements for one batch. Zero when there are none."""
+        total = self._session.scalar(
+            select(func.coalesce(func.sum(InventoryTransaction.quantity_change), 0)).where(
+                InventoryTransaction.clinic_id == self._clinic_id,
+                InventoryTransaction.batch_id == batch_id,
+            )
+        )
+        return int(total or 0)
+
+    def item_stock(self, item_id: UUID) -> int:
+        """Sum across every batch of the item, including expired batches."""
+        total = self._session.scalar(
+            select(func.coalesce(func.sum(InventoryTransaction.quantity_change), 0))
+            .select_from(InventoryTransaction)
+            .join(InventoryBatch, _same_clinic_batch())
+            .where(
+                InventoryTransaction.clinic_id == self._clinic_id,
+                InventoryBatch.clinic_id == self._clinic_id,
+                InventoryBatch.item_id == item_id,
+            )
+        )
+        return int(total or 0)
+
+    def batch_quantities(self, item_id: UUID) -> dict[UUID, int]:
+        statement = (
+            select(
+                InventoryTransaction.batch_id,
+                func.coalesce(func.sum(InventoryTransaction.quantity_change), 0),
+            )
+            .join(InventoryBatch, _same_clinic_batch())
+            .where(
+                InventoryTransaction.clinic_id == self._clinic_id,
+                InventoryBatch.clinic_id == self._clinic_id,
+                InventoryBatch.item_id == item_id,
+            )
+            .group_by(InventoryTransaction.batch_id)
+        )
+        rows = self._session.execute(statement).all()
+        return {batch_id: int(total) for batch_id, total in rows}
+
+    def list_transactions(
+        self, item_id: UUID, page: int, page_size: int
+    ) -> tuple[list[tuple[InventoryTransaction, str, str]], int]:
+        """Newest first. The batch number and the staff name come from this clinic."""
+        filters = (
+            InventoryTransaction.clinic_id == self._clinic_id,
+            InventoryBatch.clinic_id == self._clinic_id,
+            InventoryBatch.item_id == item_id,
+            AppUser.clinic_id == self._clinic_id,
+        )
+        joined = (
+            select(InventoryTransaction, InventoryBatch.batch_number, AppUser.full_name)
+            .join(InventoryBatch, _same_clinic_batch())
+            .join(AppUser, _same_clinic_user())
+            .where(*filters)
+        )
+        total = self._session.scalar(select(func.count()).select_from(joined.subquery()))
+        statement = (
+            joined.order_by(
+                InventoryTransaction.created_at.desc(),
+                InventoryTransaction.id.desc(),
+            )
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+        rows = self._session.execute(statement).all()
+        return [(row, batch_number, recorded_by) for row, batch_number, recorded_by in rows], int(
+            total or 0
+        )
+
+
+def _same_clinic_batch() -> ColumnElement[bool]:
+    return (InventoryBatch.id == InventoryTransaction.batch_id) & (
+        InventoryBatch.clinic_id == InventoryTransaction.clinic_id
+    )
+
+
+def _same_clinic_user() -> ColumnElement[bool]:
+    return (AppUser.id == InventoryTransaction.created_by_user_id) & (
+        AppUser.clinic_id == InventoryTransaction.clinic_id
+    )
 
 
 def _contains(query: str) -> str:
