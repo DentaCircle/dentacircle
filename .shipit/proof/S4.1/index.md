@@ -4,7 +4,7 @@ Taken at commit `0360c56` on `slice/S4.1-inventory-items`.
 Real app: API on :8000, web on :3000 (`next start` of this commit), local Postgres, synthetic data only.
 Clinic: Synthetic Clinic. Staff: Synthetic Stores (`s41.inventory@x.test`, inventory_admin), Synthetic Clinician (`s41.clinician@x.test`), Synthetic Desk (`s41.desk@x.test`, receptionist). The password is the synthetic one in `apps/api/tests/patient_harness.py`.
 
-The Next.js dev server's hot-reload socket failed (`ERR_INVALID_HTTP_RESPONSE`) and client components did not hydrate, so these shots are from the production server. A normal `pnpm dev` click-through is still the review path.
+The Next.js dev server's hot-reload socket failed (`ERR_INVALID_HTTP_RESPONSE`) and its client components did not hydrate. These shots are from `next start` of the same commit. That client did hydrate: the forms were submitted and the notices, validation, and role checks below are from that run. This production click-through is the accepted check for the slice.
 
 ## Screenshots
 

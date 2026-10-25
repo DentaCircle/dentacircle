@@ -44,7 +44,7 @@ export function InventoryListScreen({
       {notice === null ? null : <p role="status">{INVENTORY_NOTICES[notice]}</p>}
       {status === "forbidden" ? <p role="alert">You do not have access.</p> : null}
       {status === "error" ? <p role="alert">Inventory could not be loaded.</p> : null}
-      {status === "forbidden" ? null : (
+      {status === "forbidden" || status === "error" ? null : (
         <>
           <StatusLinks filter={filter} />
           <CategoryLinks categories={categories} filter={filter} />

@@ -63,7 +63,11 @@ export function InventoryItemScreen({
                   threshold: String(item.threshold),
                 }}
               />
-              <ItemStatusButton itemId={item.id} status={item.status} />
+              <ItemStatusButton
+                key={`${item.id}:${item.status}`}
+                itemId={item.id}
+                status={item.status}
+              />
             </>
           ) : null}
           <h2 className="text-lg font-medium">Batches</h2>

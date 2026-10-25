@@ -46,6 +46,7 @@ export function ItemStatusButton({
         setMessage(inventoryFailure(result.error).form);
         return;
       }
+      setConfirming(false);
       router.push(inventoryItemHref(itemId, next === "inactive" ? "deactivated" : "reactivated"));
       router.refresh();
     } catch {
@@ -85,6 +86,7 @@ export function AddBatchForm({ itemId, inactive }: { itemId: string; inactive: b
       button="Add batch"
       batchNumber=""
       expiryOn=""
+      resetOnSave
       onSave={(batchNumber, expiryOn) => createInventoryBatch(itemId, batchNumber, expiryOn)}
       afterSave={() => inventoryItemHref(itemId, "batch-added")}
     />
@@ -111,6 +113,7 @@ function BatchFields({
   expiryOn,
   onSave,
   afterSave,
+  resetOnSave = false,
 }: {
   idPrefix: string;
   button: string;
@@ -118,6 +121,7 @@ function BatchFields({
   expiryOn: string;
   onSave: (batchNumber: string, expiryOn: string) => Promise<ApiResult<null>>;
   afterSave: () => string;
+  resetOnSave?: boolean;
 }) {
   const router = useRouter();
   const isSubmittingRef = useRef(false);
@@ -128,7 +132,8 @@ function BatchFields({
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isSubmittingRef.current) return;
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const number = String(data.get("batch_number") ?? "").trim();
     const expiry = String(data.get("expiry_on") ?? "");
     const local: Record<string, string> = {};
@@ -151,6 +156,7 @@ function BatchFields({
         setFields(failure.fields);
         return;
       }
+      if (resetOnSave) form.reset();
       router.push(afterSave());
       router.refresh();
     } catch {

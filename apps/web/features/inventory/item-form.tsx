@@ -40,6 +40,7 @@ export function AddItemForm({
       button="Add item"
       categories={categories}
       initial={{ name: "", categoryId: "", unit: "", threshold: "0" }}
+      resetOnSave
       onSave={async (fields) => {
         const result = await createInventoryItem({
           name: fields.name,
@@ -92,6 +93,7 @@ function ItemFieldsForm({
   initial,
   onSave,
   afterSave,
+  resetOnSave = false,
 }: {
   idPrefix: string;
   button: string;
@@ -99,6 +101,7 @@ function ItemFieldsForm({
   initial: ItemFields;
   onSave: (fields: ItemFields) => Promise<"saved" | { form: string | null; fields: Record<string, string> }>;
   afterSave: () => string;
+  resetOnSave?: boolean;
 }) {
   const router = useRouter();
   const isSubmittingRef = useRef(false);
@@ -109,7 +112,8 @@ function ItemFieldsForm({
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isSubmittingRef.current) return;
-    const data = new FormData(event.currentTarget);
+    const form = event.currentTarget;
+    const data = new FormData(form);
     const next: ItemFields = {
       name: String(data.get("name") ?? "").trim(),
       categoryId: String(data.get("category_id") ?? ""),
@@ -133,6 +137,7 @@ function ItemFieldsForm({
         setFields(saved.fields);
         return;
       }
+      if (resetOnSave) form.reset();
       router.push(afterSave());
       router.refresh();
     } catch {

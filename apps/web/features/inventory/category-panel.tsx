@@ -46,6 +46,7 @@ function AddCategory({ filter }: { filter: InventoryFilter }) {
       idPrefix="add-category"
       label="New category"
       button="Add category"
+      resetOnSave
       onSave={async (name) => {
         const result = await createInventoryCategory(name);
         if (!result.ok) return inventoryFailure(result.error).form ?? "Something went wrong.";
@@ -86,6 +87,7 @@ function NameForm({
   initial = "",
   onSave,
   filter,
+  resetOnSave = false,
 }: {
   idPrefix: string;
   label: string;
@@ -93,6 +95,7 @@ function NameForm({
   initial?: string;
   onSave: (name: string) => Promise<string | { notice: InventoryNotice }>;
   filter: InventoryFilter;
+  resetOnSave?: boolean;
 }) {
   const router = useRouter();
   const isSubmittingRef = useRef(false);
@@ -102,7 +105,8 @@ function NameForm({
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (isSubmittingRef.current) return;
-    const name = String(new FormData(event.currentTarget).get("name") ?? "").trim();
+    const form = event.currentTarget;
+    const name = String(new FormData(form).get("name") ?? "").trim();
     if (name === "") {
       setMessage(ENTER_A_NAME);
       return;
@@ -116,6 +120,7 @@ function NameForm({
         setMessage(saved);
         return;
       }
+      if (resetOnSave) form.reset();
       router.push(inventoryHref(filter, 1, saved.notice));
       router.refresh();
     } catch {

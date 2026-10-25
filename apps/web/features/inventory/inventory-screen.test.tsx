@@ -5,7 +5,12 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { InventoryItemScreen } from "@/features/inventory/item-screen";
 import { InventoryListScreen } from "@/features/inventory/list-screen";
 import type { InventoryRow } from "@/features/inventory/rows";
-import { createInventoryBatch, createInventoryItem } from "@/lib/api/client";
+import {
+  createInventoryBatch,
+  createInventoryCategory,
+  createInventoryItem,
+  setInventoryItemStatus,
+} from "@/lib/api/client";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
@@ -37,6 +42,8 @@ const categories = [{ id: "cat-1", name: "Consumables", itemCount: 1 }];
 beforeEach(() => {
   vi.mocked(createInventoryItem).mockReset();
   vi.mocked(createInventoryBatch).mockReset();
+  vi.mocked(createInventoryCategory).mockReset();
+  vi.mocked(setInventoryItemStatus).mockReset();
 });
 
 test("the inventory page lists items and the status switch", () => {
@@ -118,6 +125,62 @@ test("a blank item name is a field error and is not sent", async () => {
   expect(createInventoryItem).not.toHaveBeenCalled();
 });
 
+test("a saved item clears the add form so the next one starts empty", async () => {
+  const user = userEvent.setup();
+  vi.mocked(createInventoryItem).mockResolvedValue({
+    ok: true,
+    data: {
+      id: "item-2",
+      name: "Gauze",
+      category: { id: "cat-1", name: "Consumables" },
+      unit: "pack",
+      low_stock_threshold: 0,
+      status: "active",
+      batch_count: 0,
+    },
+  });
+  render(
+    <InventoryListScreen
+      status="ready"
+      rows={[]}
+      categories={categories}
+      total={0}
+      page={1}
+      pageSize={20}
+      filter={{ status: "active", categoryId: "", query: "" }}
+      notice="item-added"
+      canWrite
+    />,
+  );
+  await user.type(screen.getByRole("textbox", { name: "Name" }), "Gauze");
+  await user.selectOptions(screen.getByRole("combobox", { name: "Category" }), "cat-1");
+  await user.type(screen.getByRole("textbox", { name: "Unit" }), "pack");
+  await user.click(screen.getByRole("button", { name: "Add item" }));
+  expect(screen.getByRole("textbox", { name: "Name" })).toHaveValue("");
+  expect(screen.getByRole("combobox", { name: "Category" })).toHaveValue("");
+  expect(screen.getByRole("textbox", { name: "Unit" })).toHaveValue("");
+});
+
+test("a failed load hides the write forms", () => {
+  render(
+    <InventoryListScreen
+      status="error"
+      rows={[]}
+      categories={[]}
+      total={0}
+      page={1}
+      pageSize={20}
+      filter={{ status: "active", categoryId: "", query: "" }}
+      notice={null}
+      canWrite
+    />,
+  );
+  expect(screen.getByRole("alert")).toHaveTextContent("Inventory could not be loaded.");
+  expect(screen.queryByRole("button", { name: "Add item" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Add category" })).not.toBeInTheDocument();
+  expect(screen.queryByLabelText("Search by name")).not.toBeInTheDocument();
+});
+
 test("a clinician sees the list without write forms", () => {
   render(
     <InventoryListScreen
@@ -187,6 +250,57 @@ test("the item page shows an expired badge and asks before deactivating", async 
   expect(screen.queryByRole("button", { name: "Confirm deactivation" })).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Deactivate" }));
   expect(screen.getByRole("button", { name: "Confirm deactivation" })).toBeInTheDocument();
+});
+
+test("deactivating once asks again the next time the item is active", async () => {
+  const user = userEvent.setup();
+  vi.mocked(setInventoryItemStatus).mockResolvedValue({
+    ok: true,
+    data: {
+      id: "item-1",
+      name: "Gloves M",
+      category: { id: "cat-1", name: "Consumables" },
+      unit: "box",
+      low_stock_threshold: 2,
+      status: "inactive",
+      batch_count: 2,
+    },
+  });
+  const { rerender } = render(
+    <InventoryItemScreen
+      status="ready"
+      item={gloves}
+      batches={[]}
+      categories={categories}
+      notice={null}
+      canWrite
+    />,
+  );
+  await user.click(screen.getByRole("button", { name: "Deactivate" }));
+  await user.click(screen.getByRole("button", { name: "Confirm deactivation" }));
+  expect(await screen.findByRole("button", { name: "Deactivate" })).toBeInTheDocument();
+  rerender(
+    <InventoryItemScreen
+      status="ready"
+      item={{ ...gloves, status: "inactive", statusLabel: "Inactive" }}
+      batches={[]}
+      categories={categories}
+      notice="deactivated"
+      canWrite
+    />,
+  );
+  rerender(
+    <InventoryItemScreen
+      status="ready"
+      item={gloves}
+      batches={[]}
+      categories={categories}
+      notice="reactivated"
+      canWrite
+    />,
+  );
+  expect(screen.getByRole("button", { name: "Deactivate" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Confirm deactivation" })).not.toBeInTheDocument();
 });
 
 test("an inactive item hides the add batch form", () => {
