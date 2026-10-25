@@ -127,18 +127,7 @@ test("a blank item name is a field error and is not sent", async () => {
 
 test("a saved item clears the add form so the next one starts empty", async () => {
   const user = userEvent.setup();
-  vi.mocked(createInventoryItem).mockResolvedValue({
-    ok: true,
-    data: {
-      id: "item-2",
-      name: "Gauze",
-      category: { id: "cat-1", name: "Consumables" },
-      unit: "pack",
-      low_stock_threshold: 0,
-      status: "active",
-      batch_count: 0,
-    },
-  });
+  vi.mocked(createInventoryItem).mockResolvedValue({ ok: true, data: null });
   render(
     <InventoryListScreen
       status="ready"
@@ -254,18 +243,7 @@ test("the item page shows an expired badge and asks before deactivating", async 
 
 test("deactivating once asks again the next time the item is active", async () => {
   const user = userEvent.setup();
-  vi.mocked(setInventoryItemStatus).mockResolvedValue({
-    ok: true,
-    data: {
-      id: "item-1",
-      name: "Gloves M",
-      category: { id: "cat-1", name: "Consumables" },
-      unit: "box",
-      low_stock_threshold: 2,
-      status: "inactive",
-      batch_count: 2,
-    },
-  });
+  vi.mocked(setInventoryItemStatus).mockResolvedValue({ ok: true, data: null });
   const { rerender } = render(
     <InventoryItemScreen
       status="ready"
