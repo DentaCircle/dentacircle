@@ -1,4 +1,4 @@
-"""A batch label and an optional expiry date. Quantity arrives in a later slice."""
+"""A batch label and an optional expiry date. Quantity is the sum of transactions."""
 
 from datetime import date
 from uuid import UUID
