@@ -488,9 +488,7 @@ def test_another_clinic_cannot_restock_or_read_history(api: TestClient) -> None:
     api.post(f"/inventory/batches/{batch_id}/restock", cookies=cookies, json={"quantity": 2})
     _other_clinic()
     other = _cookie(api, "other@x.test")
-    stolen = api.post(
-        f"/inventory/batches/{batch_id}/restock", cookies=other, json={"quantity": 1}
-    )
+    stolen = api.post(f"/inventory/batches/{batch_id}/restock", cookies=other, json={"quantity": 1})
     history = api.get(f"/inventory/items/{item_id}/transactions", cookies=other)
     assert stolen.status_code == 404
     assert history.status_code == 404
