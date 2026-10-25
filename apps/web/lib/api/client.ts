@@ -525,13 +525,31 @@ export type InventoryItem = {
   low_stock_threshold: number;
   status: InventoryItemStatus;
   batch_count: number;
+  stock: number;
 };
 export type InventoryBatch = {
   id: string;
   batch_number: string;
   expiry_on: string | null;
   expired: boolean;
+  quantity: number;
   created_at: string;
+};
+export type StockReason = "damaged" | "expired" | "correction";
+export type StockTransaction = {
+  id: string;
+  type: "restock" | "adjustment";
+  reason: StockReason | null;
+  quantity_change: number;
+  batch: { id: string; batch_number: string };
+  recorded_by: string;
+  created_at: string;
+};
+export type StockTransactionPage = {
+  items: StockTransaction[];
+  total: number;
+  page: number;
+  page_size: number;
 };
 export type InventoryItemDetail = InventoryItem & { batches: InventoryBatch[] };
 export type InventoryItemPage = {
@@ -630,6 +648,36 @@ export function createInventoryBatch(
   const body: { batch_number: string; expiry_on?: string } = { batch_number: batchNumber };
   if (expiryOn !== "") body.expiry_on = expiryOn;
   return sendJson("POST", `/api/inventory/items/${encodeURIComponent(itemId)}/batches`, body);
+}
+
+export function listInventoryTransactions(
+  cookieHeader: string,
+  itemId: string,
+  page: number,
+): Promise<ApiResult<StockTransactionPage>> {
+  const params = new URLSearchParams({ page: String(page), page_size: "20" });
+  return getJson(
+    `/inventory/items/${encodeURIComponent(itemId)}/transactions?${params.toString()}`,
+    stockTransactionPageData,
+    cookieHeaders(cookieHeader),
+  );
+}
+
+export function restockInventoryBatch(batchId: string, quantity: string): Promise<ApiResult<null>> {
+  return sendJson("POST", `/api/inventory/batches/${encodeURIComponent(batchId)}/restock`, {
+    quantity: wholeNumber(quantity),
+  });
+}
+
+export function adjustInventoryBatch(
+  batchId: string,
+  quantityChange: string,
+  reason: string,
+): Promise<ApiResult<null>> {
+  return sendJson("POST", `/api/inventory/batches/${encodeURIComponent(batchId)}/adjustments`, {
+    quantity_change: signedNumber(quantityChange),
+    reason,
+  });
 }
 
 export function updateInventoryBatch(
@@ -1616,9 +1664,17 @@ function inventoryItemData(value: unknown): InventoryItem | null {
   const unit = stringField(value, "unit");
   const threshold = numberField(value, "low_stock_threshold");
   const batchCount = numberField(value, "batch_count");
+  const stock = numberField(value, "stock");
   const status = value.status;
   const category = inventoryCategoryLinkData(value.category);
-  if (id === null || name === null || unit === null || threshold === null || batchCount === null) {
+  if (
+    id === null ||
+    name === null ||
+    unit === null ||
+    threshold === null ||
+    batchCount === null ||
+    stock === null
+  ) {
     return null;
   }
   if (category === null || (status !== "active" && status !== "inactive")) return null;
@@ -1630,6 +1686,7 @@ function inventoryItemData(value: unknown): InventoryItem | null {
     low_stock_threshold: threshold,
     status,
     batch_count: batchCount,
+    stock,
   };
 }
 
@@ -1649,14 +1706,78 @@ function inventoryBatchData(value: unknown): InventoryBatch | null {
   const expiry = value.expiry_on;
   if (id === null || batchNumber === null || createdAt === null) return null;
   if (expiry !== null && typeof expiry !== "string") return null;
-  if (typeof value.expired !== "boolean") return null;
+  const quantity = numberField(value, "quantity");
+  if (typeof value.expired !== "boolean" || quantity === null) return null;
   return {
     id,
     batch_number: batchNumber,
     expiry_on: expiry,
     expired: value.expired,
+    quantity,
     created_at: createdAt,
   };
+}
+
+function stockTransactionPageData(value: unknown): StockTransactionPage | null {
+  if (!isRecord(value) || !Array.isArray(value.items)) return null;
+  const page = numberField(value, "page");
+  const pageSize = numberField(value, "page_size");
+  const total = numberField(value, "total");
+  if (page === null || pageSize === null || total === null) return null;
+  const items: StockTransaction[] = [];
+  for (const item of value.items) {
+    const row = stockTransactionData(item);
+    if (row === null) return null;
+    items.push(row);
+  }
+  return { items, page, page_size: pageSize, total };
+}
+
+function stockTransactionData(value: unknown): StockTransaction | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const recordedBy = stringField(value, "recorded_by");
+  const createdAt = stringField(value, "created_at");
+  const quantityChange = numberField(value, "quantity_change");
+  const batch = stockBatchLinkData(value.batch);
+  const type = value.type;
+  const reason = value.reason;
+  if (id === null || recordedBy === null || createdAt === null || quantityChange === null) return null;
+  if (batch === null || (type !== "restock" && type !== "adjustment")) return null;
+  if (reason !== null && reason !== "damaged" && reason !== "expired" && reason !== "correction") {
+    return null;
+  }
+  return {
+    id,
+    type,
+    reason,
+    quantity_change: quantityChange,
+    batch,
+    recorded_by: recordedBy,
+    created_at: createdAt,
+  };
+}
+
+function stockBatchLinkData(value: unknown): { id: string; batch_number: string } | null {
+  if (!isRecord(value)) return null;
+  const id = stringField(value, "id");
+  const batchNumber = stringField(value, "batch_number");
+  if (id === null || batchNumber === null) return null;
+  return { id, batch_number: batchNumber };
+}
+
+function wholeNumber(value: string): number | string {
+  if (!/^(0|[1-9]\d*)$/.test(value)) return value;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) return value;
+  return parsed;
+}
+
+function signedNumber(value: string): number | string {
+  if (!/^-?(0|[1-9]\d*)$/.test(value)) return value;
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) return value;
+  return parsed;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

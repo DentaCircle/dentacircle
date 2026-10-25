@@ -21,9 +21,13 @@ export function inventoryHref(
   return `/inventory?${params.toString()}`;
 }
 
-export function inventoryItemHref(itemId: string, notice?: InventoryNotice): string {
-  if (notice === undefined) return `/inventory/${itemId}`;
-  return `/inventory/${itemId}?notice=${notice}`;
+export function inventoryItemHref(itemId: string, notice?: InventoryNotice, page = 1): string {
+  const params = new URLSearchParams();
+  if (page > 1) params.set("page", String(page));
+  if (notice !== undefined) params.set("notice", notice);
+  const query = params.toString();
+  if (query === "") return `/inventory/${itemId}`;
+  return `/inventory/${itemId}?${query}`;
 }
 
 export function pageFromQuery(value: string | undefined): number {
