@@ -23,6 +23,7 @@ _READ_ROUTES = {
     ("GET", "/inventory/categories"),
     ("GET", "/inventory/items"),
     ("GET", "/inventory/items/{item_id}"),
+    ("GET", "/inventory/items/{item_id}/transactions"),
 }
 _WRITE_ROUTES = {
     ("POST", "/inventory/categories"),
@@ -32,6 +33,8 @@ _WRITE_ROUTES = {
     ("POST", "/inventory/items/{item_id}/status"),
     ("POST", "/inventory/items/{item_id}/batches"),
     ("PATCH", "/inventory/batches/{batch_id}"),
+    ("POST", "/inventory/batches/{batch_id}/restock"),
+    ("POST", "/inventory/batches/{batch_id}/adjustments"),
 }
 
 
@@ -68,11 +71,13 @@ def test_create_category_and_item_return_the_setup_shape(api: TestClient) -> Non
         "low_stock_threshold",
         "status",
         "batch_count",
+        "stock",
     }
     assert body["name"] == _MARKER
     assert body["status"] == "active"
     assert body["unit"] == "box"
     assert body["batch_count"] == 0
+    assert body["stock"] == 0
     assert body["category"]["name"] == "Consumables"
     assert "quantity" not in body
 
@@ -220,7 +225,8 @@ def test_one_item_lists_batches_with_expiry_and_hides_stock_fields(api: TestClie
     assert body["batches"][0]["expired"] is True
     assert body["batches"][1]["expired"] is False
     assert body["batches"][2]["expiry_on"] is None
-    assert "quantity" not in response.text
+    assert body["stock"] == 0
+    assert [batch["quantity"] for batch in body["batches"]] == [0, 0, 0]
     assert "supplier" not in response.text
     empty = api.patch(f"/inventory/items/{item_id}", cookies=cookies, json={})
     assert empty.status_code == 422
@@ -301,17 +307,29 @@ def test_another_clinic_gets_404_and_may_reuse_the_name(api: TestClient) -> None
 
 
 def test_a_clinician_can_read_and_a_receptionist_cannot(api: TestClient) -> None:
+    anonymous = api.post(
+        f"/inventory/batches/{uuid4()}/adjustments",
+        json={"quantity_change": -1, "reason": "damaged"},
+    )
+    assert anonymous.status_code == 401
     cookies = _cookie(api, "inventory@x.test")
     category_id = _category(api)
     item_id = _item(api, cookies, "Gloves M", category_id, "box")
     clinician = _cookie(api, "clinician@x.test")
     assert api.get("/inventory/items", cookies=clinician).status_code == 200
     assert api.get(f"/inventory/items/{item_id}", cookies=clinician).status_code == 200
+    history = api.get(f"/inventory/items/{item_id}/transactions", cookies=clinician)
+    assert history.status_code == 200
     refused = api.post("/inventory/categories", cookies=clinician, json={"name": "X"})
     assert refused.status_code == 403
+    restock_denied = api.post(
+        f"/inventory/batches/{uuid4()}/restock", cookies=clinician, json={"quantity": 1}
+    )
+    assert restock_denied.status_code == 403
     desk = _cookie(api)
     assert api.get("/inventory/categories", cookies=desk).status_code == 403
     assert api.get("/inventory/items", cookies=desk).status_code == 403
+    assert api.get(f"/inventory/items/{item_id}/transactions", cookies=desk).status_code == 403
 
 
 def test_every_inventory_route_names_its_roles(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -329,6 +347,191 @@ def test_every_inventory_route_names_its_roles(monkeypatch: pytest.MonkeyPatch) 
     allowed = set().union(*(found[key] for key in inventory))
     assert "receptionist" not in allowed
     assert len(list(iter_api_routes(application))) > 0
+
+
+def test_restock_adjustment_and_history_follow_the_check_order(api: TestClient) -> None:
+    missing = str(uuid4())
+    anonymous = api.post(f"/inventory/batches/{missing}/restock", json={"quantity": True})
+    assert anonymous.status_code == 401
+    denied = api.post(
+        f"/inventory/batches/{missing}/restock",
+        cookies=_cookie(api),
+        json={"quantity": True},
+    )
+    assert denied.status_code == 403
+    cookies = _cookie(api, "inventory@x.test")
+    for payload in ({"quantity": True}, {"quantity": "4"}, {"quantity": 1.5}, {"quantity": 0}):
+        invalid = api.post(f"/inventory/batches/{missing}/restock", cookies=cookies, json=payload)
+        assert invalid.status_code == 422
+    positive = api.post(
+        f"/inventory/batches/{missing}/adjustments",
+        cookies=cookies,
+        json={"quantity_change": 1, "reason": "damaged"},
+    )
+    assert positive.status_code == 422
+    assert positive.json()["error"]["code"] == "validation_error"
+    absent = api.post(
+        f"/inventory/batches/{missing}/restock", cookies=cookies, json={"quantity": 1}
+    )
+    assert absent.status_code == 404
+    item_id = _item(api, cookies)
+    batch_id = _batch(api, cookies, item_id, "LOT-1")
+    api.post(f"/inventory/items/{item_id}/status", cookies=cookies, json={"status": "inactive"})
+    inactive = api.post(
+        f"/inventory/batches/{batch_id}/restock", cookies=cookies, json={"quantity": 1}
+    )
+    assert inactive.status_code == 409
+    assert inactive.json()["error"]["code"] == "item_inactive"
+    written = api.post(
+        f"/inventory/batches/{batch_id}/adjustments",
+        cookies=cookies,
+        json={"quantity_change": -1, "reason": "damaged"},
+    )
+    assert written.status_code == 409
+    assert written.json()["error"]["code"] == "insufficient_stock"
+    api.post(f"/inventory/items/{item_id}/status", cookies=cookies, json={"status": "active"})
+    added = api.post(
+        f"/inventory/batches/{batch_id}/restock", cookies=cookies, json={"quantity": 5}
+    )
+    assert added.status_code == 201
+    assert added.json()["type"] == "restock"
+    assert added.json()["reason"] is None
+    assert added.json()["quantity_change"] == 5
+    assert added.json()["recorded_by"] == "Synthetic Person"
+    assert added.json()["created_at"].endswith("+05:30")
+    short = api.post(
+        f"/inventory/batches/{batch_id}/adjustments",
+        cookies=cookies,
+        json={"quantity_change": -6, "reason": "expired"},
+    )
+    assert short.status_code == 409
+    assert short.json()["error"]["code"] == "insufficient_stock"
+    changed = api.post(
+        f"/inventory/batches/{batch_id}/adjustments",
+        cookies=cookies,
+        json={"quantity_change": -2, "reason": "correction"},
+    )
+    assert changed.status_code == 201
+    assert changed.json()["type"] == "adjustment"
+    detail = api.get(f"/inventory/items/{item_id}", cookies=cookies)
+    assert detail.json()["stock"] == 3
+    assert detail.json()["batches"][0]["quantity"] == 3
+    history = api.get(
+        f"/inventory/items/{item_id}/transactions",
+        cookies=cookies,
+        params={"page_size": 1},
+    )
+    assert history.status_code == 200
+    assert set(history.json()) == {"items", "total", "page", "page_size"}
+    assert history.json()["total"] == 2
+    assert history.json()["items"][0]["quantity_change"] == -2
+    assert history.json()["items"][0]["batch"]["batch_number"] == "LOT-1"
+    older = api.get(
+        f"/inventory/items/{item_id}/transactions",
+        cookies=cookies,
+        params={"page": 2, "page_size": 1},
+    )
+    assert older.json()["items"][0]["type"] == "restock"
+    empty_item = _item(api, cookies, "Mask", _category(api, "Medicines"), "box")
+    empty = api.get(f"/inventory/items/{empty_item}/transactions", cookies=cookies)
+    assert empty.status_code == 200
+    assert empty.json()["items"] == []
+    for params in ({"page": 0}, {"page_size": 0}, {"page_size": 101}):
+        refused = api.get(
+            f"/inventory/items/{item_id}/transactions", cookies=cookies, params=params
+        )
+        assert refused.status_code == 422
+
+
+def test_stock_errors_do_not_echo_quantity_batch_number_or_ids(
+    api: TestClient, caplog: pytest.LogCaptureFixture
+) -> None:
+    cookies = _cookie(api, "inventory@x.test")
+    item_id = _item(api, cookies, "Gloves M")
+    batch_id = _batch(api, cookies, item_id, _MARKER)
+    api.post(f"/inventory/batches/{batch_id}/restock", cookies=cookies, json={"quantity": 1})
+    missing = str(uuid4())
+    with caplog.at_level(logging.DEBUG):
+        missing_batch = api.post(
+            f"/inventory/batches/{missing}/restock", cookies=cookies, json={"quantity": 424242}
+        )
+        invalid = api.post(
+            f"/inventory/batches/{batch_id}/adjustments",
+            cookies=cookies,
+            json={"quantity_change": "424242", "reason": "damaged"},
+        )
+        short = api.post(
+            f"/inventory/batches/{batch_id}/adjustments",
+            cookies=cookies,
+            json={"quantity_change": -424242, "reason": "expired"},
+        )
+    assert missing_batch.status_code == 404
+    assert invalid.status_code == 422
+    assert short.status_code == 409
+    for response in (missing_batch, invalid, short):
+        assert "424242" not in response.text
+        assert _MARKER not in response.text
+        assert batch_id not in response.text
+        assert missing not in response.text
+        assert item_id not in response.text
+    log = "\n".join(
+        record.getMessage() for record in caplog.records if record.name.startswith("dentacircle")
+    )
+    assert "424242" not in log
+    assert _MARKER not in log
+
+
+def test_another_clinic_cannot_restock_or_read_history(api: TestClient) -> None:
+    cookies = _cookie(api, "inventory@x.test")
+    item_id = _item(api, cookies, _MARKER)
+    batch_id = _batch(api, cookies, item_id, "LOT-1")
+    api.post(f"/inventory/batches/{batch_id}/restock", cookies=cookies, json={"quantity": 2})
+    _other_clinic()
+    other = _cookie(api, "other@x.test")
+    stolen = api.post(
+        f"/inventory/batches/{batch_id}/restock", cookies=other, json={"quantity": 1}
+    )
+    history = api.get(f"/inventory/items/{item_id}/transactions", cookies=other)
+    assert stolen.status_code == 404
+    assert history.status_code == 404
+    assert _MARKER not in stolen.text
+    assert _MARKER not in history.text
+    assert batch_id not in stolen.text
+    assert item_id not in history.text
+
+
+def test_an_expired_batch_still_counts_in_item_stock(api: TestClient) -> None:
+    cookies = _cookie(api, "admin@x.test")
+    item_id = _item(api, cookies)
+    past = (_today() - timedelta(days=2)).isoformat()
+    batch = api.post(
+        f"/inventory/items/{item_id}/batches",
+        cookies=cookies,
+        json={"batch_number": "OLD", "expiry_on": past},
+    )
+    assert batch.status_code == 201
+    added = api.post(
+        f"/inventory/batches/{batch.json()['id']}/restock",
+        cookies=cookies,
+        json={"quantity": 8},
+    )
+    assert added.status_code == 201
+    detail = api.get(f"/inventory/items/{item_id}", cookies=cookies)
+    assert detail.json()["batches"][0]["expired"] is True
+    assert detail.json()["batches"][0]["quantity"] == 8
+    assert detail.json()["stock"] == 8
+    listed = api.get("/inventory/items", cookies=cookies)
+    assert listed.json()["items"][0]["stock"] == 8
+
+
+def _batch(api: TestClient, cookies: dict[str, str], item_id: str, batch_number: str) -> str:
+    response = api.post(
+        f"/inventory/items/{item_id}/batches",
+        cookies=cookies,
+        json={"batch_number": batch_number},
+    )
+    assert response.status_code == 201
+    return str(response.json()["id"])
 
 
 def _cookie(api: TestClient, email: str = "receptionist@x.test") -> dict[str, str]:
