@@ -53,6 +53,7 @@ export function InventoryItemScreen({
           {canWrite ? (
             <>
               <EditItemForm
+                key={`${item.id}:${notice ?? ""}`}
                 itemId={item.id}
                 categories={categories}
                 initial={{
@@ -75,11 +76,23 @@ export function InventoryItemScreen({
                   <span>{batch.expiryLabel}</span>
                   {batch.expired ? <Badge variant="destructive">Expired</Badge> : null}
                 </p>
-                {canWrite ? <EditBatchForm itemId={item.id} batch={batch} /> : null}
+                {canWrite ? (
+                  <EditBatchForm
+                    key={`${batch.id}:${notice ?? ""}`}
+                    itemId={item.id}
+                    batch={batch}
+                  />
+                ) : null}
               </li>
             ))}
           </ul>
-          {canWrite ? <AddBatchForm itemId={item.id} inactive={item.status === "inactive"} /> : null}
+          {canWrite ? (
+            <AddBatchForm
+              key={`${item.id}:${item.status}:${notice ?? ""}`}
+              itemId={item.id}
+              inactive={item.status === "inactive"}
+            />
+          ) : null}
         </>
       ) : null}
     </section>

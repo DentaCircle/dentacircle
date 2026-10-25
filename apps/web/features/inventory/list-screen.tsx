@@ -37,6 +37,7 @@ export function InventoryListScreen({
   notice,
   canWrite,
 }: InventoryListScreenProps) {
+  const formKey = `${filter.status}:${filter.categoryId}:${filter.query}:${notice ?? ""}`;
   return (
     <section className="flex flex-col gap-4">
       <h1 className="text-2xl font-semibold">Inventory</h1>
@@ -48,8 +49,15 @@ export function InventoryListScreen({
           <StatusLinks filter={filter} />
           <CategoryLinks categories={categories} filter={filter} />
           <SearchForm filter={filter} />
-          <CategoryPanel categories={categories} filter={filter} canWrite={canWrite} />
-          {canWrite ? <AddItemForm categories={categories} filter={filter} /> : null}
+          <CategoryPanel
+            key={`categories:${formKey}`}
+            categories={categories}
+            filter={filter}
+            canWrite={canWrite}
+          />
+          {canWrite ? (
+            <AddItemForm key={`item:${formKey}`} categories={categories} filter={filter} />
+          ) : null}
         </>
       )}
       {status === "empty" ? <p>No inventory items yet.</p> : null}
