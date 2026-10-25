@@ -45,7 +45,7 @@ def test_upgrade_downgrade_upgrade(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0017_lab_work"
+    assert _version(throwaway_database_url) == "0018_inventory"
     assert "lab_work" in _public_tables(throwaway_database_url)
     assert _columns(throwaway_database_url, "lab_work") == _COLUMNS
     assert "lab_work_id" in _columns(throwaway_database_url, "document")
@@ -60,7 +60,7 @@ def test_upgrade_downgrade_upgrade(
     assert "document" in _public_tables(throwaway_database_url)
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0017_lab_work"
+    assert _version(throwaway_database_url) == "0018_inventory"
     assert "lab_work" in _public_tables(throwaway_database_url)
 
 
