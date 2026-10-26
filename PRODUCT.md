@@ -313,6 +313,20 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   confirm again at S4.2. `expired` is calculated from the clinic-local date. The expiring-soon
   window belongs to S4.4. Audit rows list field names only. S4.1 stays one slice, reviewed in
   six pieces.
+- **Stock and transactions (decided in S4.2):** stock is never stored or typed in. It is the sum
+  of an append-only `inventory_transaction` table (migration `0019`, additive), per batch, and
+  per item as the sum over its batches. A transaction has a batch (the item is reached through
+  it), a type, an optional reason, a whole-number signed change, the actor and the time. It has
+  no note, cost or supplier; the S4.1 question is settled and both stay out through M5. Types:
+  `restock` (positive, into an existing batch) and `adjustment` with reason `damaged`,
+  `expired` (both negative) or `correction` (either sign). Procedure consumption is S4.3.
+  Stock cannot go below 0 (409 `insufficient_stock`), checked under a lock on the batch row.
+  Restock is refused for an inactive item; adjustments are allowed so old stock can be written
+  off. A trigger makes the database refuse `UPDATE` and `DELETE` on the table (the first trigger
+  in the repo), and a mistake is fixed with a `correction`. `inventory_admin` and `clinic_admin`
+  write; they plus `clinician` read stock and history; `receptionist` has no access. Expired
+  batches still count in stock until S4.4 decides alert treatment. Audit rows list no
+  quantities.
 
 ## Open decisions (need the developer's call)
 
@@ -490,8 +504,15 @@ and the four lab timeline kinds in the same transaction as the row (migration `0
 can still move and list.
 
 `inventory_admin` and `clinic_admin` can set up categories, items and batches on `/inventory`
-and `/inventory/[id]`. A clinician can read those pages and cannot change them. A receptionist
-is refused. A batch is a number plus an optional expiry; `expired` is calculated from the
-clinic-local date and is not stored. Items are deactivated, never deleted. Nothing changes
-stock yet. Creates, edits and status changes write audit events with field names only
-(migration `0018`).
+and `/inventory/[id]`, restock a batch, and adjust stock with a reason (`damaged`, `expired`,
+or `correction`). Stock is never typed in or stored; it is the sum of an append-only
+`inventory_transaction` table per batch and per item (migration `0019`). Restock on an inactive
+item is refused; adjustments are still allowed. The service locks the batch row and refuses
+a change that would go below zero. Each transaction writes one `inventory_transaction` create
+audit event in the same transaction. The item page shows calculated stock, batch quantities,
+and a paginated history; the list shows a Stock column. A clinician can read stock and history
+and cannot use the forms. A receptionist is refused. A batch is a number plus an optional expiry;
+`expired` is calculated from the clinic-local date and is not stored. Expired batches still
+count in stock until S4.4. Items are deactivated, never deleted. Item and batch setup writes
+audit events with field names only (migration `0018`). Procedure consumption and low-stock
+alerts are not in yet (S4.3 and S4.4).

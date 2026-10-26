@@ -1,4 +1,4 @@
-"""Something the clinic stocks. Deactivated, never deleted. Holds no quantity."""
+"""Something the clinic stocks. Deactivated, never deleted. Stock is calculated."""
 
 from uuid import UUID
 

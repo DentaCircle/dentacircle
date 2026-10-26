@@ -8,7 +8,11 @@ import pytest
 from dentacircle.domain.inventory import (
     InventoryFieldError,
     changed_field_names,
+    check_adjustment_reason,
+    check_adjustment_sign,
     check_item_status,
+    check_quantity_change,
+    check_restock_quantity,
     check_threshold,
     clean_batch_number,
     clean_category_name,
@@ -56,6 +60,55 @@ def test_the_threshold_refuses_out_of_range_and_booleans(value: int) -> None:
     with pytest.raises(InventoryFieldError) as error:
         check_threshold(value)
     assert error.value.field == "low_stock_threshold"
+
+
+@pytest.mark.parametrize("value", [1, 1_000_000])
+def test_a_restock_accepts_the_whole_number_ends(value: int) -> None:
+    assert check_restock_quantity(value) == value
+
+
+@pytest.mark.parametrize("value", [0, -1, 1_000_001, True, False])
+def test_a_restock_refuses_zero_decimals_range_and_booleans(value: int) -> None:
+    with pytest.raises(InventoryFieldError) as error:
+        check_restock_quantity(value)
+    assert error.value.field == "quantity"
+
+
+@pytest.mark.parametrize("value", [-1_000_000, -1, 1, 1_000_000])
+def test_an_adjustment_accepts_either_sign_inside_the_limit(value: int) -> None:
+    assert check_quantity_change(value) == value
+
+
+@pytest.mark.parametrize("value", [0, 1_000_001, -1_000_001, True])
+def test_an_adjustment_refuses_zero_out_of_range_and_booleans(value: int) -> None:
+    with pytest.raises(InventoryFieldError) as error:
+        check_quantity_change(value)
+    assert error.value.field == "quantity_change"
+    assert error.value.code == ("int_type" if value is True else "int_parsing")
+
+
+@pytest.mark.parametrize("reason", ["damaged", "expired", "correction"])
+def test_an_adjustment_reason_is_one_of_three(reason: str) -> None:
+    assert check_adjustment_reason(reason) == reason
+
+
+def test_an_unknown_adjustment_reason_is_refused() -> None:
+    with pytest.raises(InventoryFieldError) as error:
+        check_adjustment_reason("transfer")
+    assert error.value.code == "literal_error"
+
+
+def test_damaged_and_expired_must_remove_stock_and_a_correction_may_add() -> None:
+    check_adjustment_sign(-1, "damaged")
+    check_adjustment_sign(-4, "expired")
+    check_adjustment_sign(2, "correction")
+    check_adjustment_sign(-2, "correction")
+    with pytest.raises(InventoryFieldError) as damaged:
+        check_adjustment_sign(1, "damaged")
+    assert damaged.value.code == "must_be_negative"
+    with pytest.raises(InventoryFieldError) as expired:
+        check_adjustment_sign(1, "expired")
+    assert expired.value.field == "quantity_change"
 
 
 def test_item_status_is_active_or_inactive() -> None:

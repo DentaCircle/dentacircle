@@ -1,18 +1,22 @@
-"""Inventory service: names, duplicates, inactive items, audit names and rollback."""
+"""Inventory service: names, duplicates, stock movements, audit and rollback."""
 
+import threading
+from collections.abc import Callable
 from datetime import date, timedelta
 from uuid import UUID, uuid4
 
 import pytest
-from sqlalchemy import func, select, text
+from sqlalchemy import create_engine, event, func, select, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from dentacircle.core.database import get_engine
+from dentacircle.core.database import get_engine, to_sqlalchemy_url
 from dentacircle.domain.inventory import InventoryFieldError
 from dentacircle.models.audit_event import AuditEvent
 from dentacircle.models.inventory_batch import InventoryBatch
 from dentacircle.models.inventory_category import InventoryCategory
 from dentacircle.models.inventory_item import InventoryItem
+from dentacircle.models.inventory_transaction import InventoryTransaction
 from dentacircle.repositories.inventory_repository import InventoryRepository
 from dentacircle.services.audit_service import record as record_audit
 from dentacircle.services.inventory_service import (
@@ -21,12 +25,15 @@ from dentacircle.services.inventory_service import (
     CategoryView,
     DuplicateBatchError,
     DuplicateNameError,
+    InsufficientStockError,
     InvalidItemStatusError,
     InventoryNotFoundError,
     ItemChanges,
     ItemInactiveError,
     ItemView,
+    TransactionView,
     add_batch,
+    adjust,
     create_category,
     create_item,
     edit_batch,
@@ -34,7 +41,9 @@ from dentacircle.services.inventory_service import (
     get_item,
     list_categories,
     list_items,
+    list_transactions,
     rename_category,
+    restock,
     set_item_status,
 )
 from dentacircle.services.provisioning_service import create_user, get_or_create_clinic
@@ -189,7 +198,7 @@ def test_a_batch_keeps_no_quantity_and_an_inactive_item_refuses_a_new_one(
     assert created.batch_number == "LOT-1"
     assert created.expiry_on == _TODAY - timedelta(days=1)
     assert created.expired is True
-    assert not hasattr(created, "quantity")
+    assert created.quantity == 0
     events = _audits("inventory_batch")
     assert events[0].action == "create"
     assert events[0].changed_fields == []
@@ -288,6 +297,182 @@ def test_the_item_list_filters_and_an_unknown_category_is_an_empty_page(database
     assert missing.items == []
 
 
+def test_stock_is_the_sum_of_movements_including_an_expired_batch(database: str) -> None:
+    clinic = world()
+    category = _category(clinic, "Consumables")
+    item = _item(clinic, "Gloves M", category.id)
+    expired = _batch(clinic, item.id, "OLD", expiry_on=_TODAY - timedelta(days=3))
+    current = _batch(clinic, item.id, "NEW", expiry_on=_TODAY + timedelta(days=30))
+    added = _restock(clinic, expired.id, 10)
+    assert added.type == "restock"
+    assert added.reason is None
+    assert added.quantity_change == 10
+    assert added.batch_number == "OLD"
+    assert added.recorded_by == "Sample Desk"
+    assert added.created_at.utcoffset() == timedelta(hours=5, minutes=30)
+    _restock(clinic, current.id, 4)
+    written = _adjust(clinic, current.id, -1, "damaged")
+    assert written.type == "adjustment"
+    assert written.reason == "damaged"
+    assert written.quantity_change == -1
+    with Session(get_engine()) as session:
+        detail = get_item(session, clinic.clinic_id, item.id, NOW)
+        listed = list_items(session, clinic.clinic_id, "all", None, None, 1, 20)
+    assert detail.item.stock == 13
+    assert listed.items[0].stock == 13
+    quantities = {batch.batch_number: batch.quantity for batch in detail.batches}
+    assert quantities == {"OLD": 10, "NEW": 3}
+    stored = _count(InventoryBatch)
+    assert stored == 2
+    with Session(get_engine()) as session:
+        row = session.get(InventoryBatch, expired.id)
+    assert row is not None
+    assert "quantity" not in row.__table__.columns
+
+
+def test_a_removal_below_zero_writes_nothing_and_an_inactive_item_can_be_written_off(
+    database: str,
+) -> None:
+    clinic = world()
+    category = _category(clinic, "Consumables")
+    item = _item(clinic, "Gloves M", category.id)
+    batch = _batch(clinic, item.id, "LOT-1")
+    _restock(clinic, batch.id, 5)
+    with pytest.raises(InsufficientStockError):
+        _adjust(clinic, batch.id, -6, "expired")
+    assert _count_transactions() == 1
+    _status(clinic, item.id, "inactive")
+    with pytest.raises(ItemInactiveError):
+        _restock(clinic, batch.id, 1)
+    assert _count_transactions() == 1
+    corrected = _adjust(clinic, batch.id, -5, "correction")
+    assert corrected.quantity_change == -5
+    with pytest.raises(InventoryFieldError) as positive:
+        _adjust(clinic, batch.id, 1, "damaged")
+    assert positive.value.code == "must_be_negative"
+    assert _count_transactions() == 2
+    with Session(get_engine()) as session:
+        detail = get_item(session, clinic.clinic_id, item.id, NOW)
+    assert detail.item.stock == 0
+    assert detail.batches[0].quantity == 0
+
+
+def test_a_failed_audit_write_leaves_no_transaction(
+    database: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    clinic = world()
+    category = _category(clinic, "Consumables")
+    item = _item(clinic, "Gloves M", category.id)
+    batch = _batch(clinic, item.id, "LOT-1")
+    seen: list[tuple[str, str, list[str] | None]] = []
+
+    def spy(
+        session: Session,
+        clinic_id: UUID,
+        actor_user_id: UUID,
+        entity_type: str,
+        entity_id: UUID,
+        action: str,
+        changed_fields: list[str] | None = None,
+    ) -> None:
+        seen.append((entity_type, action, changed_fields))
+        record_audit(
+            session, clinic_id, actor_user_id, entity_type, entity_id, action, changed_fields
+        )
+
+    monkeypatch.setattr("dentacircle.services.inventory_service.record", spy)
+    created = _restock(clinic, batch.id, 424242)
+    assert created.quantity_change == 424242
+    assert seen[-1] == ("inventory_transaction", "create", [])
+    assert "424242" not in str(seen[-1])
+    events = _audits("inventory_transaction")
+    assert [(event.action, event.changed_fields) for event in events] == [("create", [])]
+
+    def fail(*_args: object, **_kwargs: object) -> None:
+        raise RuntimeError("write failed")
+
+    monkeypatch.setattr("dentacircle.services.inventory_service.record", fail)
+    with pytest.raises(RuntimeError):
+        _adjust(clinic, batch.id, -1, "damaged")
+    assert _count_transactions() == 1
+    assert len(_audits("inventory_transaction")) == 1
+
+
+def test_history_is_newest_first_and_another_clinic_cannot_see_the_batch(database: str) -> None:
+    clinic = world()
+    category = _category(clinic, "Consumables")
+    item = _item(clinic, "Gloves M", category.id)
+    first = _batch(clinic, item.id, "LOT-1")
+    second = _batch(clinic, item.id, "LOT-2")
+    _restock(clinic, first.id, 2)
+    _adjust(clinic, second.id, 3, "correction")
+    _adjust(clinic, first.id, -1, "expired")
+    with Session(get_engine()) as session:
+        page = list_transactions(session, clinic.clinic_id, item.id, 1, 2)
+        empty = list_transactions(session, clinic.clinic_id, item.id, 2, 2)
+        none = list_items(session, clinic.clinic_id, "all", None, "mask", 1, 20)
+    assert page.total == 3
+    assert [(row.batch_number, row.quantity_change) for row in page.items] == [
+        ("LOT-1", -1),
+        ("LOT-2", 3),
+    ]
+    assert empty.items[0].quantity_change == 2
+    assert empty.page == 2
+    assert none.total == 0
+    other_clinic, other_user = _other_clinic()
+    with Session(get_engine()) as session:
+        assert InventoryRepository(session, other_clinic).get_batch(first.id) is None
+    with pytest.raises(InventoryNotFoundError):
+        with Session(get_engine()) as session:
+            restock(session, other_clinic, other_user, first.id, 1)
+    with pytest.raises(InventoryNotFoundError):
+        with Session(get_engine()) as session:
+            list_transactions(session, other_clinic, item.id, 1, 20)
+    assert _count_transactions() == 3
+
+
+def test_two_removals_of_the_last_units_yield_one_success(database: str) -> None:
+    clinic = world()
+    category = _category(clinic, "Consumables")
+    item = _item(clinic, "Gloves M", category.id)
+    batch = _batch(clinic, item.id, "LOT-1")
+    _restock(clinic, batch.id, 5)
+    engine = create_engine(
+        to_sqlalchemy_url(database),
+        pool_size=2,
+        max_overflow=0,
+        connect_args={"connect_timeout": 5},
+    )
+    ready, stop = _batch_lock_gate(engine)
+
+    def once() -> str:
+        with Session(engine) as session:
+            try:
+                adjust(session, clinic.clinic_id, clinic.actor_id, batch.id, -5, "damaged")
+            except InsufficientStockError:
+                session.rollback()
+                return "short"
+            if not ready.wait(timeout=5):
+                session.rollback()
+                return "timeout"
+            session.commit()
+            return "ok"
+
+    try:
+        from concurrent.futures import ThreadPoolExecutor
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            results = [job.result(timeout=10) for job in (pool.submit(once), pool.submit(once))]
+    finally:
+        stop()
+        engine.dispose()
+    assert sorted(results) == ["ok", "short"]
+    with Session(get_engine()) as session:
+        detail = get_item(session, clinic.clinic_id, item.id, NOW)
+    assert detail.batches[0].quantity == 0
+    assert _count_transactions() == 2
+
+
 def _category(clinic: World, name: str) -> CategoryView:
     with Session(get_engine()) as session:
         created = create_category(session, clinic.clinic_id, clinic.actor_id, name)
@@ -380,6 +565,55 @@ def _audits(entity_type: str) -> list[AuditEvent]:
                 .order_by(AuditEvent.occurred_at, AuditEvent.action)
             )
         )
+
+
+def _restock(clinic: World, batch_id: UUID, quantity: int) -> TransactionView:
+    with Session(get_engine()) as session:
+        created = restock(session, clinic.clinic_id, clinic.actor_id, batch_id, quantity)
+        session.commit()
+        return created
+
+
+def _adjust(clinic: World, batch_id: UUID, quantity_change: int, reason: str) -> TransactionView:
+    with Session(get_engine()) as session:
+        created = adjust(
+            session, clinic.clinic_id, clinic.actor_id, batch_id, quantity_change, reason
+        )
+        session.commit()
+        return created
+
+
+def _count_transactions() -> int:
+    with Session(get_engine()) as session:
+        total = session.scalar(select(func.count()).select_from(InventoryTransaction))
+    return int(total or 0)
+
+
+def _batch_lock_gate(engine: Engine) -> tuple[threading.Event, Callable[[], None]]:
+    """Signal once two inventory_batch row locks have been requested."""
+    ready = threading.Event()
+    seen = 0
+    guard = threading.Lock()
+
+    def before_cursor_execute(*args: object) -> None:
+        nonlocal seen
+        statement = args[2]
+        if not isinstance(statement, str):
+            return
+        folded = statement.lower()
+        if "for update" not in folded or "inventory_batch" not in folded:
+            return
+        with guard:
+            seen += 1
+            if seen >= 2:
+                ready.set()
+
+    event.listen(engine, "before_cursor_execute", before_cursor_execute)
+
+    def stop() -> None:
+        event.remove(engine, "before_cursor_execute", before_cursor_execute)
+
+    return ready, stop
 
 
 def _count(model: type[InventoryCategory] | type[InventoryItem] | type[InventoryBatch]) -> int:

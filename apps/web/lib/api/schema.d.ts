@@ -433,6 +433,40 @@ export interface paths {
         patch: operations["patch_batch_inventory_batches__batch_id__patch"];
         trace?: never;
     };
+    "/inventory/batches/{batch_id}/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Adjustment */
+        post: operations["post_adjustment_inventory_batches__batch_id__adjustments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/batches/{batch_id}/restock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Restock */
+        post: operations["post_restock_inventory_batches__batch_id__restock_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/inventory/categories": {
         parameters: {
             query?: never;
@@ -532,6 +566,23 @@ export interface paths {
         put?: never;
         /** Post Item Status */
         post: operations["post_item_status_inventory_items__item_id__status_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/inventory/items/{item_id}/transactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Transactions */
+        get: operations["get_transactions_inventory_items__item_id__transactions_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -885,6 +936,16 @@ export interface components {
             /** Name */
             name: string;
         };
+        /** AdjustmentBody */
+        AdjustmentBody: {
+            /** Quantity Change */
+            quantity_change: number;
+            /**
+             * Reason
+             * @enum {string}
+             */
+            reason: "damaged" | "expired" | "correction";
+        };
         /** AppointmentCreate */
         AppointmentCreate: {
             /**
@@ -1014,6 +1075,16 @@ export interface components {
             /** Expiry On */
             expiry_on?: string | null;
         };
+        /** BatchLink */
+        BatchLink: {
+            /** Batch Number */
+            batch_number: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+        };
         /** BatchResponse */
         BatchResponse: {
             /** Batch Number */
@@ -1032,6 +1103,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Quantity */
+            quantity: number;
         };
         /** BatchUpdate */
         BatchUpdate: {
@@ -1411,6 +1484,8 @@ export interface components {
              * @enum {string}
              */
             status: "active" | "inactive";
+            /** Stock */
+            stock: number;
             /** Unit */
             unit: string;
         };
@@ -1444,6 +1519,8 @@ export interface components {
              * @enum {string}
              */
             status: "active" | "inactive";
+            /** Stock */
+            stock: number;
             /** Unit */
             unit: string;
         };
@@ -1781,6 +1858,11 @@ export interface components {
              */
             starts_at: string;
         };
+        /** RestockBody */
+        RestockBody: {
+            /** Quantity */
+            quantity: number;
+        };
         /** SessionEnvelope */
         SessionEnvelope: {
             session: components["schemas"]["SessionResponse"] | null;
@@ -1891,6 +1973,42 @@ export interface components {
         TitleBody: {
             /** Title */
             title: string;
+        };
+        /** TransactionListResponse */
+        TransactionListResponse: {
+            /** Items */
+            items: components["schemas"]["TransactionResponse"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
+        /** TransactionResponse */
+        TransactionResponse: {
+            batch: components["schemas"]["BatchLink"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Quantity Change */
+            quantity_change: number;
+            /** Reason */
+            reason: ("damaged" | "expired" | "correction") | null;
+            /** Recorded By */
+            recorded_by: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "restock" | "adjustment";
         };
         /** TypeNameResponse */
         TypeNameResponse: {
@@ -3184,6 +3302,112 @@ export interface operations {
             };
         };
     };
+    post_adjustment_inventory_batches__batch_id__adjustments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustmentBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description insufficient_stock */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    post_restock_inventory_batches__batch_id__restock_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                batch_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RestockBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description item_inactive or insufficient_stock */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
     get_categories_inventory_categories_get: {
         parameters: {
             query?: never;
@@ -3575,6 +3799,49 @@ export interface operations {
             };
             /** @description invalid_status */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    get_transactions_inventory_items__item_id__transactions_get: {
+        parameters: {
+            query?: {
+                page?: number;
+                page_size?: number;
+            };
+            header?: never;
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionListResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

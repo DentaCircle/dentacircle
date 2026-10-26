@@ -1,7 +1,8 @@
-"""Inventory setup: names, units, statuses and whether a batch is expired.
+"""Inventory setup: names, units, statuses, expiry and stock movements.
 
-A batch is a label and an optional expiry date. It holds no quantity.
-`expired` is calculated from the clinic-local date. It is never stored.
+A batch is a label and an optional expiry date. It stores no quantity.
+Quantity is the sum of append-only transactions. `expired` is calculated
+from the clinic-local date. Neither value is stored on the batch.
 """
 
 from datetime import date, datetime
@@ -12,12 +13,16 @@ MAX_ITEM_NAME_LENGTH = 120
 MAX_UNIT_LENGTH = 30
 MAX_BATCH_NUMBER_LENGTH = 60
 MAX_LOW_STOCK_THRESHOLD = 1_000_000
+MAX_QUANTITY_CHANGE = 1_000_000
 EARLIEST_EXPIRY = date(2000, 1, 1)
 EXPIRY_HORIZON_YEARS = 20
 ITEM_STATUSES = ("active", "inactive")
 ITEM_LIST_VIEWS = ("active", "inactive", "all")
 INVENTORY_WRITE_ROLES = ("inventory_admin", "clinic_admin")
 INVENTORY_READ_ROLES = ("inventory_admin", "clinic_admin", "clinician")
+TRANSACTION_TYPES = ("restock", "adjustment")
+ADJUSTMENT_REASONS = ("damaged", "expired", "correction")
+NEGATIVE_ADJUSTMENT_REASONS = ("damaged", "expired")
 CATEGORY_AUDIT_FIELDS = ("name",)
 ITEM_AUDIT_FIELDS = ("name", "category_id", "unit", "low_stock_threshold")
 BATCH_AUDIT_FIELDS = ("batch_number", "expiry_on")
@@ -55,6 +60,36 @@ def check_threshold(value: int) -> int:
     if value < 0 or value > MAX_LOW_STOCK_THRESHOLD:
         raise InventoryFieldError("low_stock_threshold", "int_parsing")
     return value
+
+
+def check_restock_quantity(value: int) -> int:
+    """A whole number from 1 through 1,000,000. Booleans are refused."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise InventoryFieldError("quantity", "int_type")
+    if value < 1 or value > MAX_QUANTITY_CHANGE:
+        raise InventoryFieldError("quantity", "int_parsing")
+    return value
+
+
+def check_quantity_change(value: int) -> int:
+    """A non-zero whole number within ±1,000,000. Booleans are refused."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise InventoryFieldError("quantity_change", "int_type")
+    if value == 0 or value < -MAX_QUANTITY_CHANGE or value > MAX_QUANTITY_CHANGE:
+        raise InventoryFieldError("quantity_change", "int_parsing")
+    return value
+
+
+def check_adjustment_reason(reason: str) -> str:
+    if reason not in ADJUSTMENT_REASONS:
+        raise InventoryFieldError("reason", "literal_error")
+    return reason
+
+
+def check_adjustment_sign(quantity_change: int, reason: str) -> None:
+    """Damaged and expired remove stock. A correction may add or remove it."""
+    if reason in NEGATIVE_ADJUSTMENT_REASONS and quantity_change > 0:
+        raise InventoryFieldError("quantity_change", "must_be_negative")
 
 
 def check_item_status(status: str) -> str:

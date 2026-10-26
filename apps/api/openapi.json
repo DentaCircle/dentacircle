@@ -20,6 +20,32 @@
         "title": "ActorBody",
         "type": "object"
       },
+      "AdjustmentBody": {
+        "additionalProperties": false,
+        "properties": {
+          "quantity_change": {
+            "maximum": 1000000.0,
+            "minimum": -1000000.0,
+            "title": "Quantity Change",
+            "type": "integer"
+          },
+          "reason": {
+            "enum": [
+              "damaged",
+              "expired",
+              "correction"
+            ],
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "quantity_change",
+          "reason"
+        ],
+        "title": "AdjustmentBody",
+        "type": "object"
+      },
       "AppointmentCreate": {
         "additionalProperties": false,
         "properties": {
@@ -337,6 +363,25 @@
         "title": "BatchCreate",
         "type": "object"
       },
+      "BatchLink": {
+        "properties": {
+          "batch_number": {
+            "title": "Batch Number",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "batch_number"
+        ],
+        "title": "BatchLink",
+        "type": "object"
+      },
       "BatchResponse": {
         "properties": {
           "batch_number": {
@@ -368,6 +413,10 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
           }
         },
         "required": [
@@ -375,6 +424,7 @@
           "batch_number",
           "expiry_on",
           "expired",
+          "quantity",
           "created_at"
         ],
         "title": "BatchResponse",
@@ -1255,6 +1305,10 @@
             "title": "Status",
             "type": "string"
           },
+          "stock": {
+            "title": "Stock",
+            "type": "integer"
+          },
           "unit": {
             "title": "Unit",
             "type": "string"
@@ -1268,6 +1322,7 @@
           "low_stock_threshold",
           "status",
           "batch_count",
+          "stock",
           "batches"
         ],
         "title": "ItemDetailResponse",
@@ -1334,6 +1389,10 @@
             "title": "Status",
             "type": "string"
           },
+          "stock": {
+            "title": "Stock",
+            "type": "integer"
+          },
           "unit": {
             "title": "Unit",
             "type": "string"
@@ -1346,7 +1405,8 @@
           "unit",
           "low_stock_threshold",
           "status",
-          "batch_count"
+          "batch_count",
+          "stock"
         ],
         "title": "ItemResponse",
         "type": "object"
@@ -2162,6 +2222,22 @@
         "title": "RescheduleBody",
         "type": "object"
       },
+      "RestockBody": {
+        "additionalProperties": false,
+        "properties": {
+          "quantity": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Quantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "quantity"
+        ],
+        "title": "RestockBody",
+        "type": "object"
+      },
       "SessionEnvelope": {
         "properties": {
           "session": {
@@ -2441,6 +2517,97 @@
           "title"
         ],
         "title": "TitleBody",
+        "type": "object"
+      },
+      "TransactionListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TransactionResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "TransactionListResponse",
+        "type": "object"
+      },
+      "TransactionResponse": {
+        "properties": {
+          "batch": {
+            "$ref": "#/components/schemas/BatchLink"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "quantity_change": {
+            "title": "Quantity Change",
+            "type": "integer"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "damaged",
+                  "expired",
+                  "correction"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "recorded_by": {
+            "title": "Recorded By",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "restock",
+              "adjustment"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "reason",
+          "quantity_change",
+          "batch",
+          "recorded_by",
+          "created_at"
+        ],
+        "title": "TransactionResponse",
         "type": "object"
       },
       "TypeNameResponse": {
@@ -4245,6 +4412,146 @@
         "summary": "Patch Batch"
       }
     },
+    "/inventory/batches/{batch_id}/adjustments": {
+      "post": {
+        "operationId": "post_adjustment_inventory_batches__batch_id__adjustments_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdjustmentBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "insufficient_stock"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "summary": "Post Adjustment"
+      }
+    },
+    "/inventory/batches/{batch_id}/restock": {
+      "post": {
+        "operationId": "post_restock_inventory_batches__batch_id__restock_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "batch_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Batch Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RestockBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "item_inactive or insufficient_stock"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "summary": "Post Restock"
+      }
+    },
     "/inventory/categories": {
       "get": {
         "operationId": "get_categories_inventory_categories_get",
@@ -4807,6 +5114,80 @@
           }
         },
         "summary": "Post Item Status"
+      }
+    },
+    "/inventory/items/{item_id}/transactions": {
+      "get": {
+        "operationId": "get_transactions_inventory_items__item_id__transactions_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 92233720368547759,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TransactionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "validation_error"
+          }
+        },
+        "summary": "Get Transactions"
       }
     },
     "/lab-work": {

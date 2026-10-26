@@ -1,4 +1,4 @@
-"""Categories, items and batches. These routes do not change stock."""
+"""Categories, items, batches and append-only stock movements."""
 
 from datetime import UTC, date, datetime
 from typing import Annotated, Any, Literal
@@ -19,6 +19,7 @@ from dentacircle.domain.inventory import (
     MAX_CATEGORY_NAME_LENGTH,
     MAX_ITEM_NAME_LENGTH,
     MAX_LOW_STOCK_THRESHOLD,
+    MAX_QUANTITY_CHANGE,
     MAX_UNIT_LENGTH,
     InventoryFieldError,
 )
@@ -30,6 +31,7 @@ from dentacircle.services.inventory_service import (
     CategoryView,
     DuplicateBatchError,
     DuplicateNameError,
+    InsufficientStockError,
     InvalidItemStatusError,
     InventoryNotFoundError,
     ItemChanges,
@@ -37,7 +39,10 @@ from dentacircle.services.inventory_service import (
     ItemInactiveError,
     ItemPage,
     ItemView,
+    TransactionPage,
+    TransactionView,
     add_batch,
+    adjust,
     create_category,
     create_item,
     edit_batch,
@@ -45,7 +50,9 @@ from dentacircle.services.inventory_service import (
     get_item,
     list_categories,
     list_items,
+    list_transactions,
     rename_category,
+    restock,
     set_item_status,
 )
 from dentacircle.services.patient_service import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
@@ -161,6 +168,7 @@ class ItemResponse(BaseModel):
     low_stock_threshold: int
     status: ItemStatus
     batch_count: int
+    stock: int
 
 
 class BatchCreate(BaseModel):
@@ -205,7 +213,60 @@ class BatchResponse(BaseModel):
     batch_number: str
     expiry_on: date | None
     expired: bool
+    quantity: int
     created_at: datetime
+
+
+class RestockBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    quantity: int = Field(ge=1, le=MAX_QUANTITY_CHANGE)
+
+    @field_validator("quantity", mode="before")
+    @classmethod
+    def whole_quantity(cls, value: object) -> object:
+        return _whole(value)
+
+
+class AdjustmentBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    quantity_change: int = Field(ge=-MAX_QUANTITY_CHANGE, le=MAX_QUANTITY_CHANGE)
+    reason: Literal["damaged", "expired", "correction"]
+
+    @field_validator("quantity_change", mode="before")
+    @classmethod
+    def whole_change(cls, value: object) -> object:
+        return _whole(value)
+
+    @field_validator("quantity_change")
+    @classmethod
+    def reject_zero(cls, value: int) -> int:
+        if value == 0:
+            raise PydanticCustomError("int_parsing", "invalid")
+        return value
+
+
+class BatchLink(BaseModel):
+    id: UUID
+    batch_number: str
+
+
+class TransactionResponse(BaseModel):
+    id: UUID
+    type: Literal["restock", "adjustment"]
+    reason: Literal["damaged", "expired", "correction"] | None
+    quantity_change: int
+    batch: BatchLink
+    recorded_by: str
+    created_at: datetime
+
+
+class TransactionListResponse(BaseModel):
+    items: list[TransactionResponse]
+    total: int
+    page: int
+    page_size: int
 
 
 class ItemDetailResponse(ItemResponse):
@@ -248,6 +309,20 @@ _BATCH_ERRORS: dict[int | str, dict[str, Any]] = {
     422: {"model": ErrorResponse, "description": "validation_error"},
 }
 _LIST_ERRORS: dict[int | str, dict[str, Any]] = {
+    422: {"model": ErrorResponse, "description": "validation_error"},
+}
+_RESTOCK_ERRORS: dict[int | str, dict[str, Any]] = {
+    **_NOT_FOUND,
+    409: {"model": ErrorResponse, "description": "item_inactive or insufficient_stock"},
+    422: {"model": ErrorResponse, "description": "validation_error"},
+}
+_ADJUST_ERRORS: dict[int | str, dict[str, Any]] = {
+    **_NOT_FOUND,
+    409: {"model": ErrorResponse, "description": "insufficient_stock"},
+    422: {"model": ErrorResponse, "description": "validation_error"},
+}
+_HISTORY_ERRORS: dict[int | str, dict[str, Any]] = {
+    **_NOT_FOUND,
     422: {"model": ErrorResponse, "description": "validation_error"},
 }
 
@@ -461,6 +536,76 @@ def patch_batch(
     return _batch(updated)
 
 
+@router.post(
+    "/inventory/batches/{batch_id}/restock",
+    status_code=201,
+    responses=_RESTOCK_ERRORS,
+)
+def post_restock(
+    batch_id: UUID,
+    body: RestockBody,
+    user: Annotated[CurrentUser, Depends(can_write)],
+    session: SessionDep,
+) -> TransactionResponse:
+    try:
+        created = restock(session, user.clinic.id, user.id, batch_id, body.quantity)
+    except InventoryFieldError as exc:
+        raise _field_error(exc) from None
+    except (InventoryNotFoundError, ClinicNotFoundError):
+        raise HTTPException(status_code=404) from None
+    except ItemInactiveError:
+        raise CodedHttpError(409, "item_inactive", "This item is inactive.") from None
+    except InsufficientStockError:
+        raise CodedHttpError(409, "insufficient_stock", "There is not enough stock.") from None
+    session.commit()
+    return _transaction(created)
+
+
+@router.post(
+    "/inventory/batches/{batch_id}/adjustments",
+    status_code=201,
+    responses=_ADJUST_ERRORS,
+)
+def post_adjustment(
+    batch_id: UUID,
+    body: AdjustmentBody,
+    user: Annotated[CurrentUser, Depends(can_write)],
+    session: SessionDep,
+) -> TransactionResponse:
+    try:
+        created = adjust(
+            session,
+            user.clinic.id,
+            user.id,
+            batch_id,
+            body.quantity_change,
+            body.reason,
+        )
+    except InventoryFieldError as exc:
+        raise _field_error(exc) from None
+    except (InventoryNotFoundError, ClinicNotFoundError):
+        raise HTTPException(status_code=404) from None
+    except InsufficientStockError:
+        raise CodedHttpError(409, "insufficient_stock", "There is not enough stock.") from None
+    session.commit()
+    return _transaction(created)
+
+
+@router.get("/inventory/items/{item_id}/transactions", responses=_HISTORY_ERRORS)
+def get_transactions(
+    item_id: UUID,
+    user: Annotated[CurrentUser, Depends(can_read)],
+    session: SessionDep,
+    page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
+) -> TransactionListResponse:
+    try:
+        found = list_transactions(session, user.clinic.id, item_id, page, page_size)
+    except (InventoryNotFoundError, ClinicNotFoundError):
+        raise HTTPException(status_code=404) from None
+    return _transaction_page(found)
+
+
 def _field_error(exc: InventoryFieldError) -> RequestValidationError:
     return RequestValidationError(
         [{"type": exc.code, "loc": ("body", exc.field), "msg": exc.code, "input": None}]
@@ -483,6 +628,7 @@ def _item(row: ItemView) -> ItemResponse:
         low_stock_threshold=row.low_stock_threshold,
         status=status,
         batch_count=row.batch_count,
+        stock=row.stock,
     )
 
 
@@ -499,7 +645,49 @@ def _batch(row: BatchView) -> BatchResponse:
         batch_number=row.batch_number,
         expiry_on=row.expiry_on,
         expired=row.expired,
+        quantity=row.quantity,
         created_at=row.created_at,
+    )
+
+
+def _transaction(row: TransactionView) -> TransactionResponse:
+    if row.type not in ("restock", "adjustment"):
+        raise RuntimeError("inventory transaction has an unknown type")
+    movement: Literal["restock", "adjustment"] = (
+        "restock" if row.type == "restock" else "adjustment"
+    )
+    reason = _reason(row.reason)
+    return TransactionResponse(
+        id=row.id,
+        type=movement,
+        reason=reason,
+        quantity_change=row.quantity_change,
+        batch=BatchLink(id=row.batch_id, batch_number=row.batch_number),
+        recorded_by=row.recorded_by,
+        created_at=row.created_at,
+    )
+
+
+def _reason(
+    reason: str | None,
+) -> Literal["damaged", "expired", "correction"] | None:
+    if reason is None:
+        return None
+    if reason == "damaged":
+        return "damaged"
+    if reason == "expired":
+        return "expired"
+    if reason == "correction":
+        return "correction"
+    raise RuntimeError("inventory transaction has an unknown reason")
+
+
+def _transaction_page(found: TransactionPage) -> TransactionListResponse:
+    return TransactionListResponse(
+        items=[_transaction(row) for row in found.items],
+        total=found.total,
+        page=found.page,
+        page_size=found.page_size,
     )
 
 

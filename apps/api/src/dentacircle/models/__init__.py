@@ -15,6 +15,7 @@ from dentacircle.models.follow_up import FollowUp
 from dentacircle.models.inventory_batch import InventoryBatch
 from dentacircle.models.inventory_category import InventoryCategory
 from dentacircle.models.inventory_item import InventoryItem
+from dentacircle.models.inventory_transaction import InventoryTransaction
 from dentacircle.models.lab_work import LabWork
 from dentacircle.models.patient import Patient
 from dentacircle.models.patient_number_counter import PatientNumberCounter
@@ -40,6 +41,7 @@ __all__ = [
     "InventoryBatch",
     "InventoryCategory",
     "InventoryItem",
+    "InventoryTransaction",
     "LabWork",
     "Patient",
     "PatientNumberCounter",

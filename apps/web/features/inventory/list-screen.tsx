@@ -81,6 +81,9 @@ export function InventoryListScreen({
                 <th className="py-2 pr-3 font-medium" scope="col">
                   Batches
                 </th>
+                <th className="py-2 pr-3 font-medium" scope="col">
+                  Stock
+                </th>
                 <th className="py-2 font-medium" scope="col">
                   Status
                 </th>
@@ -98,6 +101,7 @@ export function InventoryListScreen({
                   <td className="py-2 pr-3">{row.unit}</td>
                   <td className="py-2 pr-3">{row.threshold}</td>
                   <td className="py-2 pr-3">{row.batchCount}</td>
+                  <td className="py-2 pr-3">{row.stock}</td>
                   <td className="py-2">
                     <Badge variant={row.status === "active" ? "secondary" : "outline"}>
                       {row.statusLabel}

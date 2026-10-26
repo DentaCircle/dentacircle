@@ -45,7 +45,7 @@ def test_upgrade_downgrade_upgrade(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0018_inventory"
+    assert _version(throwaway_database_url) == "0019_inventory_transactions"
     assert "follow_up" in _public_tables(throwaway_database_url)
     assert _columns(throwaway_database_url, "follow_up") == {
         "id",
@@ -66,7 +66,7 @@ def test_upgrade_downgrade_upgrade(
     assert "care_session" in _public_tables(throwaway_database_url)
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0018_inventory"
+    assert _version(throwaway_database_url) == "0019_inventory_transactions"
     assert "follow_up" in _public_tables(throwaway_database_url)
 
 
@@ -139,7 +139,7 @@ def test_appointment_id_is_nullable_and_downgrade_refuses_a_null(
     assert _version(throwaway_database_url) == "0010_follow_ups"
     assert _appointment_nullable(throwaway_database_url) is False
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0018_inventory"
+    assert _version(throwaway_database_url) == "0019_inventory_transactions"
     assert _appointment_nullable(throwaway_database_url) is True
 
 
@@ -157,7 +157,7 @@ def test_booked_appointment_column_upgrades_and_downgrades(
     assert "booked_appointment_id" not in _columns(throwaway_database_url, "follow_up")
     command.upgrade(config, "head")
     assert "booked_appointment_id" in _columns(throwaway_database_url, "follow_up")
-    assert _version(throwaway_database_url) == "0018_inventory"
+    assert _version(throwaway_database_url) == "0019_inventory_transactions"
 
 
 def test_booked_appointment_cannot_point_outside_its_clinic(
