@@ -19,6 +19,7 @@ from dentacircle.models.inventory_transaction import InventoryTransaction
 from dentacircle.models.lab_work import LabWork
 from dentacircle.models.patient import Patient
 from dentacircle.models.patient_number_counter import PatientNumberCounter
+from dentacircle.models.procedure_resource_rule import ProcedureResourceRule
 from dentacircle.models.recall import Recall
 from dentacircle.models.timeline_event import TimelineEvent
 from dentacircle.models.user_role import UserRole
@@ -45,6 +46,7 @@ __all__ = [
     "LabWork",
     "Patient",
     "PatientNumberCounter",
+    "ProcedureResourceRule",
     "Recall",
     "TimelineEvent",
     "UserRole",

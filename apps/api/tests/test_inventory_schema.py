@@ -5,11 +5,11 @@ from uuid import uuid4
 import psycopg
 import pytest
 from alembic import command
-from sqlalchemy import text
+from sqlalchemy import create_engine, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
 
-from dentacircle.core.database import to_psycopg_url
+from dentacircle.core.database import to_psycopg_url, to_sqlalchemy_url
 from tests.test_migrations import _config, _public_tables, _version
 
 _CLINIC = "11111111-1111-1111-1111-111111111111"
@@ -42,7 +42,18 @@ _TRANSACTION_COLUMNS = {
     "quantity_change",
     "created_by_user_id",
     "created_at",
+    "appointment_id",
 }
+_RULE_COLUMNS = {
+    "id",
+    "clinic_id",
+    "appointment_type_id",
+    "item_id",
+    "quantity",
+    "created_at",
+    "updated_at",
+}
+_TYPE = "99999999-9999-9999-9999-999999999999"
 _FORBIDDEN = {"quantity", "cost", "supplier", "purchase_cost", "on_hand"}
 
 
@@ -59,12 +70,13 @@ def test_upgrade_downgrade_upgrade(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0019_inventory_transactions"
+    assert _version(throwaway_database_url) == "0020_procedure_resource_rules"
     tables = _public_tables(throwaway_database_url)
     assert "inventory_category" in tables
     assert "inventory_item" in tables
     assert "inventory_batch" in tables
     assert "inventory_transaction" in tables
+    assert "procedure_resource_rule" in tables
     assert _columns(throwaway_database_url, "inventory_category") == _CATEGORY_COLUMNS
     assert _columns(throwaway_database_url, "inventory_item") == _ITEM_COLUMNS
     assert _columns(throwaway_database_url, "inventory_batch") == _BATCH_COLUMNS
@@ -79,7 +91,7 @@ def test_upgrade_downgrade_upgrade(
     assert "lab_work" in gone
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0019_inventory_transactions"
+    assert _version(throwaway_database_url) == "0020_procedure_resource_rules"
     assert "inventory_item" in _public_tables(throwaway_database_url)
     assert "inventory_transaction" in _public_tables(throwaway_database_url)
 
@@ -197,7 +209,7 @@ def test_transactions_upgrade_then_down_to_batches_then_up_again(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0019_inventory_transactions"
+    assert _version(throwaway_database_url) == "0020_procedure_resource_rules"
     assert _columns(throwaway_database_url, "inventory_transaction") == _TRANSACTION_COLUMNS
     assert "item_id" not in _TRANSACTION_COLUMNS
     assert _columns(throwaway_database_url, "inventory_batch") == _BATCH_COLUMNS
@@ -210,7 +222,7 @@ def test_transactions_upgrade_then_down_to_batches_then_up_again(
     assert _function_exists(throwaway_database_url) is False
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0019_inventory_transactions"
+    assert _version(throwaway_database_url) == "0020_procedure_resource_rules"
     assert "inventory_transaction" in _public_tables(throwaway_database_url)
     assert _function_exists(throwaway_database_url) is True
 
@@ -267,6 +279,78 @@ def test_the_trigger_refuses_update_and_delete(migrated: str, db_session: Sessio
     db_session.rollback()
     remaining = db_session.scalar(text("SELECT count(*) FROM inventory_transaction"))
     assert int(remaining or 0) == 2
+
+
+def test_a_restock_from_before_consumption_stays_valid(
+    throwaway_database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
+    config = _config()
+    command.upgrade(config, "0019_inventory_transactions")
+    engine = create_engine(to_sqlalchemy_url(throwaway_database_url))
+    with Session(engine) as session:
+        _ready_batch(session)
+        _insert_transaction(session, _CLINIC, _BATCH, _USER, "restock", None, 4)
+        session.commit()
+    command.upgrade(config, "head")
+    assert _version(throwaway_database_url) == "0020_procedure_resource_rules"
+    assert _columns(throwaway_database_url, "inventory_transaction") == _TRANSACTION_COLUMNS
+    assert _columns(throwaway_database_url, "procedure_resource_rule") == _RULE_COLUMNS
+    with Session(engine) as session:
+        kept = session.execute(
+            text("SELECT type, appointment_id, quantity_change FROM inventory_transaction")
+        ).one()
+        assert kept.type == "restock"
+        assert kept.appointment_id is None
+        assert kept.quantity_change == 4
+        with pytest.raises(IntegrityError):
+            _insert_consumption(session, None, -1)
+        session.rollback()
+    command.downgrade(config, "0019_inventory_transactions")
+    assert _version(throwaway_database_url) == "0019_inventory_transactions"
+    assert "appointment_id" not in _columns(throwaway_database_url, "inventory_transaction")
+    assert "procedure_resource_rule" not in _public_tables(throwaway_database_url)
+    with Session(engine) as session:
+        remaining = session.scalar(text("SELECT count(*) FROM inventory_transaction"))
+        assert int(remaining or 0) == 1
+    command.upgrade(config, "head")
+    assert _version(throwaway_database_url) == "0020_procedure_resource_rules"
+    engine.dispose()
+
+
+@pytest.mark.parametrize("quantity", [0, 1001])
+def test_a_rule_quantity_must_be_from_1_to_1000(
+    migrated: str, db_session: Session, quantity: int
+) -> None:
+    _rule_ready(db_session)
+    db_session.commit()
+    with pytest.raises(IntegrityError):
+        _insert_rule(db_session, _CLINIC, _TYPE, _ITEM, quantity)
+
+
+def test_one_rule_per_type_and_item(migrated: str, db_session: Session) -> None:
+    _rule_ready(db_session)
+    _insert_rule(db_session, _CLINIC, _TYPE, _ITEM, 2)
+    db_session.commit()
+    with pytest.raises(IntegrityError):
+        _insert_rule(db_session, _CLINIC, _TYPE, _ITEM, 3)
+
+
+def test_a_rule_cannot_point_at_another_clinics_type_or_item(
+    migrated: str, db_session: Session
+) -> None:
+    _rule_ready(db_session)
+    other_type = "10101010-1010-1010-1010-101010101010"
+    other_item = "20202020-2020-2020-2020-202020202020"
+    _insert_type(db_session, _OTHER, other_type, "Scaling")
+    _insert_category(db_session, _OTHER, _OTHER_CATEGORY, "Medicines")
+    _insert_item(db_session, _OTHER, _OTHER_CATEGORY, other_item, "Medicine A")
+    db_session.commit()
+    with pytest.raises(IntegrityError):
+        _insert_rule(db_session, _CLINIC, other_type, _ITEM, 1)
+    db_session.rollback()
+    with pytest.raises(IntegrityError):
+        _insert_rule(db_session, _CLINIC, _TYPE, other_item, 1)
 
 
 def test_a_batch_cannot_point_at_another_clinics_item(migrated: str, db_session: Session) -> None:
@@ -357,6 +441,60 @@ def _insert_user(session: Session, clinic_id: str, user_id: str, email: str) -> 
             " VALUES (:id, :clinic_id, :email, 'Synthetic Stores', 'synthetic-password-marker')"
         ),
         {"id": user_id, "clinic_id": clinic_id, "email": email},
+    )
+
+
+def _rule_ready(session: Session) -> None:
+    _ready_batch(session)
+    _insert_type(session, _CLINIC, _TYPE, "Scaling")
+
+
+def _insert_type(session: Session, clinic_id: str, type_id: str, name: str) -> None:
+    session.execute(
+        text(
+            "INSERT INTO appointment_type (id, clinic_id, name, duration_minutes)"
+            " VALUES (:id, :clinic_id, :name, 30)"
+        ),
+        {"id": type_id, "clinic_id": clinic_id, "name": name},
+    )
+
+
+def _insert_rule(
+    session: Session, clinic_id: str, type_id: str, item_id: str, quantity: int
+) -> None:
+    session.execute(
+        text(
+            "INSERT INTO procedure_resource_rule"
+            " (id, clinic_id, appointment_type_id, item_id, quantity)"
+            " VALUES (:id, :clinic_id, :type_id, :item_id, :quantity)"
+        ),
+        {
+            "id": str(uuid4()),
+            "clinic_id": clinic_id,
+            "type_id": type_id,
+            "item_id": item_id,
+            "quantity": quantity,
+        },
+    )
+
+
+def _insert_consumption(session: Session, appointment_id: str | None, quantity: int) -> None:
+    session.execute(
+        text(
+            "INSERT INTO inventory_transaction"
+            " (id, clinic_id, batch_id, type, reason, quantity_change,"
+            " created_by_user_id, appointment_id)"
+            " VALUES (:id, :clinic_id, :batch_id, 'consumption', NULL, :quantity,"
+            " :user_id, :appointment_id)"
+        ),
+        {
+            "id": str(uuid4()),
+            "clinic_id": _CLINIC,
+            "batch_id": _BATCH,
+            "quantity": quantity,
+            "user_id": _USER,
+            "appointment_id": appointment_id,
+        },
     )
 
 

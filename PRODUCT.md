@@ -327,6 +327,17 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   write; they plus `clinician` read stock and history; `receptionist` has no access. Expired
   batches still count in stock until S4.4 decides alert treatment. Audit rows list no
   quantities.
+- **Procedure resource rules (decided in S4.3):** a rule says an appointment type uses N whole
+  units of an inventory item (`procedure_resource_rule`, one per type and item, 1 to 1,000).
+  Rules are keyed by appointment type, not care item, because care items are free text with no
+  catalog. Completing a visit writes `consumption` transactions in the same transaction,
+  negative, linked to the visit by a new nullable `inventory_transaction.appointment_id`
+  (migration `0020`, changes an existing table, approved here). Batches are taken earliest
+  expiry first, skipping expired batches and inactive items. Short stock takes what exists and
+  never blocks the visit; the shortfall is not recorded (S4.4 alerts on stock at 0). A care
+  session consumes nothing. `inventory_admin` and `clinic_admin` write rules; they plus
+  `clinician` read; `receptionist` has no access. Rule changes are audited with field names
+  only, and rule delete is a real delete.
 
 ## Open decisions (need the developer's call)
 
