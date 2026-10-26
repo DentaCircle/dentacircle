@@ -39,7 +39,13 @@ export function HistoryPanel({ itemId, history }: { itemId: string; history: His
             <tbody>
               {history.rows.map((row) => (
                 <tr key={row.id} className="border-b">
-                  <td className="py-2 pr-3">{row.typeLabel}</td>
+                  <td className="py-2 pr-3">
+                    {row.visitHref === null ? (
+                      row.typeLabel
+                    ) : (
+                      <Link href={row.visitHref}>{row.typeLabel}</Link>
+                    )}
+                  </td>
                   <td className="py-2 pr-3">{row.reasonLabel}</td>
                   <td className="py-2 pr-3">{row.changeLabel}</td>
                   <td className="py-2 pr-3">{row.batchNumber}</td>

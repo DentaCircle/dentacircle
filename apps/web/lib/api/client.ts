@@ -538,13 +538,16 @@ export type InventoryBatch = {
 export type StockReason = "damaged" | "expired" | "correction";
 export type StockTransaction = {
   id: string;
-  type: "restock" | "adjustment";
+  type: "restock" | "adjustment" | "consumption";
   reason: StockReason | null;
   quantity_change: number;
   batch: { id: string; batch_number: string };
   recorded_by: string;
   created_at: string;
+  appointment_id: string | null;
+  visit_on: string | null;
 };
+export type ResourceRule = { item_id: string; item_name: string; quantity: number };
 export type StockTransactionPage = {
   items: StockTransaction[];
   total: number;
@@ -571,11 +574,12 @@ export function listInventoryItems(
   categoryId: string,
   query: string,
   page: number,
+  pageSize = 20,
 ): Promise<ApiResult<InventoryItemPage>> {
   const params = new URLSearchParams({
     status,
     page: String(page),
-    page_size: "20",
+    page_size: String(pageSize),
   });
   if (categoryId !== "") params.set("category_id", categoryId);
   if (query !== "") params.set("q", query);
@@ -660,6 +664,36 @@ export function listInventoryTransactions(
     `/inventory/items/${encodeURIComponent(itemId)}/transactions?${params.toString()}`,
     stockTransactionPageData,
     cookieHeaders(cookieHeader),
+  );
+}
+
+export function listResourceRules(
+  cookieHeader: string,
+  typeId: string,
+): Promise<ApiResult<ResourceRule[]>> {
+  return getJson(
+    `/appointment-types/${encodeURIComponent(typeId)}/resource-rules`,
+    resourceRuleListData,
+    cookieHeaders(cookieHeader),
+  );
+}
+
+export function saveResourceRule(
+  typeId: string,
+  itemId: string,
+  quantity: string,
+): Promise<ApiResult<null>> {
+  return sendJson(
+    "PUT",
+    `/api/appointment-types/${encodeURIComponent(typeId)}/resource-rules/${encodeURIComponent(itemId)}`,
+    { quantity: wholeNumber(quantity) },
+  );
+}
+
+export function removeResourceRule(typeId: string, itemId: string): Promise<ApiResult<null>> {
+  return sendRequest(
+    `/api/appointment-types/${encodeURIComponent(typeId)}/resource-rules/${encodeURIComponent(itemId)}`,
+    { method: "DELETE" },
   );
 }
 
@@ -908,7 +942,7 @@ function sendEmpty(method: "POST", path: string): Promise<ApiResult<null>> {
 }
 
 function sendJson(
-  method: "POST" | "PATCH",
+  method: "POST" | "PATCH" | "PUT",
   path: string,
   body: unknown,
 ): Promise<ApiResult<null>> {
@@ -1743,10 +1777,19 @@ function stockTransactionData(value: unknown): StockTransaction | null {
   const type = value.type;
   const reason = value.reason;
   if (id === null || recordedBy === null || createdAt === null || quantityChange === null) return null;
-  if (batch === null || (type !== "restock" && type !== "adjustment")) return null;
+  if (
+    batch === null ||
+    (type !== "restock" && type !== "adjustment" && type !== "consumption")
+  ) {
+    return null;
+  }
   if (reason !== null && reason !== "damaged" && reason !== "expired" && reason !== "correction") {
     return null;
   }
+  const appointmentId = value.appointment_id;
+  const visitOn = value.visit_on;
+  if (appointmentId !== null && typeof appointmentId !== "string") return null;
+  if (visitOn !== null && typeof visitOn !== "string") return null;
   return {
     id,
     type,
@@ -1755,7 +1798,29 @@ function stockTransactionData(value: unknown): StockTransaction | null {
     batch,
     recorded_by: recordedBy,
     created_at: createdAt,
+    appointment_id: appointmentId,
+    visit_on: visitOn,
   };
+}
+
+function resourceRuleListData(value: unknown): ResourceRule[] | null {
+  if (!Array.isArray(value)) return null;
+  const rows: ResourceRule[] = [];
+  for (const item of value) {
+    const row = resourceRuleData(item);
+    if (row === null) return null;
+    rows.push(row);
+  }
+  return rows;
+}
+
+function resourceRuleData(value: unknown): ResourceRule | null {
+  if (!isRecord(value)) return null;
+  const itemId = stringField(value, "item_id");
+  const itemName = stringField(value, "item_name");
+  const quantity = numberField(value, "quantity");
+  if (itemId === null || itemName === null || quantity === null) return null;
+  return { item_id: itemId, item_name: itemName, quantity };
 }
 
 function stockBatchLinkData(value: unknown): { id: string; batch_number: string } | null {

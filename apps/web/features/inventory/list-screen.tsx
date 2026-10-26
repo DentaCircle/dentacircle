@@ -40,7 +40,12 @@ export function InventoryListScreen({
   const formKey = `${filter.status}:${filter.categoryId}:${filter.query}:${notice ?? ""}`;
   return (
     <section className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Inventory</h1>
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Inventory</h1>
+        {status === "forbidden" || status === "error" ? null : (
+          <Link href="/inventory/rules">Visit type rules</Link>
+        )}
+      </div>
       {notice === null ? null : <p role="status">{INVENTORY_NOTICES[notice]}</p>}
       {status === "forbidden" ? <p role="alert">You do not have access.</p> : null}
       {status === "error" ? <p role="alert">Inventory could not be loaded.</p> : null}
