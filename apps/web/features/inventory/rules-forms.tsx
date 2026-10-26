@@ -187,6 +187,7 @@ function RuleForm({
         setFieldErrors(result.fields);
         return;
       }
+      form.reset();
       router.push(afterSave);
       router.refresh();
     } catch {
