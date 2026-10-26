@@ -254,12 +254,14 @@ class BatchLink(BaseModel):
 
 class TransactionResponse(BaseModel):
     id: UUID
-    type: Literal["restock", "adjustment"]
+    type: Literal["restock", "adjustment", "consumption"]
     reason: Literal["damaged", "expired", "correction"] | None
     quantity_change: int
     batch: BatchLink
     recorded_by: str
     created_at: datetime
+    appointment_id: UUID | None
+    visit_on: date | None
 
 
 class TransactionListResponse(BaseModel):
@@ -651,11 +653,7 @@ def _batch(row: BatchView) -> BatchResponse:
 
 
 def _transaction(row: TransactionView) -> TransactionResponse:
-    if row.type not in ("restock", "adjustment"):
-        raise RuntimeError("inventory transaction has an unknown type")
-    movement: Literal["restock", "adjustment"] = (
-        "restock" if row.type == "restock" else "adjustment"
-    )
+    movement = _movement(row.type)
     reason = _reason(row.reason)
     return TransactionResponse(
         id=row.id,
@@ -665,7 +663,19 @@ def _transaction(row: TransactionView) -> TransactionResponse:
         batch=BatchLink(id=row.batch_id, batch_number=row.batch_number),
         recorded_by=row.recorded_by,
         created_at=row.created_at,
+        appointment_id=row.appointment_id,
+        visit_on=row.visit_on,
     )
+
+
+def _movement(type_name: str) -> Literal["restock", "adjustment", "consumption"]:
+    if type_name == "restock":
+        return "restock"
+    if type_name == "adjustment":
+        return "adjustment"
+    if type_name == "consumption":
+        return "consumption"
+    raise RuntimeError("inventory transaction has an unknown type")
 
 
 def _reason(

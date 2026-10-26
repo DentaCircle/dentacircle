@@ -1,7 +1,7 @@
 """One clinic's categories, items, batches and append-only stock movements."""
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -14,6 +14,7 @@ from dentacircle.domain.inventory import (
     BATCH_AUDIT_FIELDS,
     CATEGORY_AUDIT_FIELDS,
     ITEM_AUDIT_FIELDS,
+    BatchStock,
     InventoryFieldError,
     changed_field_names,
     check_adjustment_reason,
@@ -21,11 +22,13 @@ from dentacircle.domain.inventory import (
     check_item_status,
     check_quantity_change,
     check_restock_quantity,
+    check_rule_quantity,
     check_threshold,
     clean_batch_number,
     clean_category_name,
     clean_item_name,
     clean_unit,
+    consumption_takes,
     expiry_problem,
     is_expired,
 )
@@ -34,6 +37,8 @@ from dentacircle.models.inventory_batch import InventoryBatch
 from dentacircle.models.inventory_category import InventoryCategory
 from dentacircle.models.inventory_item import InventoryItem
 from dentacircle.models.inventory_transaction import InventoryTransaction
+from dentacircle.models.procedure_resource_rule import ProcedureResourceRule
+from dentacircle.repositories.appointment_type_repository import AppointmentTypeRepository
 from dentacircle.repositories.clinic_day_repository import ClinicDayRepository
 from dentacircle.repositories.inventory_repository import InventoryRepository
 from dentacircle.services.audit_service import record
@@ -109,6 +114,15 @@ class TransactionView:
     batch_number: str
     recorded_by: str
     created_at: datetime
+    appointment_id: UUID | None
+    visit_on: date | None
+
+
+@dataclass(frozen=True)
+class ResourceRuleView:
+    item_id: UUID
+    item_name: str
+    quantity: int
 
 
 @dataclass(frozen=True)
@@ -550,13 +564,146 @@ def list_transactions(
     rows, total = repository.list_transactions(item_id, page, page_size)
     return TransactionPage(
         items=[
-            _transaction_view(row, batch_number, recorded_by, zone)
-            for row, batch_number, recorded_by in rows
+            _transaction_view(row, batch_number, recorded_by, zone, starts_at)
+            for row, batch_number, recorded_by, starts_at in rows
         ],
         total=total,
         page=page,
         page_size=page_size,
     )
+
+
+def list_resource_rules(session: Session, clinic_id: UUID, type_id: UUID) -> list[ResourceRuleView]:
+    if AppointmentTypeRepository(session, clinic_id).get(type_id) is None:
+        raise InventoryNotFoundError
+    rows = InventoryRepository(session, clinic_id).list_rules(type_id)
+    return [ResourceRuleView(rule.item_id, name, rule.quantity) for rule, name in rows]
+
+
+def set_resource_rule(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    type_id: UUID,
+    item_id: UUID,
+    quantity: int,
+) -> ResourceRuleView:
+    """Create or replace the one rule for this visit type and item."""
+    checked = check_rule_quantity(quantity)
+    if AppointmentTypeRepository(session, clinic_id).get(type_id) is None:
+        raise InventoryNotFoundError
+    repository = InventoryRepository(session, clinic_id)
+    item = repository.get_item(item_id)
+    if item is None:
+        raise InventoryNotFoundError
+    if item.status != "active":
+        raise ItemInactiveError
+    existing = repository.get_rule(type_id, item_id)
+    if existing is None:
+        rule = ProcedureResourceRule(
+            id=uuid4(),
+            appointment_type_id=type_id,
+            item_id=item.id,
+            quantity=checked,
+        )
+        repository.add_rule(rule)
+        record(
+            session,
+            clinic_id,
+            actor_user_id,
+            "procedure_resource_rule",
+            rule.id,
+            "create",
+            changed_fields=[],
+        )
+    else:
+        existing.quantity = checked
+        existing.updated_at = datetime.now(UTC)
+        record(
+            session,
+            clinic_id,
+            actor_user_id,
+            "procedure_resource_rule",
+            existing.id,
+            "update",
+            changed_fields=["quantity"],
+        )
+    _flush(session, duplicate=InventoryNotFoundError)
+    return ResourceRuleView(item.id, item.name, checked)
+
+
+def remove_resource_rule(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    type_id: UUID,
+    item_id: UUID,
+) -> None:
+    """Delete the rule. Past stock movements are left as they are."""
+    if AppointmentTypeRepository(session, clinic_id).get(type_id) is None:
+        raise InventoryNotFoundError
+    repository = InventoryRepository(session, clinic_id)
+    rule = repository.get_rule(type_id, item_id)
+    if rule is None:
+        raise InventoryNotFoundError
+    record(
+        session,
+        clinic_id,
+        actor_user_id,
+        "procedure_resource_rule",
+        rule.id,
+        "delete",
+        changed_fields=[],
+    )
+    repository.delete_rule(rule)
+    _flush(session, duplicate=InventoryNotFoundError)
+
+
+def consume_for_completed_visit(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    appointment_id: UUID,
+    appointment_type_id: UUID,
+    today: date,
+) -> None:
+    """Take stock for each active rule. Short stock takes what exists and does not fail.
+
+    The visit row is already locked. Batches are locked in id order after that,
+    so a concurrent adjustment cannot drive a batch below zero.
+    """
+    repository = InventoryRepository(session, clinic_id)
+    active: list[ProcedureResourceRule] = []
+    for rule, _name in repository.list_rules(appointment_type_id):
+        item = repository.get_item(rule.item_id)
+        if item is None or item.status != "active":
+            continue
+        active.append(rule)
+    if not active:
+        return
+    locked = repository.lock_batches_for_items([rule.item_id for rule in active])
+    by_item: dict[UUID, list[BatchStock]] = {}
+    for batch in locked:
+        by_item.setdefault(batch.item_id, []).append(
+            BatchStock(
+                batch.id,
+                batch.batch_number,
+                batch.expiry_on,
+                repository.batch_quantity(batch.id),
+            )
+        )
+    for rule in active:
+        takes = consumption_takes(by_item.get(rule.item_id, []), rule.quantity, today)
+        for batch_id, amount in takes:
+            _write_consumption(
+                session,
+                clinic_id,
+                actor_user_id,
+                repository,
+                batch_id,
+                appointment_id,
+                -amount,
+            )
 
 
 def _record_transaction(
@@ -591,7 +738,38 @@ def _record_transaction(
     session.refresh(transaction)
     zone = _zone(session, clinic_id)
     recorded_by = _actor_name(session, clinic_id, actor_user_id)
-    return _transaction_view(transaction, batch.batch_number, recorded_by, zone)
+    return _transaction_view(transaction, batch.batch_number, recorded_by, zone, None)
+
+
+def _write_consumption(
+    session: Session,
+    clinic_id: UUID,
+    actor_user_id: UUID,
+    repository: InventoryRepository,
+    batch_id: UUID,
+    appointment_id: UUID,
+    quantity_change: int,
+) -> None:
+    transaction = InventoryTransaction(
+        id=uuid4(),
+        batch_id=batch_id,
+        type="consumption",
+        reason=None,
+        quantity_change=quantity_change,
+        created_by_user_id=actor_user_id,
+        appointment_id=appointment_id,
+    )
+    repository.add_transaction(transaction)
+    record(
+        session,
+        clinic_id,
+        actor_user_id,
+        "inventory_transaction",
+        transaction.id,
+        "create",
+        changed_fields=[],
+    )
+    _flush(session, duplicate=InventoryNotFoundError)
 
 
 def _refuse_negative_stock(repository: InventoryRepository, batch_id: UUID, change: int) -> None:
@@ -680,7 +858,9 @@ def _transaction_view(
     batch_number: str,
     recorded_by: str,
     zone: ZoneInfo,
+    starts_at: datetime | None,
 ) -> TransactionView:
+    visit_on = None if starts_at is None else starts_at.astimezone(zone).date()
     return TransactionView(
         id=transaction.id,
         type=transaction.type,
@@ -690,6 +870,8 @@ def _transaction_view(
         batch_number=batch_number,
         recorded_by=recorded_by,
         created_at=transaction.created_at.astimezone(zone),
+        appointment_id=transaction.appointment_id,
+        visit_on=visit_on,
     )
 
 
