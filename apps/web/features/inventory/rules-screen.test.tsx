@@ -156,3 +156,28 @@ test("a consumption row links to the visit day", () => {
     "/calendar?view=day&date=2026-10-26",
   );
 });
+
+test("a consumption row stays plain text when calendar is not allowed", () => {
+  const entry = historyEntry(
+    {
+      id: "tx-1",
+      type: "consumption",
+      reason: null,
+      quantity_change: -2,
+      batch: { id: "batch-1", batch_number: "LOT-1" },
+      recorded_by: "Sample Stores",
+      created_at: "2026-10-26T10:05:00+05:30",
+      appointment_id: "visit-1",
+      visit_on: "2026-10-26",
+    },
+    { linkConsumptionVisit: false },
+  );
+  render(
+    <HistoryPanel
+      itemId="item-gloves"
+      history={{ status: "ready", rows: [entry], total: 1, page: 1, pageSize: 20 }}
+    />,
+  );
+  expect(screen.getByText("Used in visit")).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Used in visit" })).not.toBeInTheDocument();
+});

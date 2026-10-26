@@ -2,7 +2,8 @@ import { requireUser } from "@/features/auth/current-user";
 import { canReadInventory, canWriteInventory } from "@/features/inventory/access";
 import { RulesScreen, type RulesNotice, type VisitTypeRules } from "@/features/inventory/rules-screen";
 import { sessionCookieHeader } from "@/features/patients/session";
-import { listAppointmentTypes, listInventoryItems, listResourceRules } from "@/lib/api/client";
+import { listActiveInventoryItemsForRules } from "@/features/inventory/active-items";
+import { listAppointmentTypes, listResourceRules } from "@/lib/api/client";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function RulesPage({ searchParams }: RulesPageProps) {
   const cookieHeader = await sessionCookieHeader();
   const [types, items] = await Promise.all([
     listAppointmentTypes(cookieHeader),
-    listInventoryItems(cookieHeader, "active", "", "", 1, 100),
+    listActiveInventoryItemsForRules(cookieHeader),
   ]);
   if (!types.ok || !items.ok) {
     const forbidden =
@@ -63,7 +64,7 @@ export default async function RulesPage({ searchParams }: RulesPageProps) {
     <RulesScreen
       status="ready"
       types={sections}
-      items={items.data.items.map((item) => ({ id: item.id, name: item.name }))}
+      items={items.data.map((item) => ({ id: item.id, name: item.name }))}
       canWrite={canWriteInventory(user.roles)}
       notice={notice}
     />

@@ -1,3 +1,4 @@
+import { canBookAppointments } from "@/features/appointments/access";
 import { requireUser } from "@/features/auth/current-user";
 import { canReadInventory, canWriteInventory } from "@/features/inventory/access";
 import {
@@ -46,7 +47,7 @@ export default async function InventoryItemPage({ params, searchParams }: ItemPa
       }))}
       notice={notice}
       canWrite={canWriteInventory(user.roles)}
-      history={historyFrom(movements, historyPage)}
+      history={historyFrom(movements, historyPage, canBookAppointments(user.roles))}
     />
   );
 }
@@ -54,6 +55,7 @@ export default async function InventoryItemPage({ params, searchParams }: ItemPa
 function historyFrom(
   movements: Awaited<ReturnType<typeof listInventoryTransactions>>,
   page: number,
+  linkConsumptionVisit: boolean,
 ): HistoryView {
   if (!movements.ok) return { status: "error", rows: [], total: 0, page, pageSize: 20 };
   if (movements.data.total === 0) {
@@ -61,7 +63,9 @@ function historyFrom(
   }
   return {
     status: "ready",
-    rows: movements.data.items.map((row) => historyEntry(row)),
+    rows: movements.data.items.map((row) =>
+      historyEntry(row, { linkConsumptionVisit }),
+    ),
     total: movements.data.total,
     page: movements.data.page,
     pageSize: movements.data.page_size,

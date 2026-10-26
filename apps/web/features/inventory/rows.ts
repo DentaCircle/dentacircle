@@ -79,7 +79,11 @@ const TYPE_LABELS = {
 } as const;
 const REASON_LABELS = { damaged: "Damaged", expired: "Expired", correction: "Correction" } as const;
 
-export function historyEntry(row: StockTransaction): HistoryEntry {
+export function historyEntry(
+  row: StockTransaction,
+  options?: { linkConsumptionVisit?: boolean },
+): HistoryEntry {
+  const linkVisit = options?.linkConsumptionVisit ?? true;
   const change =
     row.quantity_change > 0 ? `+${row.quantity_change}` : String(row.quantity_change);
   return {
@@ -91,7 +95,7 @@ export function historyEntry(row: StockTransaction): HistoryEntry {
     recordedBy: row.recorded_by,
     whenLabel: formatRecordedAt(row.created_at),
     visitHref:
-      row.type === "consumption" && row.visit_on !== null
+      linkVisit && row.type === "consumption" && row.visit_on !== null
         ? calendarHref({ view: "day", date: row.visit_on, clinician: null })
         : null,
   };
