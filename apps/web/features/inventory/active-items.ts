@@ -14,6 +14,7 @@ export async function listActiveInventoryItemsForRules(
   while (items.length < first.data.total) {
     const next = await listInventoryItems(cookieHeader, "active", "", "", page, PAGE_SIZE);
     if (!next.ok) return next;
+    if (next.data.items.length === 0) break;
     items.push(...next.data.items);
     page += 1;
   }
