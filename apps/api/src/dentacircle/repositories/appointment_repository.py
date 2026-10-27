@@ -75,6 +75,7 @@ class AppointmentRepository:
             scoped_select(Appointment, self._clinic_id)
             .where(Appointment.id == appointment_id)
             .with_for_update()
+            .execution_options(populate_existing=True)
         )
         return self._session.scalars(statement).one_or_none()
 

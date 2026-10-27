@@ -1,7 +1,7 @@
 """Resource rule routes: roles, check order, tenancy, audit, and no echo."""
 
 from collections.abc import Iterator
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from uuid import UUID, uuid4
 
 import pytest
@@ -241,10 +241,11 @@ def test_completing_a_visit_writes_one_consumption_and_a_replay_writes_nothing(
     cookies = _cookie(api, "inventory@x.test")
     type_id = _type_id("Consultation")
     item_id = _item(api, cookies, "Gloves M")
+    expiry_on = (date.today() + timedelta(days=365)).isoformat()
     batch = api.post(
         f"/inventory/items/{item_id}/batches",
         cookies=cookies,
-        json={"batch_number": "LOT-1", "expiry_on": "2026-12-01"},
+        json={"batch_number": "LOT-1", "expiry_on": expiry_on},
     )
     assert batch.status_code == 201
     added = api.post(

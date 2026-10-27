@@ -65,8 +65,6 @@ def test_two_bookings_of_one_slot_yield_one_row(database: str) -> None:
                     session.rollback()
                     if isinstance(exc.orig, DeadlockDetected) and attempt < 2:
                         continue
-                    if isinstance(exc.orig, DeadlockDetected):
-                        return "taken"
                     raise
         return "taken"
 

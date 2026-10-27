@@ -593,7 +593,7 @@ def set_resource_rule(
     if AppointmentTypeRepository(session, clinic_id).get(type_id) is None:
         raise InventoryNotFoundError
     repository = InventoryRepository(session, clinic_id)
-    item = repository.get_item(item_id)
+    item = repository.get_item(item_id, lock=True)
     if item is None:
         raise InventoryNotFoundError
     if item.status != "active":
