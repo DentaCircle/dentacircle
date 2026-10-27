@@ -3,9 +3,15 @@
 A batch is a label and an optional expiry date. It stores no quantity.
 Quantity is the sum of append-only transactions. `expired` is calculated
 from the clinic-local date. Neither value is stored on the batch.
+
+A procedure resource rule says one appointment type uses N units of one item.
+Completing a visit takes those units from the earliest usable batches.
 """
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import date, datetime
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 MAX_CATEGORY_NAME_LENGTH = 80
@@ -14,13 +20,14 @@ MAX_UNIT_LENGTH = 30
 MAX_BATCH_NUMBER_LENGTH = 60
 MAX_LOW_STOCK_THRESHOLD = 1_000_000
 MAX_QUANTITY_CHANGE = 1_000_000
+MAX_RULE_QUANTITY = 1_000
 EARLIEST_EXPIRY = date(2000, 1, 1)
 EXPIRY_HORIZON_YEARS = 20
 ITEM_STATUSES = ("active", "inactive")
 ITEM_LIST_VIEWS = ("active", "inactive", "all")
 INVENTORY_WRITE_ROLES = ("inventory_admin", "clinic_admin")
 INVENTORY_READ_ROLES = ("inventory_admin", "clinic_admin", "clinician")
-TRANSACTION_TYPES = ("restock", "adjustment")
+TRANSACTION_TYPES = ("restock", "adjustment", "consumption")
 ADJUSTMENT_REASONS = ("damaged", "expired", "correction")
 NEGATIVE_ADJUSTMENT_REASONS = ("damaged", "expired")
 CATEGORY_AUDIT_FIELDS = ("name",)
@@ -67,6 +74,15 @@ def check_restock_quantity(value: int) -> int:
     if isinstance(value, bool) or not isinstance(value, int):
         raise InventoryFieldError("quantity", "int_type")
     if value < 1 or value > MAX_QUANTITY_CHANGE:
+        raise InventoryFieldError("quantity", "int_parsing")
+    return value
+
+
+def check_rule_quantity(value: int) -> int:
+    """A whole number from 1 through 1,000. Booleans are refused."""
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise InventoryFieldError("quantity", "int_type")
+    if value < 1 or value > MAX_RULE_QUANTITY:
         raise InventoryFieldError("quantity", "int_parsing")
     return value
 
@@ -122,6 +138,48 @@ def expiry_problem(day: date, zone: ZoneInfo, now: datetime) -> str | None:
 def is_expired(expiry_on: date | None, today: date) -> bool:
     """True when the expiry date is before today. A missing date is not expired."""
     return expiry_on is not None and expiry_on < today
+
+
+@dataclass(frozen=True)
+class BatchStock:
+    """One batch and the stock it holds right now. The batch row stores neither."""
+
+    batch_id: UUID
+    batch_number: str
+    expiry_on: date | None
+    quantity: int
+
+
+def consumption_takes(
+    batches: Sequence[BatchStock], needed: int, today: date
+) -> list[tuple[UUID, int]]:
+    """Units to take from each batch. Expired batches and empty batches are skipped.
+
+    Earliest expiry is used first. A batch with no expiry is last. The same expiry
+    is ordered by batch number. Short stock returns only what is on hand.
+    """
+    if needed < 1:
+        return []
+    usable = [
+        batch for batch in batches if batch.quantity > 0 and not is_expired(batch.expiry_on, today)
+    ]
+    ordered = sorted(
+        usable,
+        key=lambda batch: (
+            batch.expiry_on is None,
+            batch.expiry_on or date.min,
+            batch.batch_number,
+        ),
+    )
+    remaining = needed
+    taken: list[tuple[UUID, int]] = []
+    for batch in ordered:
+        if remaining == 0:
+            break
+        amount = batch.quantity if batch.quantity < remaining else remaining
+        taken.append((batch.batch_id, amount))
+        remaining -= amount
+    return taken
 
 
 def changed_field_names(

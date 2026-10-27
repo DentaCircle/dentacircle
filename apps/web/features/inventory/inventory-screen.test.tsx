@@ -362,6 +362,7 @@ test("a clinician item page is read only", () => {
             batchNumber: "LOT-1",
             recordedBy: "Synthetic Stores",
             whenLabel: "25 Oct 2026, 14:30",
+            visitHref: null,
           },
         ],
       }}
@@ -526,6 +527,7 @@ test("history pages when there is another page", () => {
             batchNumber: "LOT-1",
             recordedBy: "Synthetic Stores",
             whenLabel: "25 Oct 2026, 15:00",
+            visitHref: null,
           },
         ],
       }}

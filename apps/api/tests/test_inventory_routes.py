@@ -396,6 +396,8 @@ def test_restock_adjustment_and_history_follow_the_check_order(api: TestClient) 
     assert added.status_code == 201
     assert added.json()["type"] == "restock"
     assert added.json()["reason"] is None
+    assert added.json()["appointment_id"] is None
+    assert added.json()["visit_on"] is None
     assert added.json()["quantity_change"] == 5
     assert added.json()["recorded_by"] == "Synthetic Person"
     assert added.json()["created_at"].endswith("+05:30")

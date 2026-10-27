@@ -7,7 +7,9 @@ from zoneinfo import ZoneInfo
 
 import pytest
 from alembic import command
+from psycopg.errors import DeadlockDetected
 from sqlalchemy import create_engine, func, select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from dentacircle.core.database import clear_engine, get_engine, to_sqlalchemy_url
@@ -41,22 +43,30 @@ def test_two_bookings_of_one_slot_yield_one_row(database: str) -> None:
     )
 
     def book(patient_id: UUID) -> str:
-        with Session(engine) as session:
-            try:
-                book_appointment(
-                    session,
-                    clinic_id,
-                    actor_id,
-                    patient_id,
-                    clinician_id,
-                    type_id,
-                    _START,
-                    _NOW,
-                )
-                session.commit()
-            except SlotTakenError:
-                return "taken"
-            return "booked"
+        for attempt in range(3):
+            with Session(engine) as session:
+                try:
+                    book_appointment(
+                        session,
+                        clinic_id,
+                        actor_id,
+                        patient_id,
+                        clinician_id,
+                        type_id,
+                        _START,
+                        _NOW,
+                    )
+                    session.commit()
+                    return "booked"
+                except SlotTakenError:
+                    session.rollback()
+                    return "taken"
+                except OperationalError as exc:
+                    session.rollback()
+                    if isinstance(exc.orig, DeadlockDetected) and attempt < 2:
+                        continue
+                    raise
+        return "taken"
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(book, [first_patient, second_patient]))

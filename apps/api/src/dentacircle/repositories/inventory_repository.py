@@ -1,5 +1,7 @@
 """Reads and writes for one clinic's inventory. Every query filters by that clinic."""
 
+from collections.abc import Sequence
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import ColumnElement, func, select
@@ -7,10 +9,12 @@ from sqlalchemy.orm import Session
 
 from dentacircle.core.tenancy import scoped_select
 from dentacircle.models.app_user import AppUser
+from dentacircle.models.appointment import Appointment
 from dentacircle.models.inventory_batch import InventoryBatch
 from dentacircle.models.inventory_category import InventoryCategory
 from dentacircle.models.inventory_item import InventoryItem
 from dentacircle.models.inventory_transaction import InventoryTransaction
+from dentacircle.models.procedure_resource_rule import ProcedureResourceRule
 
 
 class InventoryRepository:
@@ -33,6 +37,49 @@ class InventoryRepository:
     def add_transaction(self, transaction: InventoryTransaction) -> None:
         transaction.clinic_id = self._clinic_id
         self._session.add(transaction)
+
+    def add_rule(self, rule: ProcedureResourceRule) -> None:
+        rule.clinic_id = self._clinic_id
+        self._session.add(rule)
+
+    def get_rule(self, type_id: UUID, item_id: UUID) -> ProcedureResourceRule | None:
+        statement = scoped_select(ProcedureResourceRule, self._clinic_id).where(
+            ProcedureResourceRule.appointment_type_id == type_id,
+            ProcedureResourceRule.item_id == item_id,
+        )
+        return self._session.scalars(statement).one_or_none()
+
+    def list_rules(self, type_id: UUID) -> list[tuple[ProcedureResourceRule, str]]:
+        """Rules for one visit type, sorted by item name."""
+        statement = (
+            select(ProcedureResourceRule, InventoryItem.name)
+            .join(InventoryItem, _same_clinic_rule_item())
+            .where(
+                ProcedureResourceRule.clinic_id == self._clinic_id,
+                InventoryItem.clinic_id == self._clinic_id,
+                ProcedureResourceRule.appointment_type_id == type_id,
+            )
+            .order_by(func.lower(InventoryItem.name), InventoryItem.name, ProcedureResourceRule.id)
+        )
+        rows = self._session.execute(statement).all()
+        return [(rule, name) for rule, name in rows]
+
+    def delete_rule(self, rule: ProcedureResourceRule) -> None:
+        self._session.delete(rule)
+
+    def lock_batches_for_items(self, item_ids: Sequence[UUID]) -> list[InventoryBatch]:
+        """Lock this clinic's batches for these items, in id order.
+
+        The caller already holds the visit row. Locking by id keeps two
+        completions, and a completion beside an adjustment, from deadlocking.
+        """
+        statement = (
+            scoped_select(InventoryBatch, self._clinic_id)
+            .where(InventoryBatch.item_id.in_(tuple(item_ids)))
+            .order_by(InventoryBatch.id.asc())
+            .with_for_update()
+        )
+        return list(self._session.scalars(statement))
 
     def get_category(self, category_id: UUID, *, lock: bool = False) -> InventoryCategory | None:
         statement = scoped_select(InventoryCategory, self._clinic_id).where(
@@ -238,8 +285,8 @@ class InventoryRepository:
 
     def list_transactions(
         self, item_id: UUID, page: int, page_size: int
-    ) -> tuple[list[tuple[InventoryTransaction, str, str]], int]:
-        """Newest first. The batch number and the staff name come from this clinic."""
+    ) -> tuple[list[tuple[InventoryTransaction, str, str, datetime | None]], int]:
+        """Newest first. The batch number, staff name and visit time come from this clinic."""
         filters = (
             InventoryTransaction.clinic_id == self._clinic_id,
             InventoryBatch.clinic_id == self._clinic_id,
@@ -247,9 +294,15 @@ class InventoryRepository:
             AppUser.clinic_id == self._clinic_id,
         )
         joined = (
-            select(InventoryTransaction, InventoryBatch.batch_number, AppUser.full_name)
+            select(
+                InventoryTransaction,
+                InventoryBatch.batch_number,
+                AppUser.full_name,
+                Appointment.starts_at,
+            )
             .join(InventoryBatch, _same_clinic_batch())
             .join(AppUser, _same_clinic_user())
+            .outerjoin(Appointment, _same_clinic_appointment())
             .where(*filters)
         )
         total = self._session.scalar(select(func.count()).select_from(joined.subquery()))
@@ -262,9 +315,10 @@ class InventoryRepository:
             .limit(page_size)
         )
         rows = self._session.execute(statement).all()
-        return [(row, batch_number, recorded_by) for row, batch_number, recorded_by in rows], int(
-            total or 0
-        )
+        return [
+            (row, batch_number, recorded_by, starts_at)
+            for row, batch_number, recorded_by, starts_at in rows
+        ], int(total or 0)
 
 
 def _same_clinic_batch() -> ColumnElement[bool]:
@@ -276,6 +330,18 @@ def _same_clinic_batch() -> ColumnElement[bool]:
 def _same_clinic_user() -> ColumnElement[bool]:
     return (AppUser.id == InventoryTransaction.created_by_user_id) & (
         AppUser.clinic_id == InventoryTransaction.clinic_id
+    )
+
+
+def _same_clinic_appointment() -> ColumnElement[bool]:
+    return (Appointment.id == InventoryTransaction.appointment_id) & (
+        Appointment.clinic_id == InventoryTransaction.clinic_id
+    )
+
+
+def _same_clinic_rule_item() -> ColumnElement[bool]:
+    return (InventoryItem.id == ProcedureResourceRule.item_id) & (
+        InventoryItem.clinic_id == ProcedureResourceRule.clinic_id
     )
 
 

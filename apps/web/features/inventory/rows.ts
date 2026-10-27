@@ -1,4 +1,5 @@
 import { formatDueOn } from "@/features/care/follow-up-line";
+import { calendarHref } from "@/features/calendar/links";
 import type {
   InventoryBatch,
   InventoryItem,
@@ -35,6 +36,7 @@ export type HistoryEntry = {
   batchNumber: string;
   recordedBy: string;
   whenLabel: string;
+  visitHref: string | null;
 };
 
 export type HistoryView = {
@@ -70,10 +72,18 @@ export function batchRow(batch: InventoryBatch): BatchRow {
   };
 }
 
-const TYPE_LABELS = { restock: "Restock", adjustment: "Adjustment" } as const;
+const TYPE_LABELS = {
+  restock: "Restock",
+  adjustment: "Adjustment",
+  consumption: "Used in visit",
+} as const;
 const REASON_LABELS = { damaged: "Damaged", expired: "Expired", correction: "Correction" } as const;
 
-export function historyEntry(row: StockTransaction): HistoryEntry {
+export function historyEntry(
+  row: StockTransaction,
+  options?: { linkConsumptionVisit?: boolean },
+): HistoryEntry {
+  const linkVisit = options?.linkConsumptionVisit ?? true;
   const change =
     row.quantity_change > 0 ? `+${row.quantity_change}` : String(row.quantity_change);
   return {
@@ -84,6 +94,10 @@ export function historyEntry(row: StockTransaction): HistoryEntry {
     batchNumber: row.batch.batch_number,
     recordedBy: row.recorded_by,
     whenLabel: formatRecordedAt(row.created_at),
+    visitHref:
+      linkVisit && row.type === "consumption" && row.visit_on !== null
+        ? calendarHref({ view: "day", date: row.visit_on, clinician: null })
+        : null,
   };
 }
 

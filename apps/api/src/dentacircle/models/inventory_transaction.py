@@ -21,9 +21,12 @@ from dentacircle.models.mixins import ClinicScoped
 _TYPES = ", ".join(f"'{name}'" for name in TRANSACTION_TYPES)
 _REASONS = ", ".join(f"'{name}'" for name in ADJUSTMENT_REASONS)
 _SIGN = (
-    "(type = 'restock' AND quantity_change > 0 AND reason IS NULL) OR "
+    "(type = 'restock' AND quantity_change > 0 AND reason IS NULL"
+    " AND appointment_id IS NULL) OR "
     "(type = 'adjustment' AND reason IS NOT NULL AND reason IN (" + _REASONS + ") AND "
-    "(reason = 'correction' OR quantity_change < 0))"
+    "(reason = 'correction' OR quantity_change < 0) AND appointment_id IS NULL) OR "
+    "(type = 'consumption' AND quantity_change < 0 AND reason IS NULL"
+    " AND appointment_id IS NOT NULL)"
 )
 
 
@@ -47,6 +50,11 @@ class InventoryTransaction(ClinicScoped, Base):
             ["app_user.id", "app_user.clinic_id"],
             name="fk_inventory_transaction_created_by_user_id_clinic_id",
         ),
+        ForeignKeyConstraint(
+            ["appointment_id", "clinic_id"],
+            ["appointment.id", "appointment.clinic_id"],
+            name="fk_inventory_transaction_appointment_id_clinic_id",
+        ),
         Index(
             "ix_inventory_transaction_clinic_batch_created",
             "clinic_id",
@@ -61,3 +69,4 @@ class InventoryTransaction(ClinicScoped, Base):
     reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     quantity_change: Mapped[int] = mapped_column(Integer)
     created_by_user_id: Mapped[UUID] = mapped_column()
+    appointment_id: Mapped[UUID | None] = mapped_column(nullable=True)

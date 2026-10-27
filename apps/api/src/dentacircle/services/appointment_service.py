@@ -45,6 +45,7 @@ from dentacircle.services.follow_up_service import (
     record_incomplete_care,
     release_booked_follow_up,
 )
+from dentacircle.services.inventory_service import consume_for_completed_visit
 from dentacircle.services.patient_service import PatientNotFoundError
 from dentacircle.services.recall_service import record_recall, release_booked_recall
 from dentacircle.services.timeline_service import record as record_timeline
@@ -284,6 +285,14 @@ def change_status(
             session, clinic_id, actor_user_id, row, zone, now, due_on=follow_up_due_on
         )
         record_recall(session, clinic_id, actor_user_id, row, zone, now)
+        consume_for_completed_visit(
+            session,
+            clinic_id,
+            actor_user_id,
+            row.id,
+            row.appointment_type_id,
+            now.astimezone(zone).date(),
+        )
     elif target == "no_show":
         release_booked_follow_up(session, clinic_id, actor_user_id, row)
         release_booked_recall(session, clinic_id, actor_user_id, row)

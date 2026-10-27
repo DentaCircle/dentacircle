@@ -39,6 +39,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/appointment-types/{type_id}/resource-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Resource Rules */
+        get: operations["get_resource_rules_appointment_types__type_id__resource_rules_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/appointment-types/{type_id}/resource-rules/{item_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Resource Rule */
+        put: operations["put_resource_rule_appointment_types__type_id__resource_rules__item_id__put"];
+        post?: never;
+        /** Delete Resource Rule */
+        delete: operations["delete_resource_rule_appointment_types__type_id__resource_rules__item_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/appointments": {
         parameters: {
             query?: never;
@@ -1863,6 +1898,23 @@ export interface components {
             /** Quantity */
             quantity: number;
         };
+        /** RuleBody */
+        RuleBody: {
+            /** Quantity */
+            quantity: number;
+        };
+        /** RuleResponse */
+        RuleResponse: {
+            /**
+             * Item Id
+             * Format: uuid
+             */
+            item_id: string;
+            /** Item Name */
+            item_name: string;
+            /** Quantity */
+            quantity: number;
+        };
         /** SessionEnvelope */
         SessionEnvelope: {
             session: components["schemas"]["SessionResponse"] | null;
@@ -1987,6 +2039,8 @@ export interface components {
         };
         /** TransactionResponse */
         TransactionResponse: {
+            /** Appointment Id */
+            appointment_id: string | null;
             batch: components["schemas"]["BatchLink"];
             /**
              * Created At
@@ -2008,7 +2062,9 @@ export interface components {
              * Type
              * @enum {string}
              */
-            type: "restock" | "adjustment";
+            type: "restock" | "adjustment" | "consumption";
+            /** Visit On */
+            visit_on: string | null;
         };
         /** TypeNameResponse */
         TypeNameResponse: {
@@ -2265,6 +2321,139 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_resource_rules_appointment_types__type_id__resource_rules_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                type_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleResponse"][];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_resource_rule_appointment_types__type_id__resource_rules__item_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                type_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RuleBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleResponse"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description item_inactive */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+            /** @description validation_error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    delete_resource_rule_appointment_types__type_id__resource_rules__item_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                type_id: string;
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -327,6 +327,17 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   write; they plus `clinician` read stock and history; `receptionist` has no access. Expired
   batches still count in stock until S4.4 decides alert treatment. Audit rows list no
   quantities.
+- **Procedure resource rules (decided in S4.3):** a rule says an appointment type uses N whole
+  units of an inventory item (`procedure_resource_rule`, one per type and item, 1 to 1,000).
+  Rules are keyed by appointment type, not care item, because care items are free text with no
+  catalog. Completing a visit writes `consumption` transactions in the same transaction,
+  negative, linked to the visit by a new nullable `inventory_transaction.appointment_id`
+  (migration `0020`, changes an existing table, approved here). Batches are taken earliest
+  expiry first, skipping expired batches and inactive items. Short stock takes what exists and
+  never blocks the visit; the shortfall is not recorded (S4.4 alerts on stock at 0). A care
+  session consumes nothing. `inventory_admin` and `clinic_admin` write rules; they plus
+  `clinician` read; `receptionist` has no access. Rule changes are audited with field names
+  only, and rule delete is a real delete.
 
 ## Open decisions (need the developer's call)
 
@@ -514,5 +525,15 @@ and a paginated history; the list shows a Stock column. A clinician can read sto
 and cannot use the forms. A receptionist is refused. A batch is a number plus an optional expiry;
 `expired` is calculated from the clinic-local date and is not stored. Expired batches still
 count in stock until S4.4. Items are deactivated, never deleted. Item and batch setup writes
-audit events with field names only (migration `0018`). Procedure consumption and low-stock
-alerts are not in yet (S4.3 and S4.4).
+audit events with field names only (migration `0018`).
+
+`inventory_admin` and `clinic_admin` can set visit-type rules on
+`/inventory/rules`: each rule names one active item and a whole quantity from 1 to 1,000
+for an appointment type (`procedure_resource_rule`, migration `0020`). They and
+`clinician` can list rules; `receptionist` is refused. When a visit moves to `completed`,
+the API writes `consumption` transactions in the same transaction as the status change,
+linked by `inventory_transaction.appointment_id`, taking earliest unexpired batch stock
+first and never blocking completion on short stock. Item history shows "Used in visit"
+with a link to that visit's calendar day. Rule writes and each consumption write audit
+events with field names only. A care session does not consume stock. Low-stock and
+expiring alerts are not in yet (S4.4).
