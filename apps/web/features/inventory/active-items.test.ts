@@ -51,4 +51,32 @@ describe("listActiveInventoryItemsForRules", () => {
     expect(listInventoryItems).toHaveBeenCalledTimes(2);
     expect(listInventoryItems).toHaveBeenNthCalledWith(2, "dc_session=x", "active", "", "", 2, 100);
   });
+
+  it("stops when a later page is empty even if total is still higher", async () => {
+    vi.mocked(listInventoryItems)
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          items: Array.from({ length: 100 }, (_, index) => item(`id-${index}`, `Item ${index}`)),
+          total: 200,
+          page: 1,
+          page_size: 100,
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: {
+          items: [],
+          total: 200,
+          page: 2,
+          page_size: 100,
+        },
+      });
+
+    const result = await listActiveInventoryItemsForRules("dc_session=x");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.data).toHaveLength(100);
+    expect(listInventoryItems).toHaveBeenCalledTimes(2);
+  });
 });
