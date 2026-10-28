@@ -94,3 +94,18 @@ test("forbidden and other failures use the fixed sentences", async () => {
   await user.click(screen.getByRole("button", { name: "Yes, cancel" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong.");
 });
+
+test("confirmation opens in a dialog and Escape returns to the unchanged action", async () => {
+  const user = userEvent.setup();
+  const fetchMock = vi.fn();
+  vi.stubGlobal("fetch", fetchMock);
+  render(<CancelButton appointmentId="visit-1" returnHref="/calendar" />);
+  const trigger = screen.getByRole("button", { name: "Cancel" });
+  await user.click(trigger);
+  expect(screen.getByRole("dialog", { name: "Cancel this appointment?" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Keep" })).toHaveFocus();
+  await user.keyboard("{Escape}");
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  expect(trigger).toBeInTheDocument();
+  expect(fetchMock).not.toHaveBeenCalled();
+});

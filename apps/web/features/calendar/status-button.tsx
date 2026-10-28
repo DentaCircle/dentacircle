@@ -13,10 +13,10 @@ import type { ApiError } from "@/lib/api/errors";
 export type StatusTarget = "arrived" | "in_progress" | "completed" | "no_show";
 
 const LABELS: Record<StatusTarget, string> = {
-  arrived: "Arrived",
+  arrived: "Mark arrived",
   in_progress: "Start",
   completed: "Complete",
-  no_show: "No-show",
+  no_show: "Mark no-show",
 };
 
 const CONFIRMS: Partial<Record<StatusTarget, string>> = {
@@ -74,6 +74,7 @@ export function StatusButton({
     return (
       <Button
         type="button"
+        size="sm"
         variant="outline"
         onClick={() => {
           setMessage(null);
@@ -126,7 +127,7 @@ export function StatusButton({
 
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <Button type="button" variant="outline" onClick={onConfirm} disabled={isSubmitting}>
+      <Button type="button" size="sm" variant="default" onClick={onConfirm} disabled={isSubmitting}>
         {LABELS[target]}
       </Button>
       {message === null ? null : (
