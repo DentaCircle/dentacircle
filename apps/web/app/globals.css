@@ -494,7 +494,7 @@
     background: #eaf4ed;
   }
   .status-arrived {
-    color: #b3832e;
+    color: #8c5f16;
     background: #fcf4e4;
   }
   .status-in_progress {
@@ -635,7 +635,7 @@
   }
   .due-label {
     font-size: 11px;
-    color: #a78b4f;
+    color: #7a6230;
     background: #fbf5e9;
     border-radius: 4px;
     padding: 4px 6px;
