@@ -25,7 +25,7 @@ test("arrived and start send one request at once", async () => {
     const fetchMock = pendingFetch();
     vi.stubGlobal("fetch", fetchMock.fn);
     const view = render(<StatusButton appointmentId="visit-1" returnHref={HREF} target={target} />);
-    const button = screen.getByRole("button", { name: target === "arrived" ? "Arrived" : "Start" });
+    const button = screen.getByRole("button", { name: target === "arrived" ? "Mark arrived" : "Start" });
     const first = user.click(button);
     const second = user.click(button);
     await waitFor(() => expect(fetchMock.fn).toHaveBeenCalledTimes(1));
@@ -51,7 +51,7 @@ test("arrived and start send one request at once", async () => {
 test("no-show and complete ask first, and keep sends nothing", async () => {
   const user = userEvent.setup();
   const cases: { target: StatusTarget; label: string; question: string; notice: string }[] = [
-    { target: "no_show", label: "No-show", question: "Mark as no-show?", notice: "no_show" },
+    { target: "no_show", label: "Mark no-show", question: "Mark as no-show?", notice: "no_show" },
     { target: "completed", label: "Complete", question: "Mark as completed?", notice: "completed" },
   ];
   for (const item of cases) {
@@ -88,7 +88,7 @@ test("a conflict reloads with the status-changed notice", async () => {
   const user = userEvent.setup();
   vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({ ok: false, status: 409, json: () => Promise.resolve({}) })));
   render(<StatusButton appointmentId="visit-1" returnHref={HREF} target="arrived" />);
-  await user.click(screen.getByRole("button", { name: "Arrived" }));
+  await user.click(screen.getByRole("button", { name: "Mark arrived" }));
   await waitFor(() => expect(push).toHaveBeenCalledWith(`${HREF}&notice=changed`));
   expect(refresh).toHaveBeenCalled();
 });
@@ -118,7 +118,7 @@ test("each failure uses the fixed sentence", async () => {
       vi.fn(() => Promise.resolve({ ok: false, status: item.status, json: () => Promise.resolve(item.body) })),
     );
     const view = render(<StatusButton appointmentId="visit-1" returnHref={HREF} target="arrived" />);
-    await user.click(screen.getByRole("button", { name: "Arrived" }));
+    await user.click(screen.getByRole("button", { name: "Mark arrived" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(item.text);
     if (item.reloads) expect(refresh).toHaveBeenCalled();
     else expect(refresh).not.toHaveBeenCalled();
@@ -132,9 +132,9 @@ test("a timeout or a dropped request uses the same sentence", async () => {
   for (const failure of failures) {
     vi.stubGlobal("fetch", vi.fn(() => Promise.reject(failure)));
     const view = render(<StatusButton appointmentId="visit-1" returnHref={HREF} target="arrived" />);
-    await user.click(screen.getByRole("button", { name: "Arrived" }));
+    await user.click(screen.getByRole("button", { name: "Mark arrived" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Something went wrong.");
-    expect(screen.getByRole("button", { name: "Arrived" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Mark arrived" })).toBeEnabled();
     view.unmount();
   }
 });
@@ -219,7 +219,7 @@ test("keep drops a follow-up date error before complete is opened again", async 
 test("no-show does not ask for a follow-up date", async () => {
   const user = userEvent.setup();
   render(<StatusButton appointmentId="visit-1" returnHref={HREF} target="no_show" />);
-  await user.click(screen.getByRole("button", { name: "No-show" }));
+  await user.click(screen.getByRole("button", { name: "Mark no-show" }));
   expect(screen.getByText("Mark as no-show?")).toBeInTheDocument();
   expect(screen.queryByLabelText("Follow-up date")).not.toBeInTheDocument();
 });

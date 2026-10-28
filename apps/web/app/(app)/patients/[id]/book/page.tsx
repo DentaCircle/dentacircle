@@ -41,6 +41,7 @@ export default async function BookAppointmentPage({ params }: BookAppointmentPag
     <BookPage
       status="ready"
       patientId={patient.data.id}
+      patient={patient.data}
       today={today}
       clinicians={clinicians.data.map((row) => ({ id: row.id, label: row.full_name }))}
       types={types.data.map((row) => ({ id: row.id, label: row.name }))}

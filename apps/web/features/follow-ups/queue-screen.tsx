@@ -59,7 +59,14 @@ export function QueueScreen({
       {status === "forbidden" ? <p role="alert">You do not have access.</p> : null}
       {status === "error" ? <p role="alert">Follow-ups could not be loaded.</p> : null}
       {status === "forbidden" ? null : <ViewLinks view={view} />}
-      {status === "empty" ? <p>No follow-ups are due.</p> : null}
+      {status === "empty" ? (
+        <div>
+          <p>{view === "due" ? "No follow-ups are due." : "There are no open follow-ups."}</p>
+          <p>{view === "due" ? "Choose All open to see upcoming and booked follow-ups. " : ""}
+            To create a follow-up, find the patient and open their Care page.</p>
+          <Link href="/patients">Find a patient</Link>
+        </div>
+      ) : null}
       {status === "ready" ? (
         <>
           <table className="w-full text-left text-sm">
@@ -80,9 +87,8 @@ export function QueueScreen({
                 <th className="py-2 pr-3 font-medium" scope="col">
                   Timing
                 </th>
-                <th className="py-2 font-medium" scope="col">
-                  Status
-                </th>
+                <th className="py-2 pr-3 font-medium" scope="col">Status</th>
+                <th className="py-2 font-medium" scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -101,18 +107,18 @@ export function QueueScreen({
                   <td className="py-2 pr-3">
                     <Badge variant={TIMING_VARIANT[row.timing]}>{TIMING_LABELS[row.timing]}</Badge>
                   </td>
+                  <td className="py-2 pr-3">{STATUS_LABELS[row.status]}</td>
                   <td className="py-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span>{STATUS_LABELS[row.status]}</span>
-                      <Link href={`/patients/${row.patient.id}/documents?follow_up_id=${row.id}`}>
-                        Documents
-                      </Link>
                       {row.status === "scheduled" ? (
                         <ContactedButton followUpId={row.id} view={view} page={page} />
                       ) : null}
                       {row.status === "scheduled" || row.status === "contacted" ? (
                         <Link href={`/follow-ups/${row.id}/book`}>Book visit</Link>
                       ) : null}
+                      <Link href={`/patients/${row.patient.id}/documents?follow_up_id=${row.id}`}>
+                        Documents
+                      </Link>
                       <CancelButton followUpId={row.id} view={view} page={page} />
                     </div>
                   </td>

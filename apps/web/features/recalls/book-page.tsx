@@ -8,6 +8,7 @@ export type RecallBookPageProps =
   | {
       status: "ready";
       recallId: string;
+      patient: { full_name: string; display_id: string };
       types: BookChoice[];
       clinicians: BookChoice[];
       today: string;
@@ -27,6 +28,7 @@ export function RecallBookPage(props: RecallBookPageProps) {
       {props.status === "error" ? <p role="alert">Something went wrong.</p> : null}
       {props.status === "ready" ? (
         <BookScreen
+          patient={props.patient}
           types={props.types}
           clinicians={props.clinicians}
           today={props.today}

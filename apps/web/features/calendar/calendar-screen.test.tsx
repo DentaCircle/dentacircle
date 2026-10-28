@@ -21,7 +21,7 @@ const scheduled: CalendarDay["visits"][number] = {
   status: "scheduled",
 };
 
-test("a day lists the visit and hides a scheduled badge", () => {
+test("a day lists the visit with its scheduled status", () => {
   render(
     <CalendarScreen
       status="ready"
@@ -41,14 +41,14 @@ test("a day lists the visit and hides a scheduled badge", () => {
   expect(screen.getByText("P-0001")).toBeInTheDocument();
   expect(screen.getByRole("listitem")).toHaveTextContent("Consultation");
   expect(screen.getByRole("listitem")).toHaveTextContent("Sample Clinician");
-  expect(screen.queryByText("Scheduled")).not.toBeInTheDocument();
+  expect(screen.getByText("Scheduled")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Reschedule" })).toHaveAttribute(
     "href",
     "/appointments/visit-1/reschedule",
   );
   expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "Arrived" })).toBeInTheDocument();
-  expect(screen.getByRole("button", { name: "No-show" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Mark arrived" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Mark no-show" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Wed 14 Oct" })).toHaveAttribute("aria-current", "date");
 });
 
@@ -196,3 +196,21 @@ test("a known notice is shown and an access or load failure replaces the list", 
 function day(date: string, heading: string, isToday: boolean, visits: CalendarDay["visits"]): CalendarDay {
   return { date, heading, isToday, visits };
 }
+
+test("date and clinician controls preserve the calendar view and provide booking entry", () => {
+  render(<CalendarScreen status="ready" view="week" date="2026-10-20" today="2026-10-20"
+    clinician="c-1" clinicians={[{ id: "c-1", label: "Sample Clinician" }]}
+    days={[]} notice={null} canAdvance />);
+  expect(screen.getByLabelText("Date")).toHaveValue("2026-10-20");
+  expect(screen.getByLabelText("Clinician")).toHaveValue("c-1");
+  expect(screen.getByDisplayValue("week")).toHaveAttribute("name", "view");
+  expect(screen.getByRole("link", { name: "Book appointment" })).toHaveAttribute("href", "/patients");
+});
+
+test("week view avoids repeating the booking prompt for each empty day", () => {
+  render(<CalendarScreen status="ready" view="week" date="2026-10-20" today="2026-10-20"
+    clinician={null} clinicians={[]} days={[day("2026-10-20", "Tue 20 Oct", true, []), day("2026-10-21", "Wed 21 Oct", false, [])]}
+    notice={null} canAdvance />);
+  expect(screen.getByRole("link", { name: "Book appointment" })).toHaveAttribute("href", "/patients");
+  expect(screen.queryByRole("link", { name: "Find a patient to book a visit." })).not.toBeInTheDocument();
+});

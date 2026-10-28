@@ -58,7 +58,7 @@ export function ContactedButton({
 
   return (
     <span className="inline-flex flex-wrap items-center gap-2">
-      <Button type="button" variant="outline" onClick={onClick} disabled={isSubmitting}>
+      <Button type="button" onClick={onClick} disabled={isSubmitting}>
         Mark contacted
       </Button>
       {message === null ? null : (

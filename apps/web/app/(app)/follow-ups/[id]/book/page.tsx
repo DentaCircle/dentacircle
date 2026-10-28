@@ -49,6 +49,7 @@ export default async function FollowUpBookRoute({ params }: FollowUpBookRoutePro
     <FollowUpBookPage
       status="ready"
       followUpId={found.id}
+      patient={found.patient}
       today={today}
       clinicians={clinicians.data.map((row) => ({ id: row.id, label: row.full_name }))}
       types={types.data.map((row) => ({ id: row.id, label: row.name }))}
