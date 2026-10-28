@@ -7,6 +7,7 @@ export type BookPageProps =
   | {
       status: "ready";
       patientId: string;
+      patient: { full_name: string; display_id: string };
       types: BookChoice[];
       clinicians: BookChoice[];
       today: string;
@@ -27,6 +28,7 @@ export function BookPage(props: BookPageProps) {
       {props.status === "error" ? <p role="alert">Something went wrong.</p> : null}
       {props.status === "ready" ? (
         <BookScreen
+          patient={props.patient}
           patientId={props.patientId}
           types={props.types}
           clinicians={props.clinicians}
