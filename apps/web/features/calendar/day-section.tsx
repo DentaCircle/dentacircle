@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { AppointmentRow, type AppointmentRowProps } from "@/features/calendar/appointment-row";
 
 export type CalendarVisitRow = Omit<AppointmentRowProps, "returnHref" | "canAdvance">;
@@ -13,10 +15,12 @@ export function DaySection({
   day,
   returnHref,
   canAdvance,
+  showBookingLink,
 }: {
   day: CalendarDay;
   returnHref: string;
   canAdvance: boolean;
+  showBookingLink: boolean;
 }) {
   return (
     <section className="flex flex-col gap-2">
@@ -24,7 +28,7 @@ export function DaySection({
         {day.heading}
       </h2>
       {day.visits.length === 0 ? (
-        <p>No appointments.</p>
+        <p>No appointments.{showBookingLink ? <> <Link href="/patients">Find a patient to book a visit.</Link></> : null}</p>
       ) : (
         <ul>
           {day.visits.map((visit) => (
