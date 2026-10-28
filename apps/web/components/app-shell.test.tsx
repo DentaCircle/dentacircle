@@ -28,7 +28,9 @@ test("shell shows the app name, the signed-in user, and the current page", () =>
   expect(screen.getByRole("banner")).toHaveTextContent("Synthetic Person");
   expect(screen.getByRole("banner")).toHaveTextContent("Synthetic Clinic");
   expect(screen.getByRole("button", { name: "Sign out" })).toBeInTheDocument();
-  expect(screen.getByRole("main")).toBeInTheDocument();
+  expect(screen.getByRole("main")).toHaveAttribute("id", "main-content");
+  expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#main-content");
+  expect(screen.getByRole("img", { name: "Synthetic Person · Synthetic Clinic" })).toBeInTheDocument();
   expect(screen.getByText("page body")).toBeInTheDocument();
 
   const dashboardLinks = screen.getAllByRole("link", { name: "Dashboard" });
