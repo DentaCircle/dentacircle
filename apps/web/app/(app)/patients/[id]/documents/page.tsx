@@ -1,4 +1,5 @@
 import { wallDate, wallTime } from "@/features/appointments/wall-time";
+import { PatientWorkspace } from "@/features/patients/patient-workspace";
 import { requireUser } from "@/features/auth/current-user";
 import { formatDueOn } from "@/features/care/follow-up-line";
 import { canUseDocuments } from "@/features/documents/access";
@@ -55,6 +56,7 @@ export default async function DocumentsPage({ params, searchParams }: DocumentsP
   if (!patient.ok) return <DocumentsScreen {...failureProps(patient.error, id, page)} />;
   const heading = await contextHeading(cookieHeader, id, context, documents.data.items);
   return (
+    <PatientWorkspace patient={patient.data} current="documents">
     <DocumentsScreen
       status={documents.data.total === 0 ? "empty" : "ready"}
       patientId={id}
@@ -68,6 +70,7 @@ export default async function DocumentsPage({ params, searchParams }: DocumentsP
       context={context}
       contextHeading={heading}
     />
+    </PatientWorkspace>
   );
 }
 

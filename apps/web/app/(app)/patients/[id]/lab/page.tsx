@@ -1,3 +1,4 @@
+import { PatientWorkspace } from "@/features/patients/patient-workspace";
 import { requireUser } from "@/features/auth/current-user";
 import { canUseLab } from "@/features/lab/access";
 import { pageFromQuery } from "@/features/lab/links";
@@ -31,6 +32,7 @@ export default async function PatientLabPage({ params, searchParams }: LabPagePr
   if (!found.ok) return <PatientLabScreen {...failureProps(found.error, id, page, notice)} />;
   if (!patient.ok) return <PatientLabScreen {...failureProps(patient.error, id, page, notice)} />;
   return (
+    <PatientWorkspace patient={patient.data} current="lab">
     <PatientLabScreen
       status={found.data.total === 0 ? "empty" : "ready"}
       patientId={id}
@@ -41,6 +43,7 @@ export default async function PatientLabPage({ params, searchParams }: LabPagePr
       isPatientInactive={patient.data.status === "inactive"}
       notice={notice}
     />
+    </PatientWorkspace>
   );
 }
 
