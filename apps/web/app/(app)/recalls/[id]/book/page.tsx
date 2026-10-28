@@ -55,6 +55,7 @@ export default async function RecallBookRoute({ params }: RecallBookRouteProps) 
     <RecallBookPage
       status="ready"
       recallId={found.data.id}
+      patient={found.data.patient}
       today={today}
       clinicians={clinicians.data.map((row) => ({ id: row.id, label: row.full_name }))}
       types={types.data.map((row) => ({ id: row.id, label: row.name }))}
