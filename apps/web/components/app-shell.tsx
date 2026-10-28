@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { CircleHelp, ShieldCheck, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 import { MainNav } from "@/components/main-nav";
 import { MobileNav } from "@/components/mobile-nav";
@@ -41,15 +41,7 @@ export function AppShell({ user, children }: { user: CurrentUser; children: Reac
         <aside className="app-sidebar hidden shrink-0 md:block">
           <div className="sidebar-inner">
             <MainNav />
-            <div className="sidebar-bottom">
-              <div className="sidebar-note">
-                <CircleHelp size={18} aria-hidden="true" />
-                <p>Every step, connected.<span>From the first visit to the next.</span></p>
-              </div>
-              <div className="sidebar-footer">
-                <ShieldCheck size={14} aria-hidden="true" /><span>Your clinic. One workspace.</span>
-              </div>
-            </div>
+
           </div>
         </aside>
         <main id="main-content" className="workspace-main min-w-0 flex-1" tabIndex={-1}>
