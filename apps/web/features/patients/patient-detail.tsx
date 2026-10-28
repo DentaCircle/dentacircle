@@ -1,7 +1,7 @@
 import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PatientNavigation } from "@/features/patients/patient-workspace";
 import { PatientStatusButton, statusLabel } from "@/features/patients/patient-status-button";
 
 export type PatientDetailData = {
@@ -42,34 +42,17 @@ export function PatientDetail({
   upcomingItems,
 }: PatientDetailProps) {
   return (
-    <section className="flex max-w-lg flex-col gap-4">
+    <section className="flex max-w-4xl flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">
-          {status === "ready" && patient !== null ? patient.fullName : "Patient"}
-        </h1>
+        <div className="flex flex-wrap items-baseline gap-3">
+          <h1 className="text-2xl font-semibold">
+            {status === "ready" && patient !== null ? patient.fullName : "Patient"}
+          </h1>
+          {status === "ready" && patient !== null ? <span className="text-sm text-muted-foreground">{patient.displayId}</span> : null}
+        </div>
         <div className="flex flex-wrap gap-3 text-sm">
-          {status === "ready" && patient !== null ? (
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/patients/${patient.id}/care`}>Care</Link>
-            </Button>
-          ) : null}
-          {status === "ready" && patient !== null ? (
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/patients/${patient.id}/documents`}>Documents</Link>
-            </Button>
-          ) : null}
-          {status === "ready" && patient !== null ? (
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/patients/${patient.id}/lab`}>Lab</Link>
-            </Button>
-          ) : null}
-          {status === "ready" && patient !== null ? (
-            <Button asChild variant="outline" size="sm">
-              <Link href={`/patients/${patient.id}/timeline`}>Timeline</Link>
-            </Button>
-          ) : null}
           {status === "ready" && patient !== null && canBook && patient.status === "active" ? (
-            <Button asChild variant="outline" size="sm">
+            <Button asChild size="sm">
               <Link href={`/patients/${patient.id}/book`}>Book appointment</Link>
             </Button>
           ) : null}
@@ -81,6 +64,7 @@ export function PatientDetail({
           <Link href="/patients">Patients</Link>
         </div>
       </div>
+      {status === "ready" && patient !== null ? <PatientNavigation patientId={patient.id} current="overview" /> : null}
       {saved ? <p role="status">Saved.</p> : null}
       {booked ? <p role="status">Booked.</p> : null}
       {status === "not-found" ? <p role="alert">Patient not found</p> : null}
@@ -88,12 +72,6 @@ export function PatientDetail({
       {status === "error" ? <p role="alert">The patient could not be loaded.</p> : null}
       {status === "ready" && patient !== null ? (
         <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-2 text-sm">
-          <dt>ID</dt>
-          <dd>
-            <Badge>{patient.displayId}</Badge>
-          </dd>
-          <dt>Name</dt>
-          <dd>{patient.fullName}</dd>
           <dt>Phone</dt>
           <dd>{patient.phone}</dd>
           <dt>Date of birth</dt>
