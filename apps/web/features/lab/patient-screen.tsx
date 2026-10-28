@@ -33,7 +33,7 @@ export function PatientLabScreen({
     <section className="flex max-w-lg flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Lab</h1>
-        <Link href={`/patients/${patientId}`}>Patient</Link>
+        {isLoaded ? null : <Link href={`/patients/${patientId}`}>Patient</Link>}
       </div>
       {notice === null ? null : <p role="status">{LAB_NOTICES[notice]}</p>}
       {status === "not-found" ? <p role="alert">Not found.</p> : null}
