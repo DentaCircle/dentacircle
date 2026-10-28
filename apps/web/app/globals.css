@@ -200,7 +200,7 @@
     font-size: 13px;
     font-weight: 600;
   }
-  .clinic-dot, .banner-kicker > span {
+  .clinic-dot {
     width: 6px;
     height: 6px;
     border-radius: 50%;
@@ -348,139 +348,6 @@
   }
   .title-dot {
     color: #509881;
-  }
-  .overview-banner {
-    position: relative;
-    overflow: hidden;
-    min-height: 244px;
-    border-radius: 14px;
-    background: #175c53;
-    color: #fff;
-    padding: 28px 32px;
-  }
-  .overview-banner::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: radial-gradient(ellipse at 85% 100%, #397e67aa, transparent 65%);
-  }
-  .banner-kicker {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 11px;
-    letter-spacing: 2px;
-    color: #c2dbcd;
-    font-weight: 600;
-  }
-  .banner-kicker > span {
-    background: #b4d5ad;
-    width: 5px;
-    height: 5px;
-  }
-  .overview-banner h2 {
-    margin-top: 15px;
-    font-size: 30px;
-    font-weight: 500;
-    line-height: 1.2;
-    letter-spacing: -.7px;
-  }
-  .overview-banner p {
-    margin-top: 10px;
-    font-size: 11px;
-    line-height: 1.8;
-    color: #c1d6cf;
-  }
-  .banner-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 15px;
-    margin-top: 19px;
-    font-size: 11px;
-    font-weight: 500;
-    color: #edf6ec;
-  }
-  .banner-link:hover {
-    text-decoration: underline;
-    text-underline-offset: 4px;
-  }
-  .banner-date {
-    position: absolute;
-    z-index: 2;
-    top: 27px;
-    right: 29px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    color: #e1eee6;
-    font-size: 11px;
-  }
-  .banner-date small {
-    display: block;
-    color: #b8d2c7;
-    margin-top: 4px;
-    font-size: 11px;
-  }
-  .banner-art {
-    position: absolute;
-    right: 155px;
-    top: -10px;
-    width: 300px;
-    height: 300px;
-    color: #d4e7ce;
-  }
-  .orbit {
-    position: absolute;
-    border-radius: 50%;
-    border: 1px solid #c8e2c51c;
-  }
-  .orbit-one {
-    inset: 4px;
-  }
-  .orbit-two {
-    inset: 39px;
-  }
-  .orbit-three {
-    inset: 77px;
-    background: #c9e2c508;
-  }
-  .orbit-core {
-    position: absolute;
-    inset: 106px;
-    border-radius: 50%;
-    border: 1px solid #c8e2c540;
-    background: #d1e8cc15;
-    display: grid;
-    place-items: center;
-  }
-  .orbit-node {
-    position: absolute;
-    display: grid;
-    place-items: center;
-    width: 43px;
-    height: 43px;
-    border: 1px solid #c9e2c538;
-    background: #387566;
-    box-shadow: 0 5px 15px #0c3b3920;
-    border-radius: 13px;
-  }
-  .node-one {
-    top: 43px;
-    left: 51px;
-    transform: rotate(-10deg);
-  }
-  .node-two {
-    bottom: 54px;
-    right: 24px;
-    transform: rotate(10deg);
-  }
-  .node-three {
-    bottom: 32px;
-    left: 65px;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
   }
   .metric-grid {
     display: grid;
@@ -998,16 +865,6 @@
     .workspace-main {
       padding: 42px 56px;
     }
-    .overview-banner {
-      min-height: 270px;
-      padding: 34px 38px;
-    }
-    .overview-banner h2 {
-      font-size: 34px;
-    }
-    .banner-art {
-      right: 220px;
-    }
   }
   @media (max-width: 1199px) {
     .app-sidebar {
@@ -1019,25 +876,8 @@
     .metric-card {
       padding: 17px;
     }
-    .banner-art {
-      right: 20px;
-      opacity: .6;
-    }
-    .banner-date {
-      right: 20px;
-      top: 20px;
-    }
     .dashboard-columns {
       grid-template-columns: minmax(0, 1fr);
-    }
-    .dashboard-columns > div:last-child {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      align-items: start;
-    }
-    .dashboard-columns > div:last-child > * {
-      margin: 0;
     }
   }
   @media (max-width: 767px) {
@@ -1061,34 +901,6 @@
     }
     .dashboard-title {
       font-size: 28px;
-    }
-    .overview-banner {
-      padding: 25px;
-    }
-    .overview-banner h2 {
-      font-size: 28px;
-    }
-    .banner-art {
-      right: -80px;
-      top: 15px;
-      opacity: .5;
-    }
-    .banner-date {
-      position: relative;
-      right: auto;
-      top: auto;
-      margin-top: 22px;
-    }
-    .overview-banner p {
-      max-width: 250px;
-    }
-    .dashboard-columns > div:last-child {
-      display: flex;
-      flex-direction: column;
-      gap: 22px;
-    }
-    .dashboard-columns > div:last-child > * {
-      width: 100%;
     }
     .workspace-main > section:not(.dashboard) {
       padding: 18px;

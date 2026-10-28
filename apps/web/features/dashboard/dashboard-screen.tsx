@@ -1,8 +1,8 @@
 import Link from "next/link";
 import {
-  ArrowDownLeft, ArrowRight, CalendarDays, Check, ChevronRight, Clock3,
+  ArrowRight, CalendarDays, ChevronRight, Clock3,
   FlaskConical, Layers3, Package, PhoneCall, Plus, RotateCcw, Search,
-  ShieldCheck, Sparkles, Users, type LucideIcon,
+  type LucideIcon,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -23,10 +23,6 @@ export function DashboardScreen({ user, data }: DashboardProps) {
         <OtherDashboard mode={data.mode} />
       )}
       <footer className="dashboard-footer">
-        <span className="flex items-center gap-1.5">
-          <ShieldCheck size={14} aria-hidden="true" />
-          Connected care starts with a coordinated team.
-        </span>
         <div className="flex flex-wrap items-center gap-2">
           <span>{user.clinic.name}</span>
           <span aria-hidden="true">·</span>
@@ -45,11 +41,9 @@ function DashboardHeading({ user, coordination }: { user: CurrentUser; coordinat
   return (
     <div className="flex flex-wrap items-end justify-between gap-4">
       <div>
-        <p className="eyebrow mb-2">YOUR CLINIC AT A GLANCE</p>
         <h1 className="dashboard-title">Dashboard<span className="title-dot">.</span></h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Welcome back, <span className="font-medium text-foreground">{user.full_name}</span>.
-          Let’s make room for better care.
         </p>
       </div>
       {coordination ? (
@@ -70,7 +64,16 @@ function CoordinationDashboard({ data }: { data: DashboardData }) {
   const calendarHref = data.today === null ? "/calendar" : `/calendar?date=${data.today}`;
   return (
     <>
-      <DailyBrief data={data} calendarHref={calendarHref} />
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm">
+        <p className="font-medium">{data.today === null ? "Clinic date unavailable" : formatDay(data.today)}
+          {data.timezone === null ? null : <span className="ml-2 text-muted-foreground">{data.timezone}</span>}
+        </p>
+        <Link href={calendarHref} className="font-medium text-primary">Open today’s calendar</Link>
+      </div>
+      <div className="dashboard-columns">
+        <div className="min-w-0"><Agenda visits={data.appointments} href={calendarHref} /></div>
+        <div className="min-w-0"><Attention data={data} /></div>
+      </div>
       <div className="metric-grid">
         <Metric label="Appointments today" value={data.appointments?.length ?? null}
           description="Your daily schedule" href={calendarHref} icon={CalendarDays} tone="teal" />
@@ -81,51 +84,8 @@ function CoordinationDashboard({ data }: { data: DashboardData }) {
         <Metric label="Open lab work" value={data.lab?.total ?? null}
           description="Pending & ready to collect" href="/lab" icon={FlaskConical} tone="blue" />
       </div>
-      <div className="dashboard-columns">
-        <div className="min-w-0 space-y-6">
-          <Agenda visits={data.appointments} href={calendarHref} />
-          <DayProgress visits={data.appointments} href={calendarHref} />
-        </div>
-        <div className="min-w-0 space-y-6">
-          <Attention data={data} />
-          <QuickActions />
-        </div>
-      </div>
+      <DayProgress visits={data.appointments} href={calendarHref} />
     </>
-  );
-}
-
-function DailyBrief({ data, calendarHref }: { data: DashboardData; calendarHref: string }) {
-  return (
-    <div className="overview-banner">
-      <div className="relative z-10">
-        <span className="banner-kicker"><span />THE DAILY BRIEF</span>
-        <h2>A clear view.<br />A connected day.</h2>
-        <p>
-          Your appointments, care queues and next steps.<br className="hidden sm:block" />
-          {" "}Everything you need to keep your clinic moving.
-        </p>
-        <Link href={calendarHref} className="banner-link">
-          Open today’s calendar <ArrowRight size={16} aria-hidden="true" />
-        </Link>
-      </div>
-      <div className="banner-art" aria-hidden="true">
-        <div className="orbit orbit-one" />
-        <div className="orbit orbit-two" />
-        <div className="orbit orbit-three" />
-        <div className="orbit-core"><Sparkles size={38} strokeWidth={1.2} /></div>
-        <span className="orbit-node node-one"><CalendarDays size={20} /></span>
-        <span className="orbit-node node-two"><Users size={19} /></span>
-        <span className="orbit-node node-three"><Check size={18} /></span>
-      </div>
-      <div className="banner-date">
-        <CalendarDays size={17} aria-hidden="true" />
-        <div>
-          <span>{data.today === null ? "Clinic date unavailable" : formatDay(data.today)}</span>
-          <small>{data.timezone ?? "Calendar remains available"}</small>
-        </div>
-      </div>
-    </div>
   );
 }
 
@@ -156,12 +116,12 @@ function Metric({ label, value, description, href, icon: Icon, tone }: MetricPro
   );
 }
 
-type PanelHeadingProps = { title: string; subtitle: string; href?: string; link?: string };
+type PanelHeadingProps = { title: string; href?: string; link?: string };
 
-function PanelHeading({ title, subtitle, href, link }: PanelHeadingProps) {
+function PanelHeading({ title, href, link }: PanelHeadingProps) {
   return (
     <div className="panel-heading">
-      <div><h2>{title}</h2><p>{subtitle}</p></div>
+      <h2>{title}</h2>
       {href ? (
         <Link href={href} className="panel-link">{link}<ChevronRight size={15} aria-hidden="true" /></Link>
       ) : null}
@@ -173,13 +133,12 @@ function Agenda({ visits, href }: AgendaProps) {
   const sorted = visits?.toSorted((a, b) => a.starts_at.localeCompare(b.starts_at)) ?? [];
   return (
     <section className="dashboard-panel" aria-label="Today's appointments">
-      <PanelHeading title="Today’s appointments" subtitle="A little preparation. A smoother day."
-        href={href} link="View calendar" />
+      <PanelHeading title="Today’s appointments" href={href} link="View calendar" />
       {visits === null ? (
         <SectionMessage title="Schedule unavailable"
           text="We couldn’t load today’s appointments. Open the calendar to try again." />
       ) : visits.length === 0 ? (
-        <SectionMessage title="Room for a fresh start" icon={CalendarDays}
+        <SectionMessage title="No appointments today" icon={CalendarDays}
           text="No appointments on today’s calendar. Find a patient to book their next visit." />
       ) : (
         <>
@@ -241,7 +200,7 @@ function DayProgress({ visits, href }: AgendaProps) {
       <div className="progress-symbol"><Layers3 size={22} aria-hidden="true" /></div>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold">One visit at a time</h2>
+          <h2 className="text-sm font-semibold">Today’s visit progress</h2>
           <Link href={href} className="text-xs font-medium text-primary">
             {visits === null ? "Schedule unavailable" : `${completed} of ${total} visits completed`}
           </Link>
@@ -252,7 +211,7 @@ function DayProgress({ visits, href }: AgendaProps) {
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
           {visits === null ? "Open the calendar to check your day." : total === 0
-            ? "Your day’s progress will appear here." : "Small steps that keep care moving forward."}
+            ? "Your day’s progress will appear here." : "Completed visits today."}
         </p>
       </div>
     </section>
@@ -263,7 +222,7 @@ function Attention({ data }: { data: DashboardData }) {
   const rows = data.followUps?.items.slice(0, 3) ?? [];
   return (
     <section className="dashboard-panel" aria-label="Attention queue">
-      <PanelHeading title="Needs your attention" subtitle="Keep the next step within reach." />
+      <PanelHeading title="Needs your attention" />
       <div className="attention-summary">
         <span className="attention-mark"><PhoneCall size={17} aria-hidden="true" /></span>
         <div>
@@ -271,7 +230,6 @@ function Attention({ data }: { data: DashboardData }) {
           <p>{data.followUps === null ? "Queue unavailable" : data.followUps.total === 0
             ? "You’re all caught up" : `${data.followUps.total} waiting for a next step`}</p>
         </div>
-        <Link href="/follow-ups" aria-label="Open follow-up queue"><ArrowRight size={17} /></Link>
       </div>
       {rows.length > 0 ? (
         <ul className="attention-list">
@@ -311,21 +269,6 @@ function QueueLink({ href, icon: Icon, title, detail }: QueueLinkProps) {
       <Icon size={17} strokeWidth={1.7} aria-hidden="true" />
       <span>{title}</span><small>{detail}</small><ChevronRight size={14} aria-hidden="true" />
     </Link>
-  );
-}
-
-function QuickActions() {
-  return (
-    <section className="dashboard-panel quick-actions">
-      <PanelHeading title="A good next step" subtitle="The everyday essentials." />
-      <QueueLink href="/patients/new" icon={Plus} title="Register a patient" detail="" />
-      <QueueLink href="/patients" icon={Search} title="Find a patient & book" detail="" />
-      <QueueLink href="/calendar" icon={CalendarDays} title="Plan the clinic day" detail="" />
-      <div className="quick-note">
-        <ArrowDownLeft size={16} aria-hidden="true" />
-        <p>Care continues beyond the chair.<br /><strong>Keep every next visit connected.</strong></p>
-      </div>
-    </section>
   );
 }
 

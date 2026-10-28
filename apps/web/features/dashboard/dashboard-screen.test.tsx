@@ -12,7 +12,7 @@ const visit: CalendarVisit = { id: "synthetic-visit", starts_at: "2026-10-26T09:
 test("empty dashboard has honest zero totals, clinic date and existing shortcuts", () => {
   render(<DashboardScreen user={user} data={blank} />);
   expect(screen.getByText("Monday, 26 October")).toBeInTheDocument();
-  expect(screen.getByText("Room for a fresh start")).toBeInTheDocument();
+  expect(screen.getByText("No appointments today")).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Appointments today: 0" })).toHaveAttribute("href", "/calendar?date=2026-10-26");
   expect(screen.getByRole("link", { name: "Register patient" })).toHaveAttribute("href", "/patients/new");
   expect(screen.getByRole("link", { name: "Find patient" })).toHaveAttribute("href", "/patients");
@@ -57,4 +57,15 @@ test("inventory-only overview offers stock and rule destinations without patient
   expect(screen.getByRole("link", { name: /Visit type rules/ })).toHaveAttribute("href", "/inventory/rules");
   expect(screen.queryByRole("link", { name: "Register patient" })).not.toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "Today's appointments" })).not.toBeInTheDocument();
+});
+
+test("puts today's appointments and attention before summary metrics", () => {
+  render(<DashboardScreen user={user} data={blank} />);
+  const agenda = screen.getByRole("region", { name: "Today's appointments" });
+  const attention = screen.getByRole("region", { name: "Attention queue" });
+  const metric = screen.getByRole("link", { name: "Appointments today: 0" });
+  expect(agenda.compareDocumentPosition(metric) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(attention.compareDocumentPosition(metric) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  expect(screen.getByRole("link", { name: "Open today’s calendar" })).toHaveAttribute("href", "/calendar?date=2026-10-26");
+  expect(screen.queryByText("A clear view.")).not.toBeInTheDocument();
 });
