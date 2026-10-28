@@ -278,42 +278,6 @@
     border-radius: 50%;
     background: #146b60;
   }
-  .sidebar-bottom {
-    margin-top: auto;
-    padding-top: 40px;
-  }
-  .sidebar-note {
-    display: flex;
-    align-items: flex-start;
-    gap: 9px;
-    background: #f5f8f6;
-    padding: 14px 10px;
-    border-radius: 9px;
-    color: #56726a;
-  }
-  .sidebar-note svg {
-    flex-shrink: 0;
-  }
-  .sidebar-note p {
-    font-size: 11px;
-    font-weight: 600;
-  }
-  .sidebar-note span {
-    display: block;
-    font-size: 11px;
-    line-height: 1.8;
-    margin-top: 4px;
-    font-weight: 400;
-  }
-  .sidebar-footer {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    justify-content: center;
-    padding-top: 23px;
-    color: #879693;
-    font-size: 11px;
-  }
   .workspace-main {
     padding: 34px 38px;
     max-width: 1800px;
