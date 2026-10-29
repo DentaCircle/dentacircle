@@ -10,6 +10,7 @@ import {
   getReadiness,
   listAppointments,
   listDocuments,
+  listInventoryItems,
   listDocumentsInBrowser,
   listPatients,
   uploadDocument,
@@ -471,3 +472,16 @@ function stubFetch(value: unknown): ReturnType<typeof vi.fn> {
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
+
+
+test("inventory reads validate alert fields and send the alert filter", async () => {
+  const item = { id: "item", name: "Synthetic", category: { id: "category", name: "Supplies" },
+    unit: "box", low_stock_threshold: 2, status: "active", batch_count: 1, stock: 3,
+    usable_stock: 1, alerts: ["low_stock", "expired"] };
+  const fetchMock = stubFetch(jsonResponse(200, { items: [item], total: 1, page: 1, page_size: 20 }));
+  const result = await listInventoryItems("dc_session=x", "active", "", "", 1, 20, "attention");
+  expect(result.ok).toBe(true);
+  expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("alert=attention"), expect.anything());
+  stubFetch(jsonResponse(200, { items: [{ ...item, alerts: ["unknown"] }], total: 1, page: 1, page_size: 20 }));
+  expect((await listInventoryItems("dc_session=x", "active", "", "", 1)).ok).toBe(false);
+});
