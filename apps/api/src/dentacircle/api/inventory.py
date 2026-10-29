@@ -64,6 +64,8 @@ can_write = require_roles(*INVENTORY_WRITE_ROLES)
 
 ItemStatus = Literal["active", "inactive"]
 ItemListView = Literal["active", "inactive", "all"]
+AlertCode = Literal["out_of_stock", "low_stock", "expired", "expiring_soon"]
+AlertFilter = Literal["attention", "out_of_stock", "low_stock", "expired", "expiring_soon"]
 MAX_PAGE = (2**63 - 1) // MAX_PAGE_SIZE + 1
 
 
@@ -171,6 +173,11 @@ class ItemResponse(BaseModel):
     stock: int
 
 
+class ItemReadResponse(ItemResponse):
+    usable_stock: int
+    alerts: list[AlertCode]
+
+
 class BatchCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -215,6 +222,10 @@ class BatchResponse(BaseModel):
     expired: bool
     quantity: int
     created_at: datetime
+
+
+class BatchReadResponse(BatchResponse):
+    expiring_soon: bool
 
 
 class RestockBody(BaseModel):
@@ -271,12 +282,12 @@ class TransactionListResponse(BaseModel):
     page_size: int
 
 
-class ItemDetailResponse(ItemResponse):
-    batches: list[BatchResponse]
+class ItemDetailResponse(ItemReadResponse):
+    batches: list[BatchReadResponse]
 
 
 class ItemListResponse(BaseModel):
-    items: list[ItemResponse]
+    items: list[ItemReadResponse]
     total: int
     page: int
     page_size: int
@@ -405,10 +416,11 @@ def get_items(
     status: Annotated[ItemListView, Query()] = "active",
     category_id: Annotated[UUID | None, Query()] = None,
     q: Annotated[str | None, Query()] = None,
+    alert: Annotated[AlertFilter | None, Query()] = None,
     page: Annotated[int, Query(ge=1, le=MAX_PAGE)] = 1,
     page_size: Annotated[int, Query(ge=1, le=MAX_PAGE_SIZE)] = DEFAULT_PAGE_SIZE,
 ) -> ItemListResponse:
-    found = list_items(session, user.clinic.id, status, category_id, q, page, page_size)
+    found = list_items(session, user.clinic.id, status, category_id, q, page, page_size, alert)
     return _page(found)
 
 
@@ -634,10 +646,20 @@ def _item(row: ItemView) -> ItemResponse:
     )
 
 
+def _item_read(row: ItemView) -> ItemReadResponse:
+    return ItemReadResponse(
+        **_item(row).model_dump(), usable_stock=row.usable_stock, alerts=list(row.alerts)
+    )
+
+
+def _batch_read(row: BatchView) -> BatchReadResponse:
+    return BatchReadResponse(**_batch(row).model_dump(), expiring_soon=row.expiring_soon)
+
+
 def _detail(found: ItemDetail) -> ItemDetailResponse:
-    item = _item(found.item)
+    item = _item_read(found.item)
     return ItemDetailResponse(
-        **item.model_dump(), batches=[_batch(batch) for batch in found.batches]
+        **item.model_dump(), batches=[_batch_read(batch) for batch in found.batches]
     )
 
 
@@ -703,7 +725,7 @@ def _transaction_page(found: TransactionPage) -> TransactionListResponse:
 
 def _page(found: ItemPage) -> ItemListResponse:
     return ItemListResponse(
-        items=[_item(row) for row in found.items],
+        items=[_item_read(row) for row in found.items],
         total=found.total,
         page=found.page,
         page_size=found.page_size,

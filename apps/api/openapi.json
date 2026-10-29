@@ -382,6 +382,59 @@
         "title": "BatchLink",
         "type": "object"
       },
+      "BatchReadResponse": {
+        "properties": {
+          "batch_number": {
+            "title": "Batch Number",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "expired": {
+            "title": "Expired",
+            "type": "boolean"
+          },
+          "expiring_soon": {
+            "title": "Expiring Soon",
+            "type": "boolean"
+          },
+          "expiry_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expiry On"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "quantity": {
+            "title": "Quantity",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "batch_number",
+          "expiry_on",
+          "expired",
+          "quantity",
+          "created_at",
+          "expiring_soon"
+        ],
+        "title": "BatchReadResponse",
+        "type": "object"
+      },
       "BatchResponse": {
         "properties": {
           "batch_number": {
@@ -1270,13 +1323,26 @@
       },
       "ItemDetailResponse": {
         "properties": {
+          "alerts": {
+            "items": {
+              "enum": [
+                "out_of_stock",
+                "low_stock",
+                "expired",
+                "expiring_soon"
+              ],
+              "type": "string"
+            },
+            "title": "Alerts",
+            "type": "array"
+          },
           "batch_count": {
             "title": "Batch Count",
             "type": "integer"
           },
           "batches": {
             "items": {
-              "$ref": "#/components/schemas/BatchResponse"
+              "$ref": "#/components/schemas/BatchReadResponse"
             },
             "title": "Batches",
             "type": "array"
@@ -1312,6 +1378,10 @@
           "unit": {
             "title": "Unit",
             "type": "string"
+          },
+          "usable_stock": {
+            "title": "Usable Stock",
+            "type": "integer"
           }
         },
         "required": [
@@ -1323,6 +1393,8 @@
           "status",
           "batch_count",
           "stock",
+          "usable_stock",
+          "alerts",
           "batches"
         ],
         "title": "ItemDetailResponse",
@@ -1332,7 +1404,7 @@
         "properties": {
           "items": {
             "items": {
-              "$ref": "#/components/schemas/ItemResponse"
+              "$ref": "#/components/schemas/ItemReadResponse"
             },
             "title": "Items",
             "type": "array"
@@ -1357,6 +1429,77 @@
           "page_size"
         ],
         "title": "ItemListResponse",
+        "type": "object"
+      },
+      "ItemReadResponse": {
+        "properties": {
+          "alerts": {
+            "items": {
+              "enum": [
+                "out_of_stock",
+                "low_stock",
+                "expired",
+                "expiring_soon"
+              ],
+              "type": "string"
+            },
+            "title": "Alerts",
+            "type": "array"
+          },
+          "batch_count": {
+            "title": "Batch Count",
+            "type": "integer"
+          },
+          "category": {
+            "$ref": "#/components/schemas/CategoryLinkBody"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "low_stock_threshold": {
+            "title": "Low Stock Threshold",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "inactive"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "stock": {
+            "title": "Stock",
+            "type": "integer"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "usable_stock": {
+            "title": "Usable Stock",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "category",
+          "unit",
+          "low_stock_threshold",
+          "status",
+          "batch_count",
+          "stock",
+          "usable_stock",
+          "alerts"
+        ],
+        "title": "ItemReadResponse",
         "type": "object"
       },
       "ItemResponse": {
@@ -5002,6 +5145,29 @@
                 }
               ],
               "title": "Q"
+            }
+          },
+          {
+            "in": "query",
+            "name": "alert",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "attention",
+                    "out_of_stock",
+                    "low_stock",
+                    "expired",
+                    "expiring_soon"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Alert"
             }
           },
           {

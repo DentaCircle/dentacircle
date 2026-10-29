@@ -30,7 +30,9 @@ from dentacircle.domain.inventory import (
     clean_unit,
     consumption_takes,
     expiry_problem,
+    inventory_alerts,
     is_expired,
+    is_expiring_soon,
 )
 from dentacircle.models.app_user import AppUser
 from dentacircle.models.inventory_batch import InventoryBatch
@@ -92,6 +94,8 @@ class ItemView:
     status: str
     batch_count: int
     stock: int
+    usable_stock: int = 0
+    alerts: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -102,6 +106,7 @@ class BatchView:
     expired: bool
     quantity: int
     created_at: datetime
+    expiring_soon: bool = False
 
 
 @dataclass(frozen=True)
@@ -229,15 +234,19 @@ def list_items(
     query: str | None,
     page: int,
     page_size: int,
+    alert: str | None = None,
+    now: datetime | None = None,
 ) -> ItemPage:
+    today = _today(session, clinic_id, now or datetime.now(UTC))
     stored_status = None if status == "all" else status
     needle = None if query is None or query.strip() == "" else query.strip()
     rows, total = InventoryRepository(session, clinic_id).list_items(
-        stored_status, category_id, needle, page, page_size
+        stored_status, category_id, needle, page, page_size, today, alert
     )
     return ItemPage(
         items=[
-            _item_view(item, category, count, on_hand) for item, category, count, on_hand in rows
+            _item_view(item, category, count, on_hand, usable, old, soon)
+            for item, category, count, on_hand, usable, old, soon in rows
         ],
         total=total,
         page=page,
@@ -255,11 +264,19 @@ def get_item(session: Session, clinic_id: UUID, item_id: UUID, now: datetime) ->
     today = now.astimezone(zone).date()
     quantities = repository.batch_quantities(item.id)
     batches = [
-        _batch_view(batch, today, zone, quantities.get(batch.id, 0))
+        _batch_view(batch, today, zone, quantities.get(batch.id, 0), item.status == "active")
         for batch in repository.list_batches(item.id)
     ]
     return ItemDetail(
-        _item_view(item, category, repository.batch_count(item.id), repository.item_stock(item.id)),
+        _item_view(
+            item,
+            category,
+            len(batches),
+            sum(batch.quantity for batch in batches),
+            sum(batch.quantity for batch in batches if not batch.expired),
+            any(batch.expired and batch.quantity > 0 for batch in batches),
+            any(batch.expiring_soon for batch in batches),
+        ),
         batches,
     )
 
@@ -828,7 +845,13 @@ def _category_view(repository: InventoryRepository, category: InventoryCategory)
 
 
 def _item_view(
-    item: InventoryItem, category: InventoryCategory, batch_count: int, stock: int
+    item: InventoryItem,
+    category: InventoryCategory,
+    batch_count: int,
+    stock: int,
+    usable: int = 0,
+    expired: bool = False,
+    soon: bool = False,
 ) -> ItemView:
     return ItemView(
         id=item.id,
@@ -839,10 +862,18 @@ def _item_view(
         status=item.status,
         batch_count=batch_count,
         stock=stock,
+        usable_stock=usable,
+        alerts=tuple(
+            inventory_alerts(
+                item.status == "active", usable, item.low_stock_threshold, expired, soon
+            )
+        ),
     )
 
 
-def _batch_view(batch: InventoryBatch, today: date, zone: ZoneInfo, quantity: int) -> BatchView:
+def _batch_view(
+    batch: InventoryBatch, today: date, zone: ZoneInfo, quantity: int, active: bool = False
+) -> BatchView:
     return BatchView(
         id=batch.id,
         batch_number=batch.batch_number,
@@ -850,6 +881,7 @@ def _batch_view(batch: InventoryBatch, today: date, zone: ZoneInfo, quantity: in
         expired=is_expired(batch.expiry_on, today),
         quantity=quantity,
         created_at=batch.created_at.astimezone(zone),
+        expiring_soon=active and is_expiring_soon(batch.expiry_on, quantity, today),
     )
 
 

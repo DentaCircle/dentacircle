@@ -15,6 +15,8 @@ export type InventoryRow = {
   threshold: number;
   batchCount: number;
   stock: number;
+  usableStock: number;
+  alerts: InventoryItem["alerts"];
   status: InventoryItem["status"];
   statusLabel: string;
 };
@@ -25,6 +27,7 @@ export type BatchRow = {
   expiryOn: string | null;
   expiryLabel: string;
   expired: boolean;
+  expiringSoon: boolean;
   quantity: number;
 };
 
@@ -56,6 +59,8 @@ export function inventoryRow(item: InventoryItem): InventoryRow {
     threshold: item.low_stock_threshold,
     batchCount: item.batch_count,
     stock: item.stock,
+    usableStock: item.usable_stock,
+    alerts: item.alerts,
     status: item.status,
     statusLabel: item.status === "active" ? "Active" : "Inactive",
   };
@@ -68,6 +73,7 @@ export function batchRow(batch: InventoryBatch): BatchRow {
     expiryOn: batch.expiry_on,
     expiryLabel: batch.expiry_on === null ? "No expiry" : formatDueOn(batch.expiry_on),
     expired: batch.expired,
+    expiringSoon: batch.expiring_soon,
     quantity: batch.quantity,
   };
 }
