@@ -1,0 +1,95 @@
+{
+  "GET /inventory/items?alert=attention": {
+    "items": [
+      {
+        "id": "cb71e80f-f0f6-4686-b520-e47a66e59dcb",
+        "name": "Synthetic gloves",
+        "category": {
+          "id": "00df3f32-b886-4d32-987d-70a70f8ed75c",
+          "name": "Consumables"
+        },
+        "unit": "box",
+        "low_stock_threshold": 5,
+        "status": "active",
+        "batch_count": 3,
+        "stock": 9,
+        "usable_stock": 5,
+        "alerts": [
+          "low_stock",
+          "expired",
+          "expiring_soon"
+        ]
+      },
+      {
+        "id": "d1af7c81-b0a4-4ad6-b091-9990a5183874",
+        "name": "Synthetic masks",
+        "category": {
+          "id": "00df3f32-b886-4d32-987d-70a70f8ed75c",
+          "name": "Consumables"
+        },
+        "unit": "box",
+        "low_stock_threshold": 0,
+        "status": "active",
+        "batch_count": 0,
+        "stock": 0,
+        "usable_stock": 0,
+        "alerts": [
+          "out_of_stock"
+        ]
+      }
+    ],
+    "total": 2,
+    "page": 1,
+    "page_size": 20
+  },
+  "GET /inventory/items?alert=expired": {
+    "items": [
+      {
+        "id": "cb71e80f-f0f6-4686-b520-e47a66e59dcb",
+        "name": "Synthetic gloves",
+        "category": {
+          "id": "00df3f32-b886-4d32-987d-70a70f8ed75c",
+          "name": "Consumables"
+        },
+        "unit": "box",
+        "low_stock_threshold": 5,
+        "status": "active",
+        "batch_count": 3,
+        "stock": 9,
+        "usable_stock": 5,
+        "alerts": [
+          "low_stock",
+          "expired",
+          "expiring_soon"
+        ]
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "page_size": 20
+  },
+  "GET /inventory/items?alert=out_of_stock": {
+    "items": [
+      {
+        "id": "d1af7c81-b0a4-4ad6-b091-9990a5183874",
+        "name": "Synthetic masks",
+        "category": {
+          "id": "00df3f32-b886-4d32-987d-70a70f8ed75c",
+          "name": "Consumables"
+        },
+        "unit": "box",
+        "low_stock_threshold": 0,
+        "status": "active",
+        "batch_count": 0,
+        "stock": 0,
+        "usable_stock": 0,
+        "alerts": [
+          "out_of_stock"
+        ]
+      }
+    ],
+    "total": 1,
+    "page": 1,
+    "page_size": 20
+  }
+}

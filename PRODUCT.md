@@ -339,6 +339,8 @@ Also not needed for the MVP: microservices, Kubernetes, multi-region.
   `clinician` read; `receptionist` has no access. Rule changes are audited with field names
   only, and rule delete is a real delete.
 
+- **Inventory alerts (decided in S4.4):** total stock remains the sum of every ledger movement; usable stock excludes batches expired before clinic-local today. Active items alert when usable stock is zero, or at/below a positive threshold, and independently for positive-quantity batches expired before today or expiring today through 30 days ahead. Inactive items show no alerts. Alerts are calculated on reads; no state or migration is added.
+
 ## Open decisions (need the developer's call)
 
 Recommendations are mine, not decisions.
@@ -371,7 +373,7 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 through S1.4 are done. `make dev` starts PostgreSQL, applies migrations, and runs
+S0.1 through S4.4 are done. `make dev` starts PostgreSQL, applies migrations, and runs
 the API and the web app. Sign in at `/login`. The browser posts through the `/api` rewrite,
 so `dc_session` stays on the web origin. The dashboard shows the signed-in user's name,
 roles and clinic from `GET /auth/me`. `/` and `/status` require that session. Create a
@@ -535,5 +537,10 @@ the API writes `consumption` transactions in the same transaction as the status 
 linked by `inventory_transaction.appointment_id`, taking earliest unexpired batch stock
 first and never blocking completion on short stock. Item history shows "Used in visit"
 with a link to that visit's calendar day. Rule writes and each consumption write audit
-events with field names only. A care session does not consume stock. Low-stock and
-expiring alerts are not in yet (S4.4).
+events with field names only. A care session does not consume stock.
+
+S4.4 adds calculated usable stock and low-stock, out-of-stock, expired and expiring-soon
+alerts to inventory list and detail reads. Alerts use the clinic-local date, inactive items show
+none, and list filtering happens before count and paging. No alert state is stored. Inventory
+writers can restock or adjust batches from item detail; clinicians see the same stock attention
+information without write controls.

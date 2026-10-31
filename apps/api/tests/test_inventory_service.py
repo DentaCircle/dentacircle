@@ -620,3 +620,34 @@ def _count(model: type[InventoryCategory] | type[InventoryItem] | type[Inventory
     with Session(get_engine()) as session:
         total = session.scalar(select(func.count()).select_from(model))
     return int(total or 0)
+
+
+def test_alerts_roll_over_on_clinic_day_without_writing(database: str) -> None:
+    from datetime import UTC, datetime
+
+    clinic = world()
+    category = _category(clinic, "Supplies")
+    item = _item(clinic, "Stock", category.id, threshold=2)
+    batch = _batch(clinic, item.id, "EXP", date(2026, 10, 12))
+    _restock(clinic, batch.id, 2)
+    before_audits = len(_audits("inventory_transaction"))
+    with Session(get_engine()) as session:
+        before = datetime(2026, 10, 12, 18, 29, tzinfo=UTC)
+        after = datetime(2026, 10, 12, 18, 30, tzinfo=UTC)
+        first = get_item(session, clinic.clinic_id, item.id, before)
+        second = get_item(session, clinic.clinic_id, item.id, after)
+        listing = list_items(
+            session, clinic.clinic_id, "active", None, None, 1, 20, "attention", after
+        )
+    assert (first.item.stock, first.item.usable_stock, first.item.alerts) == (
+        2,
+        2,
+        ("low_stock", "expiring_soon"),
+    )
+    assert (second.item.stock, second.item.usable_stock, second.item.alerts) == (
+        2,
+        0,
+        ("out_of_stock", "expired"),
+    )
+    assert listing.items[0].alerts == second.item.alerts
+    assert len(_audits("inventory_transaction")) == before_audits

@@ -10,7 +10,7 @@ Completing a visit takes those units from the earliest usable batches.
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from uuid import UUID
 from zoneinfo import ZoneInfo
 
@@ -138,6 +138,31 @@ def expiry_problem(day: date, zone: ZoneInfo, now: datetime) -> str | None:
 def is_expired(expiry_on: date | None, today: date) -> bool:
     """True when the expiry date is before today. A missing date is not expired."""
     return expiry_on is not None and expiry_on < today
+
+
+def is_expiring_soon(expiry_on: date | None, quantity: int, today: date) -> bool:
+    """A stocked batch expiring today through 30 days from today."""
+    return (
+        quantity > 0 and expiry_on is not None and today <= expiry_on <= today + timedelta(days=30)
+    )
+
+
+def inventory_alerts(
+    active: bool, usable_stock: int, threshold: int, expired: bool, expiring_soon: bool
+) -> list[str]:
+    """Return the active item's alerts in display order."""
+    if not active:
+        return []
+    alerts: list[str] = []
+    if usable_stock == 0:
+        alerts.append("out_of_stock")
+    elif threshold > 0 and usable_stock <= threshold:
+        alerts.append("low_stock")
+    if expired:
+        alerts.append("expired")
+    if expiring_soon:
+        alerts.append("expiring_soon")
+    return alerts
 
 
 @dataclass(frozen=True)

@@ -52,6 +52,7 @@ export function InventoryListScreen({
       {status === "forbidden" || status === "error" ? null : (
         <>
           <StatusLinks filter={filter} />
+          <AlertLinks filter={filter} />
           <CategoryLinks categories={categories} filter={filter} />
           <SearchForm filter={filter} />
           <CategoryPanel
@@ -65,9 +66,10 @@ export function InventoryListScreen({
           ) : null}
         </>
       )}
-      {status === "empty" ? <p>No inventory items yet.</p> : null}
+      {status === "empty" ? <p>{filter.alert || filter.categoryId || filter.query || filter.status !== "active" ? "No inventory items match these filters." : "No inventory items yet."}</p> : null}
       {status === "ready" ? (
         <>
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="border-b">
@@ -87,8 +89,10 @@ export function InventoryListScreen({
                   Batches
                 </th>
                 <th className="py-2 pr-3 font-medium" scope="col">
-                  Stock
+                  Total stock
                 </th>
+                <th className="py-2 pr-3 font-medium" scope="col">Usable stock</th>
+                <th className="py-2 pr-3 font-medium" scope="col">Alerts</th>
                 <th className="py-2 font-medium" scope="col">
                   Status
                 </th>
@@ -107,6 +111,8 @@ export function InventoryListScreen({
                   <td className="py-2 pr-3">{row.threshold}</td>
                   <td className="py-2 pr-3">{row.batchCount}</td>
                   <td className="py-2 pr-3">{row.stock}</td>
+                  <td className="py-2 pr-3">{row.usableStock}</td>
+                  <td className="py-2 pr-3"><AlertBadges alerts={row.alerts} /></td>
                   <td className="py-2">
                     <Badge variant={row.status === "active" ? "secondary" : "outline"}>
                       {row.statusLabel}
@@ -116,6 +122,7 @@ export function InventoryListScreen({
               ))}
             </tbody>
           </table>
+          </div>
           <nav aria-label="Pages" className="flex gap-3">
             {page > 1 ? (
               <Link href={inventoryHref(filter, page - 1)}>Previous</Link>
@@ -182,6 +189,7 @@ function SearchForm({ filter }: { filter: InventoryFilter }) {
   return (
     <form method="get" action="/inventory" className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="status" value={filter.status} />
+      {filter.alert ? <input type="hidden" name="alert" value={filter.alert} /> : null}
       {filter.categoryId === "" ? null : (
         <input type="hidden" name="category_id" value={filter.categoryId} />
       )}
@@ -201,4 +209,13 @@ function SearchForm({ filter }: { filter: InventoryFilter }) {
       </button>
     </form>
   );
+}
+
+const ALERT_LABELS = { out_of_stock: "Out of stock", low_stock: "Low stock", expired: "Expired", expiring_soon: "Expiring soon" } as const;
+export function AlertBadges({ alerts }: { alerts: InventoryRow["alerts"] }) {
+  return <span className="flex flex-wrap gap-1">{alerts.map((alert) => <Badge key={alert} variant="outline">{ALERT_LABELS[alert]}</Badge>)}</span>;
+}
+function AlertLinks({ filter }: { filter: InventoryFilter }) {
+  const options = [["", "All"], ["attention", "Needs attention"], ["low_stock", "Low stock"], ["out_of_stock", "Out of stock"], ["expiring_soon", "Expiring soon"], ["expired", "Expired"]] as const;
+  return <nav aria-label="Alerts" className="flex flex-wrap gap-3 text-sm">{options.map(([value, label]) => <Link key={value} href={inventoryHref({ ...filter, alert: value })} aria-current={(filter.alert ?? "") === value ? "page" : undefined}>{label}</Link>)}</nav>;
 }

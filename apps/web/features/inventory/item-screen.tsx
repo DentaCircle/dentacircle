@@ -4,6 +4,7 @@ import { Fragment } from "react";
 import { Badge } from "@/components/ui/badge";
 import { AddBatchForm, EditBatchForm, ItemStatusButton } from "@/features/inventory/batch-forms";
 import type { CategoryOption } from "@/features/inventory/category-panel";
+import { AlertBadges } from "@/features/inventory/list-screen";
 import { HistoryPanel } from "@/features/inventory/history-panel";
 import { EditItemForm } from "@/features/inventory/item-form";
 import { INVENTORY_NOTICES, type InventoryNotice } from "@/features/inventory/notices";
@@ -36,7 +37,7 @@ export function InventoryItemScreen({
       </p>
       <h1 className="flex flex-wrap items-baseline gap-3 text-2xl font-semibold">
         <span>{item === null ? "Inventory item" : item.name}</span>
-        {item === null ? null : <span className="text-lg font-normal">Stock {item.stock}</span>}
+        {item === null ? null : <span className="text-lg font-normal">Total stock {item.stock} · Usable stock {item.usableStock}</span>}
       </h1>
       {notice === null ? null : <p role="status">{INVENTORY_NOTICES[notice]}</p>}
       {status === "forbidden" ? <p role="alert">You do not have access.</p> : null}
@@ -44,6 +45,8 @@ export function InventoryItemScreen({
       {status === "error" ? <p role="alert">Inventory could not be loaded.</p> : null}
       {status === "ready" && item !== null ? (
         <>
+          <AlertBadges alerts={item.alerts} />
+          <p>Usable stock excludes expired batches. Expiring soon means within 30 days, including today.</p>
           <dl className="grid grid-cols-[8rem_1fr] gap-y-1 text-sm">
             <dt>Category</dt>
             <dd>{item.categoryName}</dd>
@@ -102,6 +105,7 @@ export function InventoryItemScreen({
                       <td className="py-2 pr-3">
                         <span className="mr-2">{batch.batchNumber}</span>
                         {batch.expired ? <Badge variant="destructive">Expired</Badge> : null}
+                        {batch.expiringSoon ? <Badge variant="outline">Expiring soon</Badge> : null}
                       </td>
                       <td className="py-2 pr-3">{batch.expiryLabel}</td>
                       <td className="py-2">{batch.quantity}</td>

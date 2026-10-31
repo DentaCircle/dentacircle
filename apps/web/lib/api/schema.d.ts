@@ -1120,6 +1120,29 @@ export interface components {
              */
             id: string;
         };
+        /** BatchReadResponse */
+        BatchReadResponse: {
+            /** Batch Number */
+            batch_number: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Expired */
+            expired: boolean;
+            /** Expiring Soon */
+            expiring_soon: boolean;
+            /** Expiry On */
+            expiry_on: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Quantity */
+            quantity: number;
+        };
         /** BatchResponse */
         BatchResponse: {
             /** Batch Number */
@@ -1500,10 +1523,12 @@ export interface components {
         };
         /** ItemDetailResponse */
         ItemDetailResponse: {
+            /** Alerts */
+            alerts: ("out_of_stock" | "low_stock" | "expired" | "expiring_soon")[];
             /** Batch Count */
             batch_count: number;
             /** Batches */
-            batches: components["schemas"]["BatchResponse"][];
+            batches: components["schemas"]["BatchReadResponse"][];
             category: components["schemas"]["CategoryLinkBody"];
             /**
              * Id
@@ -1523,17 +1548,47 @@ export interface components {
             stock: number;
             /** Unit */
             unit: string;
+            /** Usable Stock */
+            usable_stock: number;
         };
         /** ItemListResponse */
         ItemListResponse: {
             /** Items */
-            items: components["schemas"]["ItemResponse"][];
+            items: components["schemas"]["ItemReadResponse"][];
             /** Page */
             page: number;
             /** Page Size */
             page_size: number;
             /** Total */
             total: number;
+        };
+        /** ItemReadResponse */
+        ItemReadResponse: {
+            /** Alerts */
+            alerts: ("out_of_stock" | "low_stock" | "expired" | "expiring_soon")[];
+            /** Batch Count */
+            batch_count: number;
+            category: components["schemas"]["CategoryLinkBody"];
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Low Stock Threshold */
+            low_stock_threshold: number;
+            /** Name */
+            name: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "active" | "inactive";
+            /** Stock */
+            stock: number;
+            /** Unit */
+            unit: string;
+            /** Usable Stock */
+            usable_stock: number;
         };
         /** ItemResponse */
         ItemResponse: {
@@ -3727,6 +3782,7 @@ export interface operations {
                 status?: "active" | "inactive" | "all";
                 category_id?: string | null;
                 q?: string | null;
+                alert?: ("attention" | "out_of_stock" | "low_stock" | "expired" | "expiring_soon") | null;
                 page?: number;
                 page_size?: number;
             };

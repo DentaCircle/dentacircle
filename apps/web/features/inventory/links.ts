@@ -1,10 +1,11 @@
 import type { InventoryNotice } from "@/features/inventory/notices";
-import type { InventoryListStatus } from "@/lib/api/client";
+import type { InventoryAlertFilter, InventoryListStatus } from "@/lib/api/client";
 
 export type InventoryFilter = {
   status: InventoryListStatus;
   categoryId: string;
   query: string;
+  alert?: InventoryAlertFilter;
 };
 
 export function inventoryHref(
@@ -14,6 +15,7 @@ export function inventoryHref(
 ): string {
   const params = new URLSearchParams();
   params.set("status", filter.status);
+  if (filter.alert) params.set("alert", filter.alert);
   if (filter.categoryId !== "") params.set("category_id", filter.categoryId);
   if (filter.query !== "") params.set("q", filter.query);
   if (page > 1) params.set("page", String(page));
@@ -40,4 +42,9 @@ export function pageFromQuery(value: string | undefined): number {
 export function statusFromQuery(value: string | undefined): InventoryListStatus {
   if (value === "inactive" || value === "all") return value;
   return "active";
+}
+
+export function alertFromQuery(value: string | undefined): InventoryAlertFilter {
+  if (value === "attention" || value === "low_stock" || value === "out_of_stock" || value === "expired" || value === "expiring_soon") return value;
+  return "";
 }
