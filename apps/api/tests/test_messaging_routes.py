@@ -159,3 +159,30 @@ def test_foreign_patient_is_not_found(
             ).status_code
             == 404
         )
+
+
+def test_staff_roles_and_session_are_enforced(
+    throwaway_database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with patient_api(throwaway_database_url, monkeypatch) as api:
+        for email in ("receptionist@x.test", "clinician@x.test", "admin@x.test"):
+            cookies = {"dc_session": login(api, email)}
+            assert api.get("/messages", cookies=cookies).status_code == 200
+            assert api.get("/messaging/connection", cookies=cookies).status_code == 200
+        inventory = {"dc_session": login(api, "inventory@x.test")}
+        patient_id = str(uuid4())
+        for method, path, body in (
+            ("GET", "/messages", None),
+            ("GET", "/messaging/connection", None),
+            ("GET", f"/patients/{patient_id}/messaging-contact", None),
+            ("PUT", f"/patients/{patient_id}/messaging-contact", {"number": "+15551234567"}),
+            ("GET", f"/patients/{patient_id}/messages", None),
+            (
+                "POST",
+                f"/patients/{patient_id}/messages",
+                {"body": "Hello", "request_id": str(uuid4())},
+            ),
+        ):
+            assert api.request(method, path, cookies=inventory, json=body).status_code == 403
+        api.cookies.clear()
+        assert api.get("/messages").status_code == 401
