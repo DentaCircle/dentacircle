@@ -1,6 +1,6 @@
 # S5.1 visual proof
 
-Application commit: `595b2c3`. All records and messages are synthetic. The application ran
+Application commit: `2556342`. All records and messages are synthetic. The application ran
 against a disposable PostgreSQL database and a loopback-only fake OpenWA HTTP provider; no
 WhatsApp account or real phone was used. The conversation and inactive captures are clipped to
 exclude the test number. These captures do not establish live WhatsApp compatibility.
