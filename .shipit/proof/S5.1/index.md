@@ -19,7 +19,9 @@ exclude the test number. These captures do not establish live WhatsApp compatibi
 
 The provider image inspected for the spike was `openwa/wa-automate` digest
 `sha256:d31f5a8f59c4890a302294e9834a25f217a973d80339896ef74cf3d35d903cb3`, with bundled
-runtime 4.76.0. Its real pairing, live send and reply, saved-contact licence behavior, restart,
+runtime 4.76.0. The AMD64 variant started Chrome and served its unpaired QR page on
+loopback (HTTP 200); the ARM64 variant failed to launch Chrome because a library was missing.
+The Compose profile now selects AMD64. Its real pairing, live send and reply, saved-contact licence behavior, restart,
 and callback replay against a dedicated account were not tested because test phones and an
 account were not available. Callback replay and restart-independent persistence are covered by
 local database tests, not a live provider.
