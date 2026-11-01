@@ -18,6 +18,10 @@ services:
   openwa:
     image: openwa/wa-automate@sha256:d31f5a8f59c4890a302294e9834a25f217a973d80339896ef74cf3d35d903cb3
     profiles: [messaging]
+    platform: linux/amd64
+    environment:
+      PORT: "8080"
+      W_A_V: "4.76.0"
     init: true
     command: ["--no-update", "--config", "/config/cli.config.json", "--skip-url-check"]
     ports:

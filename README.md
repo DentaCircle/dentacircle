@@ -72,7 +72,9 @@ curl -b /tmp/dc-cookies -X POST -H 'Content-Type: application/json' \
 This is a controlled demo for synthetic records and explicitly allowlisted test phones.
 OpenWA is unofficial and WhatsApp still processes messages; do not use real patient data.
 The bundled image is pinned to digest `sha256:d31f5a8f59c4890a302294e9834a25f217a973d80339896ef74cf3d35d903cb3`
-with bundled `@open-wa/wa-automate` 4.76.0. `--no-update` keeps that runtime fixed. Saved
+with bundled `@open-wa/wa-automate` 4.76.0. `--no-update` keeps that runtime fixed.
+The service uses the AMD64 image (with Docker emulation on ARM); its ARM64 image could not
+launch Chrome in the local check. The provider is configured to listen on port 8080. Saved
 contacts or existing chats are required for licence-free sends; live compatibility must be
 checked with the dedicated test account. No licence purchase is required or configured.
 
