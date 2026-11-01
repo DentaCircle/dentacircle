@@ -406,3 +406,117 @@ def test_failed_attempt_commit_does_not_dispatch(
     with Session(get_engine()) as session:
         assert session.scalar(select(func.count()).select_from(Message)) == 0
     assert provider.calls == []
+
+
+def test_history_pagination_and_ties_are_stable(database: str) -> None:
+    from datetime import UTC, datetime
+
+    from dentacircle.models.messaging import Message
+    from dentacircle.services.messaging_service import list_history, list_inbox
+
+    clinic = world()
+    with Session(get_engine(), expire_on_commit=False) as session:
+        contact = link_contact(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            clinic.patient_id,
+            "demo",
+            "+15551234567",
+            {"+15551234567"},
+        )
+        ids = [uuid4() for _ in range(22)]
+        for index, message_id in enumerate(ids):
+            session.add(
+                Message(
+                    id=message_id,
+                    clinic_id=clinic.clinic_id,
+                    contact_id=contact.id,
+                    account_key="demo",
+                    direction="inbound",
+                    body="Synthetic text",
+                    state="received",
+                    provider_message_id=f"id-{index}",
+                    created_at=datetime(2026, 1, 1, tzinfo=UTC),
+                )
+            )
+        session.commit()
+        first, total = list_history(session, clinic.clinic_id, clinic.patient_id, 1, 20)
+        second, second_total = list_history(session, clinic.clinic_id, clinic.patient_id, 2, 20)
+        assert total == second_total == 22
+        assert [row.id for row in first + second] == sorted(ids, reverse=True)
+        inbox, count = list_inbox(session, clinic.clinic_id, 1, 20)
+        assert count == 1
+        assert inbox[0][1].id == max(ids)
+        assert inbox[0][2] == 22
+
+
+def test_contact_account_foreign_key_rejects_mismatch(database: str) -> None:
+    from sqlalchemy.exc import IntegrityError
+
+    from dentacircle.models.messaging import Message
+
+    clinic = world()
+    with Session(get_engine(), expire_on_commit=False) as session:
+        contact = link_contact(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            clinic.patient_id,
+            "demo",
+            "+15551234567",
+            {"+15551234567"},
+        )
+        session.add(
+            Message(
+                id=uuid4(),
+                clinic_id=clinic.clinic_id,
+                contact_id=contact.id,
+                account_key="different",
+                direction="inbound",
+                body="Synthetic text",
+                state="received",
+                provider_message_id="id-1",
+            )
+        )
+        with pytest.raises(IntegrityError):
+            session.flush()
+        session.rollback()
+
+
+def test_disallowed_test_number_cannot_be_linked_or_sent(database: str) -> None:
+    clinic = world()
+    provider = FakeProvider()
+    with Session(get_engine(), expire_on_commit=False) as session:
+        with pytest.raises(ContactConflict):
+            link_contact(
+                session,
+                clinic.clinic_id,
+                clinic.actor_id,
+                clinic.patient_id,
+                "demo",
+                "+15551234567",
+                set(),
+            )
+        link_contact(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            clinic.patient_id,
+            "demo",
+            "+15551234567",
+            {"+15551234567"},
+        )
+        with pytest.raises(ContactConflict):
+            send_message(
+                session,
+                provider,
+                clinic.clinic_id,
+                clinic.actor_id,
+                clinic.patient_id,
+                "Hello",
+                uuid4(),
+                "demo",
+                set(),
+            )
+    assert not provider.calls
