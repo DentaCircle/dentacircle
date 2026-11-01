@@ -141,3 +141,22 @@ def test_changed_field_names_keep_order_and_drop_values() -> None:
     )
     assert changed == ["name"]
     assert "Gloves" not in changed
+
+
+def test_inventory_alert_boundaries() -> None:
+    from datetime import date, timedelta
+
+    from dentacircle.domain.inventory import inventory_alerts, is_expiring_soon
+
+    today = date(2026, 10, 29)
+    assert inventory_alerts(True, 0, 0, True, True) == ["out_of_stock", "expired", "expiring_soon"]
+    assert inventory_alerts(True, 3, 3, False, False) == ["low_stock"]
+    assert inventory_alerts(True, 4, 3, False, False) == []
+    assert inventory_alerts(True, 1, 0, False, False) == []
+    assert inventory_alerts(False, 0, 3, True, True) == []
+    assert not is_expiring_soon(today - timedelta(days=1), 1, today)
+    assert is_expiring_soon(today, 1, today)
+    assert is_expiring_soon(today + timedelta(days=30), 1, today)
+    assert not is_expiring_soon(today + timedelta(days=31), 1, today)
+    assert not is_expiring_soon(today, 0, today)
+    assert not is_expiring_soon(None, 1, today)

@@ -1,10 +1,10 @@
 """Reads and writes for one clinic's inventory. Every query filters by that clinic."""
 
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from uuid import UUID
 
-from sqlalchemy import ColumnElement, func, select
+from sqlalchemy import ColumnElement, and_, case, func, or_, select
 from sqlalchemy.orm import Session
 
 from dentacircle.core.tenancy import scoped_select
@@ -151,28 +151,73 @@ class InventoryRepository:
         query: str | None,
         page: int,
         page_size: int,
-    ) -> tuple[list[tuple[InventoryItem, InventoryCategory, int, int]], int]:
-        batch_count = (
-            select(func.count(InventoryBatch.id))
-            .where(
-                InventoryBatch.item_id == InventoryItem.id,
-                InventoryBatch.clinic_id == self._clinic_id,
+        today: date,
+        alert: str | None,
+    ) -> tuple[list[tuple[InventoryItem, InventoryCategory, int, int, int, bool, bool]], int]:
+        # Aggregate each batch first: expiry alerts depend on its net quantity.
+        batches = (
+            select(
+                InventoryBatch.id.label("id"),
+                InventoryBatch.item_id.label("item_id"),
+                InventoryBatch.expiry_on.label("expiry_on"),
+                func.coalesce(func.sum(InventoryTransaction.quantity_change), 0).label("quantity"),
             )
-            .correlate(InventoryItem)
-            .scalar_subquery()
+            .outerjoin(InventoryTransaction, _same_clinic_batch())
+            .where(InventoryBatch.clinic_id == self._clinic_id)
+            .group_by(InventoryBatch.id, InventoryBatch.item_id, InventoryBatch.expiry_on)
+            .subquery()
         )
-        stock = (
-            select(func.coalesce(func.sum(InventoryTransaction.quantity_change), 0))
-            .select_from(InventoryTransaction)
-            .join(InventoryBatch, _same_clinic_batch())
-            .where(
-                InventoryTransaction.clinic_id == self._clinic_id,
-                InventoryBatch.clinic_id == self._clinic_id,
-                InventoryBatch.item_id == InventoryItem.id,
+        summary = (
+            select(
+                batches.c.item_id,
+                func.count().label("batch_count"),
+                func.sum(batches.c.quantity).label("stock"),
+                func.sum(
+                    case(
+                        (
+                            or_(batches.c.expiry_on.is_(None), batches.c.expiry_on >= today),
+                            batches.c.quantity,
+                        ),
+                        else_=0,
+                    )
+                ).label("usable"),
+                func.max(
+                    case((and_(batches.c.quantity > 0, batches.c.expiry_on < today), 1), else_=0)
+                ).label("expired"),
+                func.max(
+                    case(
+                        (
+                            and_(
+                                batches.c.quantity > 0,
+                                batches.c.expiry_on >= today,
+                                batches.c.expiry_on <= today + timedelta(days=30),
+                            ),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ).label("soon"),
             )
-            .correlate(InventoryItem)
-            .scalar_subquery()
+            .group_by(batches.c.item_id)
+            .subquery()
         )
+        count = func.coalesce(summary.c.batch_count, 0)
+        stock = func.coalesce(summary.c.stock, 0)
+        usable = func.coalesce(summary.c.usable, 0)
+        expired = func.coalesce(summary.c.expired, 0) == 1
+        soon = func.coalesce(summary.c.soon, 0) == 1
+        active = InventoryItem.status == "active"
+        alert_filters = {
+            "out_of_stock": and_(active, usable == 0),
+            "low_stock": and_(
+                active,
+                usable > 0,
+                InventoryItem.low_stock_threshold > 0,
+                usable <= InventoryItem.low_stock_threshold,
+            ),
+            "expired": and_(active, expired),
+            "expiring_soon": and_(active, soon),
+        }
         filters = [InventoryItem.clinic_id == self._clinic_id]
         if status is not None:
             filters.append(InventoryItem.status == status)
@@ -180,24 +225,37 @@ class InventoryRepository:
             filters.append(InventoryItem.category_id == category_id)
         if query is not None:
             filters.append(InventoryItem.name.ilike(_contains(query), escape="\\"))
-        total = self._session.scalar(
-            select(func.count()).select_from(InventoryItem).where(*filters)
-        )
-        statement = (
-            select(InventoryItem, InventoryCategory, batch_count, stock)
+        if alert == "attention":
+            filters.append(or_(*alert_filters.values()))
+        elif alert is not None:
+            filters.append(alert_filters[alert])
+        base = (
+            select(InventoryItem, InventoryCategory, count, stock, usable, expired, soon)
             .join(
                 InventoryCategory,
                 (InventoryCategory.id == InventoryItem.category_id)
                 & (InventoryCategory.clinic_id == InventoryItem.clinic_id),
             )
+            .outerjoin(summary, summary.c.item_id == InventoryItem.id)
             .where(*filters)
-            .order_by(func.lower(InventoryItem.name), InventoryItem.name, InventoryItem.id)
+        )
+        total = self._session.scalar(select(func.count()).select_from(base.subquery()))
+        rows = self._session.execute(
+            base.order_by(func.lower(InventoryItem.name), InventoryItem.name, InventoryItem.id)
             .offset((page - 1) * page_size)
             .limit(page_size)
-        )
-        rows = self._session.execute(statement).all()
+        ).all()
         return [
-            (item, category, int(count), int(on_hand)) for item, category, count, on_hand in rows
+            (
+                item,
+                category,
+                int(n),
+                int(total_stock),
+                int(usable_stock),
+                bool(old),
+                bool(soon_flag),
+            )
+            for item, category, n, total_stock, usable_stock, old, soon_flag in rows
         ], int(total or 0)
 
     def category_for_item(self, item: InventoryItem) -> InventoryCategory | None:

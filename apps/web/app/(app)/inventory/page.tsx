@@ -1,7 +1,7 @@
 import { requireUser } from "@/features/auth/current-user";
 import { canReadInventory, canWriteInventory } from "@/features/inventory/access";
 import { InventoryListScreen, type InventoryListScreenProps } from "@/features/inventory/list-screen";
-import { pageFromQuery, statusFromQuery, type InventoryFilter } from "@/features/inventory/links";
+import { alertFromQuery, pageFromQuery, statusFromQuery, type InventoryFilter } from "@/features/inventory/links";
 import { isInventoryNotice } from "@/features/inventory/notices";
 import { inventoryRow } from "@/features/inventory/rows";
 import { sessionCookieHeader } from "@/features/patients/session";
@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 type InventoryPageProps = {
   searchParams: Promise<{
+    alert?: string;
     status?: string;
     category_id?: string;
     q?: string;
@@ -23,6 +24,7 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
   const query = await searchParams;
   const filter: InventoryFilter = {
     status: statusFromQuery(query.status),
+    alert: alertFromQuery(query.alert),
     categoryId: query.category_id ?? "",
     query: query.q ?? "",
   };
@@ -35,7 +37,7 @@ export default async function InventoryPage({ searchParams }: InventoryPageProps
   const cookieHeader = await sessionCookieHeader();
   const [categories, items] = await Promise.all([
     listInventoryCategories(cookieHeader),
-    listInventoryItems(cookieHeader, filter.status, filter.categoryId, filter.query, page),
+    listInventoryItems(cookieHeader, filter.status, filter.categoryId, filter.query, page, 20, filter.alert),
   ]);
   if (!categories.ok || !items.ok) {
     const forbidden =

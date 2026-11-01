@@ -16,6 +16,8 @@ const item = (id: string, name: string) => ({
   status: "active" as const,
   batch_count: 1,
   stock: 5,
+  usable_stock: 5,
+  alerts: [],
 });
 
 describe("listActiveInventoryItemsForRules", () => {

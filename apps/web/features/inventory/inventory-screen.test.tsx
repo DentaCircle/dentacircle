@@ -38,6 +38,8 @@ const gloves: InventoryRow = {
   threshold: 2,
   batchCount: 2,
   stock: 12,
+  usableStock: 10,
+  alerts: ["low_stock", "expired"],
   status: "active",
   statusLabel: "Active",
 };
@@ -71,7 +73,7 @@ test("the inventory page lists items and the status switch", () => {
     "href",
     "/inventory?status=inactive",
   );
-  expect(screen.getByRole("columnheader", { name: "Stock" })).toBeInTheDocument();
+  expect(screen.getByRole("columnheader", { name: "Total stock" })).toBeInTheDocument();
   expect(screen.getByRole("cell", { name: "12" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Add item" })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Add category" })).toBeInTheDocument();
@@ -91,7 +93,7 @@ test("an empty list says there are no inventory items yet", () => {
       canWrite
     />,
   );
-  expect(screen.getByText("No inventory items yet.")).toBeInTheDocument();
+  expect(screen.getByText("No inventory items match these filters.")).toBeInTheDocument();
 });
 
 test("the add form asks for a category before any exist", () => {
@@ -227,6 +229,7 @@ test("the item page shows an expired badge and asks before deactivating", async 
           expiryOn: "2020-01-01",
           expiryLabel: "1 Jan 2020",
           expired: true,
+          expiringSoon: false,
           quantity: 4,
         },
         {
@@ -235,6 +238,7 @@ test("the item page shows an expired badge and asks before deactivating", async 
           expiryOn: "2030-01-01",
           expiryLabel: "1 Jan 2030",
           expired: false,
+          expiringSoon: false,
           quantity: 8,
         },
       ]}
@@ -243,10 +247,10 @@ test("the item page shows an expired badge and asks before deactivating", async 
       canWrite
     />,
   );
-  expect(screen.getByText("Stock 12")).toBeInTheDocument();
+  expect(screen.getByText("Total stock 12 · Usable stock 10")).toBeInTheDocument();
   expect(screen.getByRole("columnheader", { name: "Quantity" })).toBeInTheDocument();
   expect(screen.getByRole("cell", { name: "4" })).toBeInTheDocument();
-  expect(screen.getByText("Expired", { selector: "[data-slot='badge']" })).toBeInTheDocument();
+  expect(screen.getAllByText("Expired", { selector: "[data-slot='badge']" })[0]).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Confirm deactivation" })).not.toBeInTheDocument();
   await user.click(screen.getByRole("button", { name: "Deactivate" }));
   expect(screen.getByRole("button", { name: "Confirm deactivation" })).toBeInTheDocument();
@@ -342,6 +346,7 @@ test("a clinician item page is read only", () => {
           expiryOn: null,
           expiryLabel: "No expiry",
           expired: false,
+          expiringSoon: false,
           quantity: 12,
         },
       ]}
@@ -368,7 +373,7 @@ test("a clinician item page is read only", () => {
       }}
     />,
   );
-  expect(screen.getByText("Stock 12")).toBeInTheDocument();
+  expect(screen.getByText("Total stock 12 · Usable stock 10")).toBeInTheDocument();
   expect(screen.getByText("Synthetic Stores")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Save item" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Deactivate" })).not.toBeInTheDocument();
@@ -398,6 +403,7 @@ const oneBatch = [
     expiryOn: null,
     expiryLabel: "No expiry",
     expired: false,
+          expiringSoon: false,
     quantity: 5,
   },
 ];
@@ -537,4 +543,28 @@ test("history pages when there is another page", () => {
     "href",
     "/inventory/item-1?page=2",
   );
+});
+
+test("alert filters keep the other filters and reset paging", () => {
+  render(
+    <InventoryListScreen status="ready" rows={[gloves]} categories={categories} total={45}
+      page={2} pageSize={20} filter={{ status: "active", categoryId: "cat-1", query: "glove", alert: "expired" }}
+      notice={null} canWrite={false} />,
+  );
+  expect(screen.getByRole("link", { name: "Needs attention" })).toHaveAttribute(
+    "href", "/inventory?status=active&alert=attention&category_id=cat-1&q=glove",
+  );
+  expect(screen.getByRole("link", { name: "Next" })).toHaveAttribute(
+    "href", "/inventory?status=active&alert=expired&category_id=cat-1&q=glove&page=3",
+  );
+  expect(screen.getByRole("columnheader", { name: "Usable stock" })).toBeInTheDocument();
+  expect(screen.getByRole("cell", { name: "10" })).toBeInTheDocument();
+});
+
+test("a stocked expiring batch is shown to a read-only user", () => {
+  render(<InventoryItemScreen status="ready" item={gloves} categories={categories} notice={null}
+    canWrite={false} batches={[{ id: "b", batchNumber: "LOT", expiryOn: "2026-11-01",
+      expiryLabel: "1 Nov 2026", expired: false, expiringSoon: true, quantity: 2 }]} />);
+  expect(screen.getByText("Expiring soon")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Add stock" })).not.toBeInTheDocument();
 });

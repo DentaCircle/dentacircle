@@ -517,6 +517,8 @@ export function listClinicLabWork(
 export type InventoryCategory = { id: string; name: string; item_count: number };
 export type InventoryItemStatus = "active" | "inactive";
 export type InventoryListStatus = "active" | "inactive" | "all";
+export type InventoryAlert = "out_of_stock" | "low_stock" | "expired" | "expiring_soon";
+export type InventoryAlertFilter = InventoryAlert | "attention" | "";
 export type InventoryItem = {
   id: string;
   name: string;
@@ -526,12 +528,15 @@ export type InventoryItem = {
   status: InventoryItemStatus;
   batch_count: number;
   stock: number;
+  usable_stock: number;
+  alerts: InventoryAlert[];
 };
 export type InventoryBatch = {
   id: string;
   batch_number: string;
   expiry_on: string | null;
   expired: boolean;
+  expiring_soon: boolean;
   quantity: number;
   created_at: string;
 };
@@ -575,12 +580,14 @@ export function listInventoryItems(
   query: string,
   page: number,
   pageSize = 20,
+  alert: InventoryAlertFilter = "",
 ): Promise<ApiResult<InventoryItemPage>> {
   const params = new URLSearchParams({
     status,
     page: String(page),
     page_size: String(pageSize),
   });
+  if (alert !== "") params.set("alert", alert);
   if (categoryId !== "") params.set("category_id", categoryId);
   if (query !== "") params.set("q", query);
   return getJson(
@@ -1699,6 +1706,9 @@ function inventoryItemData(value: unknown): InventoryItem | null {
   const threshold = numberField(value, "low_stock_threshold");
   const batchCount = numberField(value, "batch_count");
   const stock = numberField(value, "stock");
+  const usable = numberField(value, "usable_stock");
+  const alerts = value.alerts;
+  if (!Array.isArray(alerts) || !alerts.every((a) => a === "out_of_stock" || a === "low_stock" || a === "expired" || a === "expiring_soon")) return null;
   const status = value.status;
   const category = inventoryCategoryLinkData(value.category);
   if (
@@ -1707,7 +1717,7 @@ function inventoryItemData(value: unknown): InventoryItem | null {
     unit === null ||
     threshold === null ||
     batchCount === null ||
-    stock === null
+    stock === null || usable === null
   ) {
     return null;
   }
@@ -1721,6 +1731,8 @@ function inventoryItemData(value: unknown): InventoryItem | null {
     status,
     batch_count: batchCount,
     stock,
+    usable_stock: usable,
+    alerts,
   };
 }
 
@@ -1741,12 +1753,13 @@ function inventoryBatchData(value: unknown): InventoryBatch | null {
   if (id === null || batchNumber === null || createdAt === null) return null;
   if (expiry !== null && typeof expiry !== "string") return null;
   const quantity = numberField(value, "quantity");
-  if (typeof value.expired !== "boolean" || quantity === null) return null;
+  if (typeof value.expired !== "boolean" || typeof value.expiring_soon !== "boolean" || quantity === null) return null;
   return {
     id,
     batch_number: batchNumber,
     expiry_on: expiry,
     expired: value.expired,
+    expiring_soon: value.expiring_soon,
     quantity,
     created_at: createdAt,
   };

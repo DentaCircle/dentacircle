@@ -588,3 +588,121 @@ def _other_clinic() -> None:
             ["inventory_admin"],
         )
         session.commit()
+
+
+def test_alert_reads_filter_before_paging_and_follow_stock_changes(api: TestClient) -> None:
+    cookies = _cookie(api, "inventory@x.test")
+    category_id = _category(api, "Alerts")
+    item_id = _item(api, cookies, "Alert item", category_id, "box")
+    today = datetime.now(_ZONE).date()
+    for number, expiry, quantity in (
+        ("old", today - timedelta(days=1), 4),
+        ("soon", today + timedelta(days=30), 2),
+        ("later", today + timedelta(days=31), 3),
+    ):
+        batch = api.post(
+            f"/inventory/items/{item_id}/batches",
+            cookies=cookies,
+            json={"batch_number": number, "expiry_on": expiry.isoformat()},
+        ).json()
+        assert (
+            api.post(
+                f"/inventory/batches/{batch['id']}/restock",
+                cookies=cookies,
+                json={"quantity": quantity},
+            ).status_code
+            == 201
+        )
+    assert (
+        api.patch(
+            f"/inventory/items/{item_id}", cookies=cookies, json={"low_stock_threshold": 5}
+        ).status_code
+        == 200
+    )
+    detail = api.get(f"/inventory/items/{item_id}", cookies=cookies).json()
+    assert (detail["stock"], detail["usable_stock"]) == (9, 5)
+    assert detail["alerts"] == ["low_stock", "expired", "expiring_soon"]
+    assert [b["expiring_soon"] for b in detail["batches"]] == [False, True, False]
+    for alert in ("attention", "low_stock", "expired", "expiring_soon"):
+        result = api.get(
+            "/inventory/items", cookies=cookies, params={"alert": alert, "page_size": 1}
+        ).json()
+        assert result["total"] == 1
+        assert result["items"][0]["id"] == item_id
+    assert (
+        api.get("/inventory/items", cookies=cookies, params={"alert": "out_of_stock"}).json()[
+            "total"
+        ]
+        == 0
+    )
+    assert (
+        api.get("/inventory/items", cookies=cookies, params={"alert": "bogus"}).status_code == 422
+    )
+    assert (
+        api.post(
+            f"/inventory/items/{item_id}/status", cookies=cookies, json={"status": "inactive"}
+        ).status_code
+        == 200
+    )
+    inactive = api.get(f"/inventory/items/{item_id}", cookies=cookies).json()
+    assert inactive["alerts"] == []
+    assert all(not b["expiring_soon"] for b in inactive["batches"])
+    assert (
+        api.get(
+            "/inventory/items", cookies=cookies, params={"status": "all", "alert": "attention"}
+        ).json()["total"]
+        == 0
+    )
+
+
+def test_alert_paging_is_scoped_and_combines_filters(api: TestClient) -> None:
+    cookies = _cookie(api, "inventory@x.test")
+    category = _category(api, "Supplies")
+    first = _item(api, cookies, "Mask A", category)
+    second = _item(api, cookies, "Mask B", category)
+    _item(api, cookies, "Other", category)
+    _other_clinic()
+    other = _cookie(api, "other@x.test")
+    other_category = api.post(
+        "/inventory/categories", cookies=other, json={"name": "Supplies"}
+    ).json()["id"]
+    _item(api, other, "Mask C", other_category)
+    params = {"alert": "out_of_stock", "category_id": category, "q": "Mask", "page_size": 1}
+    page1 = api.get("/inventory/items", cookies=cookies, params=params).json()
+    page2 = api.get("/inventory/items", cookies=cookies, params={**params, "page": 2}).json()
+    assert page1["total"] == page2["total"] == 2
+    assert [page1["items"][0]["id"], page2["items"][0]["id"]] == [first, second]
+    assert api.get(f"/inventory/items/{first}", cookies=other).status_code == 404
+    assert (
+        api.get("/inventory/items", cookies=_cookie(api), params={"alert": "attention"}).status_code
+        == 403
+    )
+    with TestClient(create_app()) as anonymous:
+        assert anonymous.get("/inventory/items", params={"alert": "attention"}).status_code == 401
+
+
+def test_alerts_follow_restock_adjustment_and_edits(api: TestClient) -> None:
+    cookies = _cookie(api, "inventory@x.test")
+    item_id = _item(api, cookies)
+    batch_id = _batch(api, cookies, item_id, "LOT")
+
+    def read() -> dict[str, object]:
+        return dict(api.get(f"/inventory/items/{item_id}", cookies=cookies).json())
+
+    assert read()["alerts"] == ["out_of_stock"]
+    api.post(f"/inventory/batches/{batch_id}/restock", cookies=cookies, json={"quantity": 3})
+    assert read()["alerts"] == []
+    api.patch(f"/inventory/items/{item_id}", cookies=cookies, json={"low_stock_threshold": 3})
+    assert read()["alerts"] == ["low_stock"]
+    api.patch(
+        f"/inventory/batches/{batch_id}",
+        cookies=cookies,
+        json={"expiry_on": (_today() - timedelta(days=1)).isoformat()},
+    )
+    assert read()["alerts"] == ["out_of_stock", "expired"]
+    api.post(
+        f"/inventory/batches/{batch_id}/adjustments",
+        cookies=cookies,
+        json={"quantity_change": -3, "reason": "expired"},
+    )
+    assert read()["alerts"] == ["out_of_stock"]
