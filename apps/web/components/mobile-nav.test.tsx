@@ -19,6 +19,11 @@ test("menu button opens the sheet and a link closes it", async () => {
   expect(screen.getByRole("link", { name: "Status" })).toHaveAttribute("aria-current", "page");
   expect(screen.getByRole("link", { name: "Patients" })).toHaveAttribute("href", "/patients");
   expect(screen.getByRole("link", { name: "Calendar" })).toHaveAttribute("href", "/calendar");
+  expect(screen.getByRole("navigation", { name: "Main" }).parentElement).toHaveClass(
+    "min-h-0",
+    "flex-1",
+    "overflow-y-auto",
+  );
 
   await user.click(screen.getByRole("link", { name: "Dashboard" }));
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();

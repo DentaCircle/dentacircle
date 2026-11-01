@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { CalendarControls, type ClinicianOption } from "@/features/calendar/controls";
 import { DaySection, type CalendarDay } from "@/features/calendar/day-section";
 import { CALENDAR_NOTICES, calendarHref, type CalendarNotice, type CalendarViewMode } from "@/features/calendar/links";
@@ -19,7 +21,10 @@ export type CalendarScreenProps =
 export function CalendarScreen(props: CalendarScreenProps) {
   return (
     <section className="flex flex-col gap-4">
-      <h1 className="text-2xl font-semibold">Calendar</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold">Calendar</h1>
+        {props.status === "ready" ? <Link href="/patients">Book appointment</Link> : null}
+      </div>
       {props.status === "forbidden" ? <p role="alert">You do not have access.</p> : null}
       {props.status === "error" ? <p role="alert">Something went wrong.</p> : null}
       {props.status === "ready" ? (
@@ -36,6 +41,7 @@ export function CalendarScreen(props: CalendarScreenProps) {
             <DaySection
               key={day.date}
               day={day}
+              showBookingLink={props.view === "day"}
               canAdvance={props.canAdvance}
               returnHref={calendarHref({
                 view: props.view,

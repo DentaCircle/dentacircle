@@ -143,3 +143,13 @@ test("a booked row can be cancelled and has no book or contacted action", () => 
   expect(screen.queryByRole("button", { name: "Mark contacted" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Book visit" })).not.toBeInTheDocument();
 });
+
+test("empty views guide staff to all open follow-ups and patient care", () => {
+  const { rerender } = render(<QueueScreen status="empty" items={[]} total={0} page={1}
+    pageSize={20} view="due" notice={null} />);
+  expect(screen.getByText(/Choose All open/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Find a patient" })).toHaveAttribute("href", "/patients");
+  rerender(<QueueScreen status="empty" items={[]} total={0} page={1}
+    pageSize={20} view="all" notice={null} />);
+  expect(screen.getByText("There are no open follow-ups.")).toBeInTheDocument();
+});

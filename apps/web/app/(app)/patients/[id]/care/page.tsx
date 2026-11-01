@@ -1,9 +1,10 @@
 import { canCreateFollowUp, canReadCare, canWriteCare } from "@/features/care/access";
 import { CareScreen, type CareScreenProps, type FollowUpLoad } from "@/features/care/care-screen";
 import { isCareNotice } from "@/features/care/notices";
+import { PatientWorkspace } from "@/features/patients/patient-workspace";
 import { requireUser } from "@/features/auth/current-user";
 import { sessionCookieHeader } from "@/features/patients/session";
-import { getFollowUp, listCarePlans } from "@/lib/api/client";
+import { getFollowUp, getPatient, listCarePlans } from "@/lib/api/client";
 
 export const dynamic = "force-dynamic";
 
@@ -43,8 +44,9 @@ export default async function CarePage({ params, searchParams }: CarePageProps) 
       />
     );
   }
-  const followUp = await getFollowUp(cookieHeader, id);
+  const [followUp, patient] = await Promise.all([getFollowUp(cookieHeader, id), getPatient(cookieHeader, id)]);
   return (
+    <PatientWorkspace patient={patient.ok ? patient.data : null} current="care">
     <CareScreen
       status="ready"
       patientId={id}
@@ -54,6 +56,7 @@ export default async function CarePage({ params, searchParams }: CarePageProps) 
       notice={notice}
       followUp={followUpLoad(followUp)}
     />
+    </PatientWorkspace>
   );
 }
 

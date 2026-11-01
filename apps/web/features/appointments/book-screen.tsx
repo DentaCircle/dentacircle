@@ -17,6 +17,7 @@ export type { BookChoice };
 
 export function BookScreen({
   patientId,
+  patient,
   types,
   clinicians,
   today,
@@ -25,6 +26,7 @@ export function BookScreen({
   closedMessage,
 }: {
   patientId?: string;
+  patient: { full_name: string; display_id: string };
   types: BookChoice[];
   clinicians: BookChoice[];
   today: string;
@@ -45,6 +47,10 @@ export function BookScreen({
     [clinicianId, date, typeId],
   );
   const { slots, timesState, selected, select, clearSelection, reload } = useAvailability(availabilityInput);
+
+  const selectedSlot = slots.find((slot) => slot.startsAt === selected);
+  const selectedType = types.find((type) => type.id === typeId);
+  const selectedClinician = clinicians.find((clinician) => clinician.id === clinicianId);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -99,9 +105,13 @@ export function BookScreen({
 
   return (
     <form className="flex max-w-md flex-col gap-4" onSubmit={onSubmit}>
+      <div className="rounded-lg border border-border bg-muted/30 p-4">
+        <p className="text-sm text-muted-foreground">Booking for</p>
+        <p className="font-semibold">{patient.full_name} <span className="font-normal">· {patient.display_id}</span></p>
+      </div>
       <ChoiceField
         id="appointment_type_id"
-        label="Type"
+        label="Appointment type"
         value={typeId}
         options={types}
         onChange={(value) => {
@@ -134,13 +144,18 @@ export function BookScreen({
         />
       </div>
       <TimeSlots state={timesState} slots={slots} selected={selected} onSelect={select} />
+      <section aria-label="Appointment summary" className="rounded-lg border border-border p-4 text-sm">
+        <h2 className="font-semibold">Appointment summary</h2>
+        <p className="mt-2">{selectedType?.label} · {selectedClinician?.label}</p>
+        <p>{date} · {selectedSlot ? `${selectedSlot.label}–${selectedSlot.endsAt}` : "Choose a time"}</p>
+      </section>
       {message === null ? null : (
         <p role="alert" className="text-sm text-destructive">
           {message}
         </p>
       )}
       <Button type="submit" disabled={isSubmitting || selected === null || timesState !== "ready"}>
-        Book
+        Book appointment
       </Button>
     </form>
   );

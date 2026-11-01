@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Dialog } from "radix-ui";
 
 import { Button } from "@/components/ui/button";
 
@@ -48,29 +49,28 @@ export function CancelButton({
     setIsSubmitting(false);
   }
 
-  if (!isConfirming) {
-    return (
-      <Button type="button" variant="outline" onClick={() => setIsConfirming(true)}>
-        Cancel
-      </Button>
-    );
-  }
-
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <p>Cancel this appointment?</p>
-      <Button type="button" onClick={onConfirm} disabled={isSubmitting}>
-        Yes, cancel
-      </Button>
-      <Button type="button" variant="outline" onClick={() => setIsConfirming(false)}>
-        Keep
-      </Button>
-      {message === null ? null : (
-        <p role="alert" className="text-sm text-destructive">
-          {message}
-        </p>
-      )}
-    </div>
+    <Dialog.Root open={isConfirming} onOpenChange={setIsConfirming}>
+      <Dialog.Trigger asChild>
+        <Button type="button" variant="outline" size="sm">Cancel</Button>
+      </Dialog.Trigger>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border bg-background p-6 shadow-lg">
+          <Dialog.Title className="text-lg font-semibold">Cancel this appointment?</Dialog.Title>
+          <Dialog.Description className="mt-2 text-sm text-muted-foreground">
+            The appointment will be removed from the calendar.
+          </Dialog.Description>
+          {message === null ? null : (
+            <p role="alert" className="mt-4 text-sm text-destructive">{message}</p>
+          )}
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Button type="button" onClick={onConfirm} disabled={isSubmitting}>Yes, cancel</Button>
+            <Button type="button" variant="outline" autoFocus onClick={() => setIsConfirming(false)}>Keep</Button>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
   );
 }
 

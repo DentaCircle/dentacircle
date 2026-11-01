@@ -6,7 +6,7 @@ export type AvailabilityInput =
   | { date: string; clinicianId: string; appointmentTypeId: string }
   | { date: string; clinicianId: string; rescheduleAppointmentId: string };
 
-export type SlotChoice = { startsAt: string; label: string };
+export type SlotChoice = { startsAt: string; label: string; endsAt: string };
 
 export type AvailabilityResult =
   | { kind: "loaded"; isOpen: boolean; slots: SlotChoice[] }
@@ -50,8 +50,9 @@ function parseAvailability(value: unknown): { isOpen: boolean; slots: SlotChoice
   const slots: SlotChoice[] = [];
   for (const slot of value.slots) {
     const label = wallTime(slot.starts_at);
-    if (label === null) return null;
-    slots.push({ startsAt: slot.starts_at, label });
+    const endsAt = wallTime(slot.ends_at);
+    if (label === null || endsAt === null) return null;
+    slots.push({ startsAt: slot.starts_at, label, endsAt });
   }
   return { isOpen: value.is_open, slots };
 }
@@ -62,6 +63,6 @@ function isAvailabilityProjection(value: unknown): value is AvailabilityProjecti
   }
   if (typeof value.is_open !== "boolean" || !Array.isArray(value.slots)) return false;
   return value.slots.every(
-    (slot) => typeof slot === "object" && slot !== null && "starts_at" in slot && typeof slot.starts_at === "string",
+    (slot) => typeof slot === "object" && slot !== null && "starts_at" in slot && typeof slot.starts_at === "string" && "ends_at" in slot && typeof slot.ends_at === "string",
   );
 }

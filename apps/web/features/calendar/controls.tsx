@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { calendarHref, stepDate, type CalendarViewMode } from "@/features/calendar/links";
 
@@ -44,7 +45,10 @@ export function CalendarControls({
       </nav>
       <form method="get" action="/calendar" className="flex flex-wrap items-end gap-3">
         <input type="hidden" name="view" value={view} />
-        <input type="hidden" name="date" value={date} />
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="calendar-date">Date</Label>
+          <Input key={date} id="calendar-date" name="date" type="date" defaultValue={date} required />
+        </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="clinician">Clinician</Label>
           <select

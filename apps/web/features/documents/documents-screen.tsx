@@ -47,7 +47,7 @@ export function DocumentsScreen({
     <section className="flex max-w-lg flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Documents</h1>
-        <Link href={`/patients/${patientId}`}>Patient</Link>
+        {isLoaded ? null : <Link href={`/patients/${patientId}`}>Patient</Link>}
       </div>
       {context === null || contextHeading === null ? null : (
         <div className="flex flex-col gap-1">

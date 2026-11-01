@@ -33,6 +33,7 @@ test("loads free times and shows them as clock buttons", async () => {
   vi.stubGlobal("fetch", fetchMock);
   render(
     <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
       patientId="patient-1"
       types={types}
       clinicians={clinicians}
@@ -55,6 +56,7 @@ test("changing the clinician loads that clinician's times", async () => {
   vi.stubGlobal("fetch", fetchMock);
   render(
     <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
       patientId="patient-1"
       types={types}
       clinicians={clinicians}
@@ -96,6 +98,7 @@ test("a late availability body cannot replace the newest clinician's slots", asy
   vi.stubGlobal("fetch", fetchMock);
   render(
     <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
       patientId="patient-1"
       types={types}
       clinicians={clinicians}
@@ -138,6 +141,7 @@ test("a late availability failure cannot replace the newest clinician's slots", 
   vi.stubGlobal("fetch", fetchMock);
   render(
     <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
       patientId="patient-1"
       types={types}
       clinicians={clinicians}
@@ -167,6 +171,7 @@ test("an availability timeout shows fixed copy and a changed choice recovers", a
   vi.stubGlobal("fetch", fetchMock);
   render(
     <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
       patientId="patient-1"
       types={types}
       clinicians={clinicians}
@@ -187,6 +192,7 @@ test("changing the date clears a selected slot until its replacement loads", asy
   vi.stubGlobal("fetch", fetchMock);
   render(
     <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
       patientId="patient-1"
       types={types}
       clinicians={clinicians}
@@ -197,11 +203,11 @@ test("changing the date clears a selected slot until its replacement loads", asy
   );
 
   await user.click(await screen.findByRole("button", { name: "09:15" }));
-  expect(screen.getByRole("button", { name: "Book" })).toBeEnabled();
+  expect(screen.getByRole("button", { name: "Book appointment" })).toBeEnabled();
   await user.clear(screen.getByLabelText("Date"));
   await user.type(screen.getByLabelText("Date"), "2026-10-13");
 
-  expect(screen.getByRole("button", { name: "Book" })).toBeDisabled();
+  expect(screen.getByRole("button", { name: "Book appointment" })).toBeDisabled();
   await waitFor(() =>
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("date=2026-10-13"),
@@ -219,6 +225,7 @@ test("unmounting cancels an in-flight availability request", async () => {
   vi.stubGlobal("fetch", fetchMock);
   const rendered = render(
     <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
       patientId="patient-1"
       types={types}
       clinicians={clinicians}
@@ -239,6 +246,7 @@ test("a closed day and a day with no times use the empty copy", async () => {
   vi.stubGlobal("fetch", fetchMock);
   const closed = render(
     <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
       patientId="patient-1"
       types={types}
       clinicians={clinicians}
@@ -253,6 +261,7 @@ test("a closed day and a day with no times use the empty copy", async () => {
   fetchMock.mockImplementation(() => jsonResponse({ is_open: true, slots: [] }));
   render(
     <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
       patientId="patient-1"
       types={types}
       clinicians={clinicians}
@@ -278,6 +287,7 @@ test("a double click books once", async () => {
   vi.stubGlobal("fetch", fetchMock);
   render(
     <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
       patientId="patient-1"
       types={types}
       clinicians={clinicians}
@@ -288,7 +298,7 @@ test("a double click books once", async () => {
   );
   await user.click(await screen.findByRole("button", { name: "09:15" }));
 
-  const book = screen.getByRole("button", { name: "Book" });
+  const book = screen.getByRole("button", { name: "Book appointment" });
   const first = user.click(book);
   const second = user.click(book);
   await waitFor(() => expect(postCount(fetchMock)).toBe(1));
@@ -308,6 +318,7 @@ test("a follow-up booking posts to the given URL without a patient id", async ()
   vi.stubGlobal("fetch", fetchMock);
   render(
     <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
       types={types}
       clinicians={clinicians}
       today="2026-10-12"
@@ -316,7 +327,7 @@ test("a follow-up booking posts to the given URL without a patient id", async ()
     />,
   );
   await user.click(await screen.findByRole("button", { name: "09:15" }));
-  await user.click(screen.getByRole("button", { name: "Book" }));
+  await user.click(screen.getByRole("button", { name: "Book appointment" }));
 
   await waitFor(() => expect(postCount(fetchMock)).toBe(1));
   const posted = fetchMock.mock.calls.find((call) => call[1]?.method === "POST");
@@ -340,6 +351,7 @@ test("an already booked follow-up is replaced with a plain message", async () =>
   vi.stubGlobal("fetch", fetchMock);
   render(
     <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
       types={types}
       clinicians={clinicians}
       today="2026-10-12"
@@ -349,10 +361,10 @@ test("an already booked follow-up is replaced with a plain message", async () =>
     />,
   );
   await user.click(await screen.findByRole("button", { name: "09:15" }));
-  await user.click(screen.getByRole("button", { name: "Book" }));
+  await user.click(screen.getByRole("button", { name: "Book appointment" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("This follow-up is no longer open.");
-  expect(screen.queryByRole("button", { name: "Book" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Book appointment" })).not.toBeInTheDocument();
 });
 
 test("a taken time asks for another and reloads the list", async () => {
@@ -364,6 +376,7 @@ test("a taken time asks for another and reloads the list", async () => {
   vi.stubGlobal("fetch", fetchMock);
   render(
     <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
       patientId="patient-1"
       types={types}
       clinicians={clinicians}
@@ -373,7 +386,7 @@ test("a taken time asks for another and reloads the list", async () => {
     />,
   );
   await user.click(await screen.findByRole("button", { name: "09:15" }));
-  await user.click(screen.getByRole("button", { name: "Book" }));
+  await user.click(screen.getByRole("button", { name: "Book appointment" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent("That time was just taken. Pick another.");
   await waitFor(() => expect(availabilityCount(fetchMock)).toBe(2));
@@ -393,6 +406,7 @@ test("a patient conflict identifies the patient conflict and reloads the list", 
   vi.stubGlobal("fetch", fetchMock);
   render(
     <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
       patientId="patient-1"
       types={types}
       clinicians={clinicians}
@@ -403,7 +417,7 @@ test("a patient conflict identifies the patient conflict and reloads the list", 
   );
 
   await user.click(await screen.findByRole("button", { name: "09:15" }));
-  await user.click(screen.getByRole("button", { name: "Book" }));
+  await user.click(screen.getByRole("button", { name: "Book appointment" }));
 
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "That patient already has an appointment then. Pick another time.",
@@ -436,3 +450,46 @@ function postCount(fetchMock: ReturnType<typeof vi.fn>): number {
 function availabilityCount(fetchMock: ReturnType<typeof vi.fn>): number {
   return fetchMock.mock.calls.filter((call) => String(call[0]).includes("availability")).length;
 }
+
+test("shows the patient and updates the booking summary as choices change", async () => {
+  const user = userEvent.setup();
+  vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => availabilityResponse(String(input))));
+  render(
+    <BookScreen
+      patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
+      patientId="patient-1"
+      types={types}
+      clinicians={clinicians}
+      today="2026-10-12"
+      submitUrl="/api/appointments"
+      doneUrl="/patients/patient-1"
+    />,
+  );
+  expect(screen.getByText(/Sample Patient/)).toHaveTextContent("P-0001");
+  expect(screen.getByRole("region", { name: "Appointment summary" })).toHaveTextContent("Consultation · Sample Clinician");
+  await user.click(await screen.findByRole("button", { name: "09:15" }));
+  expect(screen.getByRole("region", { name: "Appointment summary" })).toHaveTextContent("09:15–09:45");
+  await user.selectOptions(screen.getByLabelText("Clinician"), "clinician-2");
+  expect(screen.getByRole("region", { name: "Appointment summary" })).toHaveTextContent("Second Clinician");
+  expect(screen.getByRole("region", { name: "Appointment summary" })).toHaveTextContent("Choose a time");
+});
+
+test("groups available slots by clinic wall time and explains empty availability", async () => {
+  const fetchMock = vi.fn(() => jsonResponse({ is_open: true, slots: [slot, {
+    starts_at: "2026-10-12T14:00:00+05:30", ends_at: "2026-10-12T14:30:00+05:30",
+  }] }));
+  vi.stubGlobal("fetch", fetchMock);
+  const rendered = render(
+    <BookScreen patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
+      types={types} clinicians={clinicians} today="2026-10-12"
+      submitUrl="/api/appointments" doneUrl="/patients" />,
+  );
+  expect(await screen.findByRole("group", { name: "Morning free times" })).toHaveTextContent("09:15");
+  expect(screen.getByRole("group", { name: "Afternoon free times" })).toHaveTextContent("14:00");
+  rendered.unmount();
+  fetchMock.mockImplementation(() => jsonResponse({ is_open: true, slots: [] }));
+  render(<BookScreen patient={{ full_name: "Sample Patient", display_id: "P-0001" }}
+    types={types} clinicians={clinicians} today="2026-10-12"
+    submitUrl="/api/appointments" doneUrl="/patients" />);
+  expect(await screen.findByText("Try another date, clinician or appointment type.")).toBeInTheDocument();
+});

@@ -1,4 +1,5 @@
 import { wallTime } from "@/features/appointments/wall-time";
+import { PatientWorkspace } from "@/features/patients/patient-workspace";
 import { requireUser } from "@/features/auth/current-user";
 import { sessionCookieHeader } from "@/features/patients/session";
 import { canReadTimeline } from "@/features/timeline/access";
@@ -10,7 +11,7 @@ import {
   type TimelineDayGroup,
   type TimelineScreenProps,
 } from "@/features/timeline/timeline-screen";
-import { listTimeline, type TimelineItem } from "@/lib/api/client";
+import { getPatient, listTimeline, type TimelineItem } from "@/lib/api/client";
 
 export const dynamic = "force-dynamic";
 
@@ -27,12 +28,14 @@ export default async function TimelinePage({ params, searchParams }: TimelinePag
   if (!canReadTimeline(user.roles)) {
     return <TimelineScreen {...emptyProps("forbidden", id, page)} />;
   }
-  const result = await listTimeline(await sessionCookieHeader(), id, page);
+  const cookie = await sessionCookieHeader();
+  const [result, patient] = await Promise.all([listTimeline(cookie, id, page), getPatient(cookie, id)]);
   if (!result.ok) return <TimelineScreen {...failureProps(result.error, id, page)} />;
   if (result.data.total === 0) {
-    return <TimelineScreen {...emptyProps("empty", id, page)} />;
+    return <PatientWorkspace patient={patient.ok ? patient.data : null} current="timeline"><TimelineScreen {...emptyProps("empty", id, page)} /></PatientWorkspace>;
   }
   return (
+    <PatientWorkspace patient={patient.ok ? patient.data : null} current="timeline">
     <TimelineScreen
       status="ready"
       patientId={id}
@@ -41,6 +44,7 @@ export default async function TimelinePage({ params, searchParams }: TimelinePag
       pageSize={result.data.page_size}
       total={result.data.total}
     />
+    </PatientWorkspace>
   );
 }
 

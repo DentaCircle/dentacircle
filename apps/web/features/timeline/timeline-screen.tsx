@@ -37,7 +37,7 @@ export function TimelineScreen({
     <section className="flex max-w-lg flex-col gap-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Timeline</h1>
-        <Link href={`/patients/${patientId}`}>Patient</Link>
+        {status === "ready" || status === "empty" ? null : <Link href={`/patients/${patientId}`}>Patient</Link>}
       </div>
       {status === "not-found" ? <p role="alert">Not found.</p> : null}
       {status === "forbidden" ? <p role="alert">You do not have access.</p> : null}

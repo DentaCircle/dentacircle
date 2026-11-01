@@ -13,8 +13,8 @@ const ROLES = ["receptionist", "clinician", "clinic_admin", "inventory_admin"] a
 
 const ACTIONS: Record<(typeof STATUSES)[number], Record<"advance" | "desk", string[]>> = {
   scheduled: {
-    advance: ["Reschedule", "Cancel", "Arrived", "No-show"],
-    desk: ["Reschedule", "Cancel", "Arrived", "No-show"],
+    advance: ["Reschedule", "Cancel", "Mark arrived", "Mark no-show"],
+    desk: ["Reschedule", "Cancel", "Mark arrived", "Mark no-show"],
   },
   arrived: { advance: ["Start"], desk: [] },
   in_progress: { advance: ["Complete"], desk: [] },
@@ -42,7 +42,7 @@ test("each status shows the actions for that role", () => {
         />,
       );
       const expected = ACTIONS[status][canAdvance ? "advance" : "desk"];
-      for (const name of ["Reschedule", "Cancel", "Arrived", "No-show", "Start", "Complete"]) {
+      for (const name of ["Reschedule", "Cancel", "Mark arrived", "Mark no-show", "Start", "Complete"]) {
         const control =
           name === "Reschedule" ? screen.queryByRole("link", { name }) : screen.queryByRole("button", { name });
         if (expected.includes(name)) expect(control).toBeInTheDocument();
@@ -55,4 +55,15 @@ test("each status shows the actions for that role", () => {
       unmount();
     }
   }
+});
+
+test("keeps visit facts separate from labeled actions", () => {
+  render(<AppointmentRow id="visit-1" timeRange="09:15–09:45" patientId="p-1"
+    patientName="Sample Patient" displayId="P-0001" typeName="Consultation"
+    clinicianName="Sample Clinician" status="scheduled" canAdvance returnHref="/calendar" />);
+  const actions = screen.getByRole("group", { name: "Visit actions" });
+  expect(actions).toHaveTextContent("Mark arrived");
+  expect(actions).toHaveTextContent("Documents");
+  expect(actions).not.toHaveTextContent("Sample Patient");
+  expect(screen.getByText("Scheduled")).toBeInTheDocument();
 });
