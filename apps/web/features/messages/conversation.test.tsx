@@ -61,3 +61,25 @@ test("a double click dispatches only one request", async () => {
   await userEvent.dblClick(button);
   expect(fetcher.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(1);
 });
+
+test("unlinked and disconnected patients cannot send", async () => {
+  vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+    const path = String(input);
+    if (path.endsWith("/messaging-contact")) return Response.json(null);
+    if (path.includes("/messages?")) return Response.json({ items: [], total: 0, page: 1, page_size: 20 });
+    if (path.endsWith("/messaging/connection")) return Response.json({ status: "disconnected", can_send_text: false });
+    return Response.json({ id: patientId, full_name: "Synthetic Example", display_id: "P-0001", status: "active" });
+  }));
+  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" />);
+  expect(await screen.findByText(/Connection: disconnected/)).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Link number" })).toBeInTheDocument();
+  expect(screen.getByText("No messages yet.")).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+});
+
+test("shows a no-access state when the API refuses the patient", async () => {
+  vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 403 })));
+  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" />);
+  expect(await screen.findByRole("alert")).toHaveTextContent("You do not have access to messages.");
+  expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
+});
