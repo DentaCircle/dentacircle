@@ -96,7 +96,7 @@ export function Conversation({ patientId, timezone }: { patientId: string; timez
     event.preventDefault();
     if (inFlight.current) return;
     const cleaned = body.trim();
-    if (!cleaned || cleaned.length > 2000) {
+    if (!cleaned || Array.from(cleaned).length > 2000) {
       setError("Enter 1 to 2,000 characters.");
       return;
     }
@@ -178,7 +178,7 @@ export function Conversation({ patientId, timezone }: { patientId: string; timez
         <form onSubmit={send} className="space-y-2">
           <label className="block">
             Message
-            <textarea className="block w-full rounded border p-2" value={body} onChange={(event) => setBody(event.target.value)} disabled={!canSend || busy || uncertain} maxLength={2000} />
+            <textarea className="block w-full rounded border p-2" value={body} onChange={(event) => setBody(event.target.value)} disabled={!canSend || busy || uncertain} maxLength={4000} />
           </label>
           <button className="rounded border px-3 py-2" disabled={!canSend || busy || (uncertain && !reviewed) || !body.trim()}>Send</button>
         </form>

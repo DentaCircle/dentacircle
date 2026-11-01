@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 
@@ -82,4 +82,19 @@ test("shows a no-access state when the API refuses the patient", async () => {
   render(<Conversation patientId={patientId} timezone="Asia/Kolkata" />);
   expect(await screen.findByRole("alert")).toHaveTextContent("You do not have access to messages.");
   expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
+});
+
+test("accepts 2,000 Unicode characters and rejects longer text", async () => {
+  const fetcher = setup();
+  const input = await screen.findByLabelText("Message");
+  await waitFor(() => expect(input).toBeEnabled());
+  fireEvent.change(input, { target: { value: "😀".repeat(2001) } });
+  await userEvent.click(screen.getByRole("button", { name: "Send" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Enter 1 to 2,000 characters.");
+  expect(fetcher.mock.calls.filter(([, init]) => init?.method === "POST")).toHaveLength(0);
+  fireEvent.change(input, { target: { value: "😀".repeat(2000) } });
+  await userEvent.click(screen.getByRole("button", { name: "Send" }));
+  const posts = fetcher.mock.calls.filter(([, init]) => init?.method === "POST");
+  expect(posts).toHaveLength(1);
+  expect(JSON.parse(String(posts[0][1]?.body)).body).toBe("😀".repeat(2000));
 });
