@@ -1,17 +1,18 @@
 {
-  "GET /inventory/items?alert=attention": {
+  "captured_on": "2026-11-01",
+  "attention": {
     "items": [
       {
-        "id": "cb71e80f-f0f6-4686-b520-e47a66e59dcb",
+        "id": "3cc286b0-f929-415e-b982-e69a33f3d2de",
         "name": "Synthetic gloves",
         "category": {
-          "id": "00df3f32-b886-4d32-987d-70a70f8ed75c",
+          "id": "f9f9cda3-2f44-4f24-b233-ef79fc2c975e",
           "name": "Consumables"
         },
-        "unit": "box",
+        "unit": "boxes",
         "low_stock_threshold": 5,
         "status": "active",
-        "batch_count": 3,
+        "batch_count": 4,
         "stock": 9,
         "usable_stock": 5,
         "alerts": [
@@ -21,14 +22,14 @@
         ]
       },
       {
-        "id": "d1af7c81-b0a4-4ad6-b091-9990a5183874",
+        "id": "3beba24f-4294-43e5-9d3e-ddecde6e9896",
         "name": "Synthetic masks",
         "category": {
-          "id": "00df3f32-b886-4d32-987d-70a70f8ed75c",
+          "id": "f9f9cda3-2f44-4f24-b233-ef79fc2c975e",
           "name": "Consumables"
         },
-        "unit": "box",
-        "low_stock_threshold": 0,
+        "unit": "boxes",
+        "low_stock_threshold": 2,
         "status": "active",
         "batch_count": 0,
         "stock": 0,
@@ -42,19 +43,19 @@
     "page": 1,
     "page_size": 20
   },
-  "GET /inventory/items?alert=expired": {
+  "expired": {
     "items": [
       {
-        "id": "cb71e80f-f0f6-4686-b520-e47a66e59dcb",
+        "id": "3cc286b0-f929-415e-b982-e69a33f3d2de",
         "name": "Synthetic gloves",
         "category": {
-          "id": "00df3f32-b886-4d32-987d-70a70f8ed75c",
+          "id": "f9f9cda3-2f44-4f24-b233-ef79fc2c975e",
           "name": "Consumables"
         },
-        "unit": "box",
+        "unit": "boxes",
         "low_stock_threshold": 5,
         "status": "active",
-        "batch_count": 3,
+        "batch_count": 4,
         "stock": 9,
         "usable_stock": 5,
         "alerts": [
@@ -68,17 +69,17 @@
     "page": 1,
     "page_size": 20
   },
-  "GET /inventory/items?alert=out_of_stock": {
+  "out_of_stock": {
     "items": [
       {
-        "id": "d1af7c81-b0a4-4ad6-b091-9990a5183874",
+        "id": "3beba24f-4294-43e5-9d3e-ddecde6e9896",
         "name": "Synthetic masks",
         "category": {
-          "id": "00df3f32-b886-4d32-987d-70a70f8ed75c",
+          "id": "f9f9cda3-2f44-4f24-b233-ef79fc2c975e",
           "name": "Consumables"
         },
-        "unit": "box",
-        "low_stock_threshold": 0,
+        "unit": "boxes",
+        "low_stock_threshold": 2,
         "status": "active",
         "batch_count": 0,
         "stock": 0,
