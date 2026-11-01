@@ -19,6 +19,7 @@ from dentacircle.api.follow_ups import router as follow_ups_router
 from dentacircle.api.health import router as health_router
 from dentacircle.api.inventory import router as inventory_router
 from dentacircle.api.lab_work import router as lab_work_router
+from dentacircle.api.messaging import router as messaging_router
 from dentacircle.api.patients import router as patients_router
 from dentacircle.api.recalls import router as recalls_router
 from dentacircle.api.resource_rules import router as resource_rules_router
@@ -49,6 +50,7 @@ def create_app() -> FastAPI:
     application.include_router(timeline_router)
     application.include_router(documents_router)
     application.include_router(lab_work_router)
+    application.include_router(messaging_router)
     application.include_router(inventory_router)
     application.include_router(resource_rules_router)
     return application

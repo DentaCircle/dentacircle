@@ -15,5 +15,19 @@ services:
       timeout: 5s
       retries: 5
 
+  openwa:
+    image: openwa/wa-automate@sha256:d31f5a8f59c4890a302294e9834a25f217a973d80339896ef74cf3d35d903cb3
+    profiles: [messaging]
+    init: true
+    command: ["--no-update", "--config", "/config/cli.config.json", "--skip-url-check"]
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - openwa_session:/sessions
+      - ./.openwa/cli.config.json:/config/cli.config.json:ro
+    logging:
+      driver: none
+
 volumes:
+  openwa_session:
   dentacircle_pg:

@@ -17,6 +17,7 @@ from dentacircle.models.inventory_category import InventoryCategory
 from dentacircle.models.inventory_item import InventoryItem
 from dentacircle.models.inventory_transaction import InventoryTransaction
 from dentacircle.models.lab_work import LabWork
+from dentacircle.models.messaging import Message, MessagingContact
 from dentacircle.models.patient import Patient
 from dentacircle.models.patient_number_counter import PatientNumberCounter
 from dentacircle.models.procedure_resource_rule import ProcedureResourceRule
@@ -44,6 +45,8 @@ __all__ = [
     "InventoryItem",
     "InventoryTransaction",
     "LabWork",
+    "Message",
+    "MessagingContact",
     "Patient",
     "PatientNumberCounter",
     "ProcedureResourceRule",

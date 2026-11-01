@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
-export type PatientSection = "overview" | "care" | "documents" | "lab" | "timeline";
+export type PatientSection = "overview" | "care" | "documents" | "lab" | "timeline" | "messages";
 export type PatientIdentity = { id: string; full_name: string; display_id: string };
 
 const sections: { label: string; section: PatientSection; suffix: string }[] = [
@@ -10,6 +10,7 @@ const sections: { label: string; section: PatientSection; suffix: string }[] = [
   { label: "Documents", section: "documents", suffix: "/documents" },
   { label: "Lab", section: "lab", suffix: "/lab" },
   { label: "Timeline", section: "timeline", suffix: "/timeline" },
+  { label: "Messages", section: "messages", suffix: "/messages" },
 ];
 
 export function PatientNavigation({ patientId, current }: { patientId: string; current: PatientSection }) {

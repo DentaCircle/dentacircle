@@ -66,3 +66,54 @@ curl -b /tmp/dc-cookies -X POST -H 'Content-Type: application/json' \
   http://127.0.0.1:8000/appointment-types
 ```
 
+
+### WhatsApp test inbox (optional)
+
+This is a controlled demo for synthetic records and explicitly allowlisted test phones.
+OpenWA is unofficial and WhatsApp still processes messages; do not use real patient data.
+The bundled image is pinned to digest `sha256:d31f5a8f59c4890a302294e9834a25f217a973d80339896ef74cf3d35d903cb3`
+with bundled `@open-wa/wa-automate` 4.76.0. `--no-update` keeps that runtime fixed. Saved
+contacts or existing chats are required for licence-free sends; live compatibility must be
+checked with the dedicated test account. No licence purchase is required or configured.
+
+1. Create `.openwa/cli.config.json` locally, keep it private, and replace both secrets and
+   the session name below. Use a dedicated account and save the allowlisted test contacts in
+   that account. The callback address reaches the API on the Docker host. Never commit the file.
+
+   ```json
+   {
+     "sessionId": "dentacircle-demo",
+     "sessionDataPath": "/sessions",
+     "key": "replace-with-a-long-random-api-key",
+     "autoEmoji": false,
+     "qrLogSkip": true,
+     "logging": [{"type": "console", "options": {"silent": true}}],
+     "webhook": [{
+       "url": "http://host.docker.internal:8000/integrations/messaging/openwa/events",
+       "events": ["onMessage"],
+       "requestConfig": {"headers": {"X-Webhook-Secret": "replace-with-a-different-random-secret"}}
+     }]
+   }
+   ```
+
+2. Add `MESSAGING_URL=http://127.0.0.1:8080`, `MESSAGING_API_KEY`,
+   `MESSAGING_CALLBACK_SECRET`, `MESSAGING_ACCOUNT` (the session ID), `MESSAGING_CLINIC_ID`
+   (the clinic UUID), and comma-separated E.164 `MESSAGING_ALLOWLIST` to the local `.env`.
+   The secrets must match the private OpenWA configuration. Restart the API after changes.
+3. Start the regular app with `make dev`. In a separate terminal run
+   `docker compose --profile messaging up -d openwa`, then open `http://127.0.0.1:8080`
+   while the provider is waiting for pairing. Scan its QR with the dedicated account. The
+   container has logging disabled because this release prints request bodies and its API key;
+   do not record or share the QR. Its port is loopback-only.
+4. Open Messages, link an active synthetic patient to an allowlisted saved contact, send a
+   test message, reply from the test phone and press Refresh. Sending never marks a follow-up
+   or recall contacted. Provider acceptance is not a delivery receipt. An uncertain send must
+   be inspected, not blindly retried.
+5. Stop the bridge with `docker compose --profile messaging stop openwa`. The private named
+   session volume remains for a restart. To disconnect the account, log out in WhatsApp's
+   linked devices; removing the volume destroys the local session and requires pairing again.
+
+The pinned v4 webhook has an in-memory queue and does not retry failed callbacks or retain a
+journal across restarts. A 503 signals a failed database write, but this provider may drop that
+message; this demo does not promise durable delivery during outages. Manual callback replay is
+safe by provider message ID. No webhook bodies or provider errors are stored in app logs.

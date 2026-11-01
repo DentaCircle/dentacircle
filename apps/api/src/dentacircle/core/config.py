@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     cookie_secure: bool = True
     # Where the local disk adapter keeps documents. A relative path is under the repo root.
     storage_root: str = ".data/documents"
+    messaging_url: str = ""
+    messaging_api_key: str = ""
+    messaging_callback_secret: str = ""
+    messaging_account: str = ""
+    messaging_clinic_id: str = ""
+    messaging_allowlist: str = ""
 
     @field_validator("database_url")
     @classmethod

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Activity, CalendarDays, FlaskConical, LayoutDashboard, Package,
+  Activity, CalendarDays, FlaskConical, LayoutDashboard, MessageSquare, Package,
   PhoneCall, RotateCcw, Users, type LucideIcon,
 } from "lucide-react";
 
@@ -12,7 +12,7 @@ import { isNavCurrent, navItems, type NavItem } from "@/lib/navigation";
 const icons: Record<NavItem["href"], LucideIcon> = {
   "/": LayoutDashboard, "/patients": Users, "/calendar": CalendarDays,
   "/follow-ups": PhoneCall, "/recalls": RotateCcw, "/lab": FlaskConical,
-  "/inventory": Package, "/status": Activity,
+  "/inventory": Package, "/messages": MessageSquare, "/status": Activity,
 };
 
 type MainNavProps = { onNavigate?: () => void };
