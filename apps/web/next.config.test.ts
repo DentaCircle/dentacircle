@@ -29,3 +29,16 @@ function rewrites(): ReturnType<NonNullable<typeof nextConfig.rewrites>> {
   if (nextConfig.rewrites === undefined) throw new Error("rewrites is missing");
   return nextConfig.rewrites();
 }
+
+test("does not log patient page or proxy paths containing identifiers", () => {
+  const logging = nextConfig.logging;
+  expect(logging && logging.incomingRequests).toEqual({
+    ignore: [expect.any(RegExp)],
+  });
+  if (!logging || !logging.incomingRequests || typeof logging.incomingRequests === "boolean") {
+    throw new Error("incoming request log filter is missing");
+  }
+  const ignored = logging.incomingRequests.ignore ?? [];
+  expect(ignored.some((pattern) => pattern.test("/patients/example/messages"))).toBe(true);
+  expect(ignored.some((pattern) => pattern.test("/api/patients/example/messages"))).toBe(true);
+});

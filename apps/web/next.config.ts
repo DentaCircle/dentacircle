@@ -12,6 +12,8 @@ export function apiProxyBaseUrl(): string {
 const nextConfig: NextConfig = {
   // Next writes its own agent docs into this app. The repo rules live at the root.
   agentRules: false,
+  // Patient paths contain identifiers, so do not include them in dev request logs.
+  logging: { incomingRequests: { ignore: [/^\/(?:api\/)?patients\//] } },
   // The browser calls `/api/*` on this origin. Next proxies the request, including
   // the body, and forwards Set-Cookie so `dc_session` is stored for the web app.
   async rewrites() {
