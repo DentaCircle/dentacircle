@@ -3,7 +3,9 @@
 Application commit: `2556342`. All records and messages are synthetic. The application ran
 against a disposable PostgreSQL database and a loopback-only fake OpenWA HTTP provider; no
 WhatsApp account or real phone was used. The conversation and inactive captures are clipped to
-exclude the test number. These captures do not establish live WhatsApp compatibility.
+exclude the test number. These captures do not establish live WhatsApp compatibility. Subsequent changes add tests,
+reformat source, guard deactivation during dispatch, align Unicode input limits, suppress
+request logs, and select a working container platform/port; the depicted screen states are unchanged.
 
 - **01-inbox.png — Inbox.** Sign in as the synthetic clinic admin. Link a synthetic patient,
   send through the fake provider, deliver a synthetic callback, and open Messages.
