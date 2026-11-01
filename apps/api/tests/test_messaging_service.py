@@ -520,3 +520,50 @@ def test_disallowed_test_number_cannot_be_linked_or_sent(database: str) -> None:
                 set(),
             )
     assert not provider.calls
+
+
+def test_deactivation_between_attempt_and_dispatch_prevents_send(
+    database: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dentacircle.models.patient import Patient
+
+    clinic = world()
+    provider = FakeProvider()
+    with Session(get_engine(), expire_on_commit=False) as session:
+        link_contact(
+            session,
+            clinic.clinic_id,
+            clinic.actor_id,
+            clinic.patient_id,
+            "demo",
+            "+15551234567",
+            {"+15551234567"},
+        )
+        real_commit = session.commit
+        commits = 0
+
+        def deactivate_after_attempt() -> None:
+            nonlocal commits
+            real_commit()
+            commits += 1
+            if commits == 1:
+                with Session(get_engine()) as other:
+                    patient = other.get(Patient, clinic.patient_id)
+                    assert patient is not None
+                    patient.status = "inactive"
+                    other.commit()
+
+        monkeypatch.setattr(session, "commit", deactivate_after_attempt)
+        row, created = send_message(
+            session,
+            provider,
+            clinic.clinic_id,
+            clinic.actor_id,
+            clinic.patient_id,
+            "Hello",
+            uuid4(),
+            "demo",
+            {"+15551234567"},
+        )
+        assert created and row.state == "failed"
+    assert provider.calls == []

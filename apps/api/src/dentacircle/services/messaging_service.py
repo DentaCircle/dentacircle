@@ -147,7 +147,7 @@ def send_message(
     body = body.strip()
     if not 1 <= len(body) <= 2000:
         raise MessagingInvalid
-    patient = PatientRepository(session, clinic_id).get(patient_id)
+    patient = PatientRepository(session, clinic_id).get(patient_id, lock=True)
     if patient is None:
         raise PatientNotFoundError
     repository = MessagingRepository(session, clinic_id)
@@ -188,7 +188,14 @@ def send_message(
         if prior is None or prior.contact_id != contact.id or prior.body != body:
             raise ContactConflict from None
         return _view(repository, prior), False
-    result = provider.send_text(contact.number, body)
+    # The first commit releases the lock. Recheck and hold it during dispatch so a
+    # concurrent deactivation cannot race the external send.
+    session.expire(patient)
+    patient = PatientRepository(session, clinic_id).get(patient_id, lock=True)
+    if patient is None or patient.status != "active":
+        result = "failed"
+    else:
+        result = provider.send_text(contact.number, body)
     row.state = result
     row.updated_at = datetime.now(UTC)
     record(session, clinic_id, actor_id, "message", row.id, "status_change", ["state"])
