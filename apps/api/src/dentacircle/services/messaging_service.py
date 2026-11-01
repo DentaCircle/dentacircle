@@ -1,14 +1,16 @@
 """Patient links and persistent-before-dispatch messages."""
 
 import re
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from dentacircle.integrations.messaging.base import IncomingText, MessagingProvider
+from dentacircle.integrations.messaging.base import Connection, IncomingText, MessagingProvider
 from dentacircle.models.messaging import Message, MessagingContact
+from dentacircle.models.patient import Patient
 from dentacircle.repositories.messaging_repository import MessagingRepository
 from dentacircle.repositories.patient_repository import PatientRepository
 from dentacircle.services.audit_service import record
@@ -27,6 +29,64 @@ class MessagingInvalid(Exception):
     """The supplied input is invalid."""
 
 
+@dataclass(frozen=True)
+class MessageView:
+    id: UUID
+    direction: str
+    body: str
+    state: str
+    created_at: datetime
+    updated_at: datetime
+    provider_sent_at: datetime | None
+    actor_id: UUID | None
+    actor_name: str | None
+
+
+def _view(repository: MessagingRepository, row: Message) -> MessageView:
+    actor = repository.actor(row.created_by_user_id) if row.created_by_user_id else None
+    return MessageView(
+        id=row.id,
+        direction=row.direction,
+        body=row.body,
+        state=row.state,
+        created_at=row.created_at,
+        updated_at=row.updated_at,
+        provider_sent_at=row.provider_sent_at,
+        actor_id=actor.id if actor else None,
+        actor_name=actor.full_name if actor else None,
+    )
+
+
+def _patient(session: Session, clinic_id: UUID, patient_id: UUID) -> Patient:
+    patient = PatientRepository(session, clinic_id).get(patient_id)
+    if patient is None:
+        raise PatientNotFoundError
+    return patient
+
+
+def get_contact(session: Session, clinic_id: UUID, patient_id: UUID) -> MessagingContact | None:
+    _patient(session, clinic_id, patient_id)
+    return MessagingRepository(session, clinic_id).contact_for_patient(patient_id)
+
+
+def list_history(
+    session: Session, clinic_id: UUID, patient_id: UUID, page: int, page_size: int
+) -> tuple[list[MessageView], int]:
+    _patient(session, clinic_id, patient_id)
+    repo = MessagingRepository(session, clinic_id)
+    contact = repo.contact_for_patient(patient_id)
+    rows, total = repo.history(contact.id, page, page_size) if contact else ([], 0)
+    return [_view(repo, row) for row in rows], total
+
+
+def list_inbox(
+    session: Session, clinic_id: UUID, page: int, page_size: int
+) -> tuple[list[tuple[Patient, MessageView, int]], int]:
+    repo = MessagingRepository(session, clinic_id)
+    rows, total = repo.inbox(page, page_size)
+    return [(patient, _view(repo, row), count) for patient, row, count in rows], total
+
+
 def link_contact(
     session: Session,
     clinic_id: UUID,
@@ -36,14 +96,16 @@ def link_contact(
     number: str,
     allowlist: set[str],
 ) -> MessagingContact:
-    if not re.fullmatch(r"\+[1-9][0-9]{1,14}", number):
-        raise MessagingInvalid
-    if not account or number not in allowlist:
-        raise ContactConflict
     patient = PatientRepository(session, clinic_id).get(patient_id, lock=True)
     if patient is None:
         raise PatientNotFoundError
     if patient.status != "active":
+        raise ContactConflict
+    if not re.fullmatch(r"\+[1-9][0-9]{1,14}", number):
+        raise MessagingInvalid
+    if not account:
+        raise MessagingUnavailable
+    if number not in allowlist:
         raise ContactConflict
     repository = MessagingRepository(session, clinic_id)
     existing = repository.contact_for_patient(patient_id)
@@ -81,7 +143,7 @@ def send_message(
     request_id: UUID,
     account: str,
     allowlist: set[str],
-) -> tuple[Message, bool]:
+) -> tuple[MessageView, bool]:
     body = body.strip()
     if not 1 <= len(body) <= 2000:
         raise MessagingInvalid
@@ -94,7 +156,7 @@ def send_message(
     if prior is not None:
         if contact is None or prior.contact_id != contact.id or prior.body != body:
             raise ContactConflict
-        return prior, False
+        return _view(repository, prior), False
     if patient.status != "active" or contact is None:
         raise ContactConflict
     connection = provider.connection()
@@ -125,14 +187,14 @@ def send_message(
         prior = repository.by_request(request_id)
         if prior is None or prior.contact_id != contact.id or prior.body != body:
             raise ContactConflict from None
-        return prior, False
+        return _view(repository, prior), False
     result = provider.send_text(contact.number, body)
     row.state = result
     row.updated_at = datetime.now(UTC)
     record(session, clinic_id, actor_id, "message", row.id, "status_change", ["state"])
     session.commit()
     session.refresh(row)
-    return row, True
+    return _view(repository, row), True
 
 
 def receive_message(session: Session, clinic_id: UUID, event: IncomingText) -> None:
@@ -142,3 +204,19 @@ def receive_message(session: Session, clinic_id: UUID, event: IncomingText) -> N
         return
     repository.add_incoming(contact, event)
     session.commit()
+
+
+def connection_status(provider: MessagingProvider) -> Connection:
+    return provider.connection()
+
+
+def receive_event(
+    session: Session,
+    clinic_id: UUID,
+    provider: MessagingProvider,
+    payload: object,
+    allowlist: set[str],
+) -> None:
+    event = provider.normalize_event(payload)
+    if event is not None and event.number in allowlist:
+        receive_message(session, clinic_id, event)

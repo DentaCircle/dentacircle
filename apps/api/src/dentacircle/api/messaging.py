@@ -15,17 +15,21 @@ from dentacircle.core.config import Settings, get_settings
 from dentacircle.core.errors import CodedHttpError
 from dentacircle.domain.patient import display_id
 from dentacircle.integrations.messaging.openwa import OpenWaMessagingProvider
-from dentacircle.models.messaging import Message
-from dentacircle.repositories.messaging_repository import MessagingRepository
-from dentacircle.repositories.patient_repository import PatientRepository
 from dentacircle.services.auth_service import CurrentUser
 from dentacircle.services.messaging_service import (
     ContactConflict,
+    MessageView,
     MessagingInvalid,
     MessagingUnavailable,
+    connection_status,
     link_contact,
-    receive_message,
+    list_history,
+    list_inbox,
+    receive_event,
     send_message,
+)
+from dentacircle.services.messaging_service import (
+    get_contact as get_patient_contact,
 )
 from dentacircle.services.patient_service import PatientNotFoundError
 
@@ -119,8 +123,7 @@ def configured(settings: Settings, clinic_id: UUID) -> bool:
     )
 
 
-def message_body(row: Message, patient_id: UUID, repository: MessagingRepository) -> MessageBody:
-    actor = repository.actor(row.created_by_user_id) if row.created_by_user_id else None
+def message_body(row: MessageView, patient_id: UUID) -> MessageBody:
     return MessageBody(
         id=row.id,
         patient_id=patient_id,
@@ -130,13 +133,10 @@ def message_body(row: Message, patient_id: UUID, repository: MessagingRepository
         created_at=row.created_at,
         updated_at=row.updated_at,
         provider_sent_at=row.provider_sent_at,
-        created_by=ActorBody(id=actor.id, name=actor.full_name) if actor else None,
+        created_by=ActorBody(id=row.actor_id, name=row.actor_name)
+        if row.actor_id is not None and row.actor_name is not None
+        else None,
     )
-
-
-def require_patient(session: SessionDep, clinic_id: UUID, patient_id: UUID) -> None:
-    if PatientRepository(session, clinic_id).get(patient_id) is None:
-        raise HTTPException(404)
 
 
 def fail(exc: Exception) -> None:
@@ -154,7 +154,7 @@ def fail(exc: Exception) -> None:
 @router.get("/messaging/connection")
 def connection(user: UserDep) -> ConnectionBody:
     settings = get_settings()
-    result = provider(settings).connection() if configured(settings, user.clinic.id) else None
+    result = connection_status(provider(settings)) if configured(settings, user.clinic.id) else None
     return ConnectionBody(
         status=result.status if result else "unconfigured",
         can_send_text=result.can_send_text if result else False,
@@ -168,8 +168,7 @@ def inbox(
     page: Annotated[int, Query(ge=1, le=92233720368547758)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> InboxPage:
-    repo = MessagingRepository(session, user.clinic.id)
-    rows, total = repo.inbox(page, page_size)
+    rows, total = list_inbox(session, user.clinic.id, page, page_size)
     return InboxPage(
         items=[
             InboxRow(
@@ -179,7 +178,7 @@ def inbox(
                     full_name=p.full_name,
                     status=p.status,
                 ),
-                latest_message=message_body(m, p.id, repo),
+                latest_message=message_body(m, p.id),
                 message_count=n,
             )
             for p, m, n in rows
@@ -192,8 +191,10 @@ def inbox(
 
 @router.get("/patients/{patient_id}/messaging-contact")
 def get_contact(patient_id: UUID, user: UserDep, session: SessionDep) -> ContactBody | None:
-    require_patient(session, user.clinic.id, patient_id)
-    row = MessagingRepository(session, user.clinic.id).contact_for_patient(patient_id)
+    try:
+        row = get_patient_contact(session, user.clinic.id, patient_id)
+    except PatientNotFoundError:
+        raise HTTPException(404) from None
     return ContactBody(id=row.id, patient_id=row.patient_id, number=row.number) if row else None
 
 
@@ -201,21 +202,18 @@ def get_contact(patient_id: UUID, user: UserDep, session: SessionDep) -> Contact
 def put_contact(
     patient_id: UUID, body: ContactInput, user: UserDep, session: SessionDep
 ) -> ContactBody:
-    require_patient(session, user.clinic.id, patient_id)
     settings = get_settings()
-    if not configured(settings, user.clinic.id):
-        raise CodedHttpError(503, "messaging_unavailable", "Messaging is unavailable.")
     try:
         row = link_contact(
             session,
             user.clinic.id,
             user.id,
             patient_id,
-            settings.messaging_account,
+            settings.messaging_account if configured(settings, user.clinic.id) else "",
             body.number,
             allowlist(settings),
         )
-    except (PatientNotFoundError, MessagingInvalid, ContactConflict) as exc:
+    except (PatientNotFoundError, MessagingInvalid, MessagingUnavailable, ContactConflict) as exc:
         fail(exc)
         raise AssertionError from exc
     return ContactBody(id=row.id, patient_id=row.patient_id, number=row.number)
@@ -229,12 +227,12 @@ def history(
     page: Annotated[int, Query(ge=1, le=92233720368547758)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> HistoryPage:
-    require_patient(session, user.clinic.id, patient_id)
-    repo = MessagingRepository(session, user.clinic.id)
-    contact = repo.contact_for_patient(patient_id)
-    rows, total = repo.history(contact.id, page, page_size) if contact else ([], 0)
+    try:
+        rows, total = list_history(session, user.clinic.id, patient_id, page, page_size)
+    except PatientNotFoundError:
+        raise HTTPException(404) from None
     return HistoryPage(
-        items=[message_body(row, patient_id, repo) for row in rows],
+        items=[message_body(row, patient_id) for row in rows],
         total=total,
         page=page,
         page_size=page_size,
@@ -245,7 +243,6 @@ def history(
 def send(
     patient_id: UUID, body: SendInput, response: Response, user: UserDep, session: SessionDep
 ) -> MessageBody:
-    require_patient(session, user.clinic.id, patient_id)
     settings = get_settings()
     active_provider = (
         provider(settings)
@@ -268,7 +265,7 @@ def send(
         fail(exc)
         raise AssertionError from exc
     response.status_code = 201 if created else 200
-    return message_body(row, patient_id, MessagingRepository(session, user.clinic.id))
+    return message_body(row, patient_id)
 
 
 def callback_credential(
@@ -294,9 +291,9 @@ async def callback(
         if not isinstance(payload, dict):
             raise ValueError("Malformed event")
         clinic_id = UUID(settings.messaging_clinic_id)
-        event = provider(settings).normalize_event(payload)
-        if event is not None and event.number in allowlist(settings):
-            await run_in_threadpool(receive_message, session, clinic_id, event)
+        await run_in_threadpool(
+            receive_event, session, clinic_id, provider(settings), payload, allowlist(settings)
+        )
     except ValueError:
         raise HTTPException(422) from None
     except SQLAlchemyError:
