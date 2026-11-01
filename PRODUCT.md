@@ -525,9 +525,10 @@ a change that would go below zero. Each transaction writes one `inventory_transa
 audit event in the same transaction. The item page shows calculated stock, batch quantities,
 and a paginated history; the list shows a Stock column. A clinician can read stock and history
 and cannot use the forms. A receptionist is refused. A batch is a number plus an optional expiry;
-`expired` is calculated from the clinic-local date and is not stored. Expired batches still
-count in stock until S4.4. Items are deactivated, never deleted. Item and batch setup writes
-audit events with field names only (migration `0018`).
+`expired` is calculated from the clinic-local date and is not stored. Total stock includes
+expired batches, while usable stock excludes batches expired before clinic-local today. Items
+are deactivated, never deleted. Item and batch setup writes audit events with field names only
+(migration `0018`).
 
 `inventory_admin` and `clinic_admin` can set visit-type rules on
 `/inventory/rules`: each rule names one active item and a whole quantity from 1 to 1,000
@@ -539,8 +540,8 @@ first and never blocking completion on short stock. Item history shows "Used in 
 with a link to that visit's calendar day. Rule writes and each consumption write audit
 events with field names only. A care session does not consume stock.
 
-S4.4 adds calculated usable stock and low-stock, out-of-stock, expired and expiring-soon
-alerts to inventory list and detail reads. Alerts use the clinic-local date, inactive items show
-none, and list filtering happens before count and paging. No alert state is stored. Inventory
-writers can restock or adjust batches from item detail; clinicians see the same stock attention
+Inventory list and detail reads include calculated usable stock and low-stock, out-of-stock,
+expired and expiring-soon alerts. Alerts use the clinic-local date, inactive items show none,
+and list filtering happens before count and paging. No alert state is stored. Inventory writers
+can restock or adjust batches from item detail; clinicians see the same stock attention
 information without write controls.
