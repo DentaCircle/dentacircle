@@ -19,3 +19,9 @@
   leave the connection unusable for the next call through `:3000/api`. S3.1 relies on the
   8 MiB API limit and the browser pre-check. Next action: decide in hardening whether to
   raise `proxyClientMaxBodySize` or document the limit for operators.
+- **S5.1 live OpenWA verification.** The adapter and inbox were checked with automated tests,
+  a container startup probe and a loopback fake provider, but no dedicated WhatsApp account
+  or test phones were available. Live pairing, send/reply, restart/disconnect behavior and
+  provider licence requirements remain unverified. Next action: when a dedicated test number
+  and phones are available, follow the S5.1 click-through and record the live result; do not
+  use patient data.
