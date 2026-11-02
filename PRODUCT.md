@@ -373,7 +373,7 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 through S4.4 are done. `make dev` starts PostgreSQL, applies migrations, and runs
+S0.1 through S5.1 are done. S5.1 adds a clinic-scoped WhatsApp inbox through a replaceable provider interface, with an optional local OpenWA bridge. Automated checks and local fake-provider proof pass; live pairing, delivery and provider licensing remain deferred until a dedicated test account and phones are available (tracked in `.shipit/open.md`). `make dev` starts PostgreSQL, applies migrations, and runs
 the API and the web app. Sign in at `/login`. The browser posts through the `/api` rewrite,
 so `dc_session` stays on the web origin. The dashboard shows the signed-in user's name,
 roles and clinic from `GET /auth/me`. `/` and `/status` require that session. Create a
