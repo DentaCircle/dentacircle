@@ -117,6 +117,10 @@ def unmarked_routes(application: FastAPI) -> list[str]:
             continue
         if any(getattr(dep.call, "allowed_roles", None) for dep in route.dependant.dependencies):
             continue
+        if route.path == "/integrations/messaging/openwa/events" and any(
+            getattr(dep.call, "credential_protected", False) for dep in route.dependant.dependencies
+        ):
+            continue
         found.append(route.path)
     return sorted(found)
 

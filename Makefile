@@ -1,5 +1,7 @@
 .PHONY: lint typecheck test check db-up db-down api-dev migrate web-dev web-build api-types create-user dev
 
+API_HOST ?= 127.0.0.1
+
 lint:
 	cd apps/api && uv run ruff check . && uv run ruff format --check .
 	cd apps/web && pnpm lint
@@ -25,7 +27,7 @@ db-down:
 	docker compose down
 
 api-dev:
-	cd apps/api && uv run uvicorn dentacircle.main:app --reload --port 8000 --no-access-log
+	cd apps/api && uv run uvicorn dentacircle.main:app --reload --host "$(API_HOST)" --port 8000 --no-access-log
 
 migrate:
 	cd apps/api && uv run alembic upgrade head

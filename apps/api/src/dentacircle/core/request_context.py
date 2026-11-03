@@ -53,11 +53,16 @@ class RequestContextMiddleware:
             await response(scope, receive, send_wrapper)
         finally:
             duration_ms = round((time.perf_counter() - started) * 1000)
+            path = scope["path"]
+            if path.startswith("/patients/"):
+                parts = path.split("/")
+                parts[2] = "{patient_id}"
+                path = "/".join(parts)
             _request_logger.info(
                 "request_id=%s method=%s path=%s status=%s duration_ms=%s",
                 request_id,
                 scope["method"],
-                scope["path"],
+                path,
                 status_code,
                 duration_ms,
             )

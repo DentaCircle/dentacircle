@@ -3,7 +3,7 @@
 The tracker. Phases are made of slices. A slice is one reviewable change, about half a day
 to a day of work, with a visible result. Tick a slice only after `/ship-seal`.
 
-**Now:** S5.1 (not started). S4.4 sealed 2026-10-31. S4.3 sealed 2026-10-26. S4.2 sealed 2026-10-26. S4.1 sealed 2026-10-25. M1 reached 2026-10-06. M3 reached 2026-10-21. S2.8 sealed 2026-10-21. S3.1 sealed 2026-10-23. S3.2 sealed 2026-10-23. S3.3 sealed 2026-10-24.
+**Now:** S5.2. S5.1 sealed 2026-11-03. S4.4 sealed 2026-10-31. S4.3 sealed 2026-10-26. S4.2 sealed 2026-10-26. S4.1 sealed 2026-10-25. M1 reached 2026-10-06. M3 reached 2026-10-21. S2.8 sealed 2026-10-21. S3.1 sealed 2026-10-23. S3.2 sealed 2026-10-23. S3.3 sealed 2026-10-24.
 
 Milestones are demoable. Each one is a real stopping point.
 
@@ -58,7 +58,7 @@ Milestones are demoable. Each one is a real stopping point.
 
 ## Phase 5: Messages and reminders (M4)
 
-- [ ] S5.1 Simulated inbox behind a messaging interface
+- [x] [S5.1 Local WhatsApp inbox](.shipit/slices/S5.1-openwa-inbox.md): replaceable messaging provider interface, local OpenWA adapter and inbox; live account verification deferred
 - [ ] S5.2 Coordinator flow: send message, patient picks a slot, appointment booked
 - [ ] S5.3 Reminders: model, states, due list
 
