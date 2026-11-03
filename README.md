@@ -98,20 +98,32 @@ checked with the dedicated test account. No licence purchase is required or conf
    }
    ```
 
-2. Add `MESSAGING_URL=http://127.0.0.1:8080`, `MESSAGING_API_KEY`,
+2. On native Linux Docker Engine, bind the API only to Docker's host-gateway address so the
+   OpenWA container can reach it without exposing port 8000 on other host interfaces. Find
+   that address and start the app like this (keep the terminal open):
+
+   ```sh
+   API_HOST="$(docker network inspect bridge --format '{{(index .IPAM.Config 0).Gateway}}')" make dev
+   ```
+
+   The OpenWA Compose service maps `host.docker.internal` to Docker's `host-gateway`. Keep
+   host firewall rules enabled and do not bind the API to `0.0.0.0`; the callback secret is
+   still required. On Docker Desktop for macOS/Windows, use the regular `make dev` command.
+
+3. Add `MESSAGING_URL=http://127.0.0.1:8080`, `MESSAGING_API_KEY`,
    `MESSAGING_CALLBACK_SECRET`, `MESSAGING_ACCOUNT` (the session ID), `MESSAGING_CLINIC_ID`
    (the clinic UUID), and comma-separated E.164 `MESSAGING_ALLOWLIST` to the local `.env`.
    The secrets must match the private OpenWA configuration. Restart the API after changes.
-3. Start the regular app with `make dev`. In a separate terminal run
+4. Start the regular app with `make dev`. In a separate terminal run
    `docker compose --profile messaging up -d openwa`, then open `http://127.0.0.1:8080`
    while the provider is waiting for pairing. Scan its QR with the dedicated account. The
    container has logging disabled because this release prints request bodies and its API key;
    do not record or share the QR. Its port is loopback-only.
-4. Open Messages, link an active synthetic patient to an allowlisted saved contact, send a
+5. Open Messages, link an active synthetic patient to an allowlisted saved contact, send a
    test message, reply from the test phone and press Refresh. Sending never marks a follow-up
    or recall contacted. Provider acceptance is not a delivery receipt. An uncertain send must
    be inspected, not blindly retried.
-5. Stop the bridge with `docker compose --profile messaging stop openwa`. The private named
+6. Stop the bridge with `docker compose --profile messaging stop openwa`. The private named
    session volume remains for a restart. To disconnect the account, log out in WhatsApp's
    linked devices; removing the volume destroys the local session and requires pairing again.
 

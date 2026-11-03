@@ -27,32 +27,43 @@ export function Conversation({ patientId, timezone }: { patientId: string; timez
   const [reviewed, setReviewed] = useState(false);
   const attempt = useRef<{ id: string; body: string } | null>(null);
   const inFlight = useRef(false);
+  const loadSequence = useRef(0);
   const root = `/api/patients/${encodeURIComponent(patientId)}`;
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (targetPage = page) => {
+    const sequence = ++loadSequence.current;
     setError("");
     try {
       const options = () => ({ cache: "no-store" as const, signal: AbortSignal.timeout(TIMEOUT_MS) });
       const responses = await Promise.all([
         fetch(root, options()),
         fetch(`${root}/messaging-contact`, options()),
-        fetch(`${root}/messages?page=${page}`, options()),
+        fetch(`${root}/messages?page=${targetPage}`, options()),
         fetch("/api/messaging/connection", options()),
       ]);
       if (responses.some((response) => !response.ok)) {
-        setError(responses.some((response) => response.status === 403)
-          ? "You do not have access to messages."
-          : "Conversation could not be loaded.");
+        if (sequence === loadSequence.current) {
+          setError(responses.some((response) => response.status === 403)
+            ? "You do not have access to messages."
+            : "Conversation could not be loaded.");
+        }
         return false;
       }
       const [patientResponse, contactResponse, historyResponse, connectionResponse] = responses;
-      setPatient(await patientResponse.json() as Patient);
-      setContact(await contactResponse.json() as Contact | null);
-      setHistory(await historyResponse.json() as History);
-      setConnection(await connectionResponse.json() as Connection);
+      const [nextPatient, nextContact, nextHistory, nextConnection] = await Promise.all([
+        patientResponse.json() as Promise<Patient>,
+        contactResponse.json() as Promise<Contact | null>,
+        historyResponse.json() as Promise<History>,
+        connectionResponse.json() as Promise<Connection>,
+      ]);
+      if (sequence !== loadSequence.current) return false;
+      setPatient(nextPatient);
+      setContact(nextContact);
+      setHistory(nextHistory);
+      setConnection(nextConnection);
       return true;
     } catch {
-      setError("Conversation could not be loaded.");
+      if (sequence === loadSequence.current) setError("Conversation could not be loaded.");
       return false;
     }
   }, [root, page]);
@@ -116,8 +127,8 @@ export function Conversation({ patientId, timezone }: { patientId: string; timez
         setBody("");
         setUncertain(false);
         setReviewed(false);
-        setPage(1);
-        await load();
+        if (page === 1) await load(1);
+        else setPage(1);
       } else if ([409, 422, 503].includes(response.status)) {
         attempt.current = null;
         setUncertain(false);

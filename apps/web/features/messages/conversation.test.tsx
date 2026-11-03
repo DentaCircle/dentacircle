@@ -46,6 +46,36 @@ test("uncertain sends reuse the request id for the same submission", async () =>
   expect(second).toEqual(first);
 });
 
+test("sending from a later page reloads page one and ignores an older page response", async () => {
+  let resolveOldPage: ((response: Response) => void) | undefined;
+  const oldPage = new Promise<Response>((resolve) => { resolveOldPage = resolve; });
+  const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    if (init?.method === "POST") return Response.json({ id: "sent" }, { status: 201 });
+    if (path.includes("/messages?page=2")) return oldPage;
+    if (path.includes("/messages?")) return Response.json({
+      items: [{ id: "newest", patient_id: patientId, direction: "outbound", state: "accepted", body: "Newest message", created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", provider_sent_at: null, created_by: { id: "staff", name: "Synthetic Staff" } }],
+      total: 21, page: 1, page_size: 20,
+    });
+    if (path.endsWith("/messaging-contact")) return Response.json({ id: "contact", patient_id: patientId, number: "+15551234567" });
+    if (path.endsWith("/messaging/connection")) return Response.json({ status: "connected", can_send_text: true });
+    return Response.json({ id: patientId, full_name: "Synthetic Example", display_id: "P-0001", status: "active" });
+  });
+  vi.stubGlobal("fetch", fetcher);
+  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" />);
+  await userEvent.click(await screen.findByRole("button", { name: "Next" }));
+  await userEvent.type(await screen.findByLabelText("Message"), "Hello");
+  await userEvent.click(screen.getByRole("button", { name: "Send" }));
+  await waitFor(() => expect(screen.getByText("Page 1")).toBeInTheDocument());
+  expect(await screen.findByText("Newest message")).toBeInTheDocument();
+  resolveOldPage?.(Response.json({
+    items: [{ id: "old", patient_id: patientId, direction: "inbound", state: "received", body: "Older page", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", provider_sent_at: null, created_by: null }],
+    total: 21, page: 2, page_size: 20,
+  }));
+  await waitFor(() => expect(screen.queryByText("Older page")).not.toBeInTheDocument());
+  expect(fetcher.mock.calls.some(([url]) => String(url).includes("/messages?page=1"))).toBe(true);
+});
+
 test("inactive patients can read history but cannot send", async () => {
   setup("inactive");
   expect(await screen.findByText(/This patient is inactive/)).toBeInTheDocument();

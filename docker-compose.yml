@@ -23,6 +23,8 @@ services:
       PORT: "8080"
       W_A_V: "4.76.0"
     init: true
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     command: ["--no-update", "--config", "/config/cli.config.json", "--skip-url-check"]
     ports:
       - "127.0.0.1:8080:8080"
