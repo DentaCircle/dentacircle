@@ -123,6 +123,11 @@ export function Conversation({ patientId, timezone }: { patientId: string; timez
         body: JSON.stringify({ body: attempt.current.body, request_id: attempt.current.id }),
       });
       if (response.ok) {
+        const message = await response.json() as Message;
+        if (message.state === "sending" || message.state === "unknown") {
+          markUncertain();
+          return;
+        }
         attempt.current = null;
         setBody("");
         setUncertain(false);

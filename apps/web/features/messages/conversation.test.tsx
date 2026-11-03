@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, expect, test, vi } from "vitest";
 
@@ -48,15 +48,22 @@ test("uncertain sends reuse the request id for the same submission", async () =>
 
 test("sending from a later page reloads page one and ignores an older page response", async () => {
   let resolveOldPage: ((response: Response) => void) | undefined;
+  let resolveOldPageRead: (() => void) | undefined;
+  const oldPageRead = new Promise<void>((resolve) => { resolveOldPageRead = resolve; });
+  let pageOneLoads = 0;
   const oldPage = new Promise<Response>((resolve) => { resolveOldPage = resolve; });
   const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input);
-    if (init?.method === "POST") return Response.json({ id: "sent" }, { status: 201 });
+    if (init?.method === "POST") return Response.json({ id: "sent", patient_id: patientId, direction: "outbound", state: "accepted", body: "Hello", created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", provider_sent_at: null, created_by: { id: "staff", name: "Synthetic Staff" } }, { status: 201 });
     if (path.includes("/messages?page=2")) return oldPage;
-    if (path.includes("/messages?")) return Response.json({
-      items: [{ id: "newest", patient_id: patientId, direction: "outbound", state: "accepted", body: "Newest message", created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", provider_sent_at: null, created_by: { id: "staff", name: "Synthetic Staff" } }],
-      total: 21, page: 1, page_size: 20,
-    });
+    if (path.includes("/messages?")) {
+      pageOneLoads += 1;
+      const body = pageOneLoads === 1 ? "Initial history" : "Newest message";
+      return Response.json({
+        items: [{ id: `page-one-${pageOneLoads}`, patient_id: patientId, direction: "outbound", state: "accepted", body, created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", provider_sent_at: null, created_by: { id: "staff", name: "Synthetic Staff" } }],
+        total: 21, page: 1, page_size: 20,
+      });
+    }
     if (path.endsWith("/messaging-contact")) return Response.json({ id: "contact", patient_id: patientId, number: "+15551234567" });
     if (path.endsWith("/messaging/connection")) return Response.json({ status: "connected", can_send_text: true });
     return Response.json({ id: patientId, full_name: "Synthetic Example", display_id: "P-0001", status: "active" });
@@ -66,14 +73,58 @@ test("sending from a later page reloads page one and ignores an older page respo
   await userEvent.click(await screen.findByRole("button", { name: "Next" }));
   await userEvent.type(await screen.findByLabelText("Message"), "Hello");
   await userEvent.click(screen.getByRole("button", { name: "Send" }));
-  await waitFor(() => expect(screen.getByText("Page 1")).toBeInTheDocument());
+  await waitFor(() => {
+    expect(screen.getByText("Page 1")).toBeInTheDocument();
+    expect(pageOneLoads).toBe(2);
+  });
   expect(await screen.findByText("Newest message")).toBeInTheDocument();
-  resolveOldPage?.(Response.json({
-    items: [{ id: "old", patient_id: patientId, direction: "inbound", state: "received", body: "Older page", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", provider_sent_at: null, created_by: null }],
-    total: 21, page: 2, page_size: 20,
-  }));
-  await waitFor(() => expect(screen.queryByText("Older page")).not.toBeInTheDocument());
-  expect(fetcher.mock.calls.some(([url]) => String(url).includes("/messages?page=1"))).toBe(true);
+  await act(async () => {
+    const staleResponse = Response.json({
+      items: [{ id: "old", patient_id: patientId, direction: "inbound", state: "received", body: "Older page", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", provider_sent_at: null, created_by: null }],
+      total: 21, page: 2, page_size: 20,
+    });
+    const readJson = staleResponse.json.bind(staleResponse);
+    Object.defineProperty(staleResponse, "json", {
+      value: async () => {
+        const data = await readJson();
+        resolveOldPageRead?.();
+        return data;
+      },
+    });
+    resolveOldPage?.(staleResponse);
+    await oldPage;
+    await oldPageRead;
+    await Promise.resolve();
+  });
+  expect(screen.getByText("Newest message")).toBeInTheDocument();
+  expect(screen.queryByText("Older page")).not.toBeInTheDocument();
+  expect(fetcher.mock.calls.filter(([url]) => String(url).includes("/messages?page=1"))).toHaveLength(2);
+});
+
+test.each(["sending", "unknown"])("keeps the same request after a %s replay", async (state) => {
+  const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    if (init?.method === "POST") {
+      return Response.json({ id: "attempt", patient_id: patientId, direction: "outbound", state, body: "Hello", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", provider_sent_at: null, created_by: null });
+    }
+    if (path.endsWith("/messaging-contact")) return Response.json({ id: "contact", patient_id: patientId, number: "+15551234567" });
+    if (path.includes("/messages?")) return Response.json({ items: [], total: 0, page: 1, page_size: 20 });
+    if (path.endsWith("/messaging/connection")) return Response.json({ status: "connected", can_send_text: true });
+    return Response.json({ id: patientId, full_name: "Synthetic Example", display_id: "P-0001", status: "active" });
+  });
+  vi.stubGlobal("fetch", fetcher);
+  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" />);
+  const input = await screen.findByLabelText("Message");
+  await userEvent.type(input, "Hello");
+  await userEvent.click(screen.getByRole("button", { name: "Send" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("uncertain");
+  expect(input).toHaveValue("Hello");
+  expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await userEvent.click(screen.getByRole("button", { name: "Send" }));
+  const posts = fetcher.mock.calls.filter(([, init]) => init?.method === "POST");
+  expect(posts).toHaveLength(2);
+  expect(JSON.parse(String(posts[1][1]?.body))).toEqual(JSON.parse(String(posts[0][1]?.body)));
 });
 
 test("inactive patients can read history but cannot send", async () => {
