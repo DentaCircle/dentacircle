@@ -4,10 +4,12 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import (
+    BigInteger,
     CheckConstraint,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
+    Identity,
     Index,
     Text,
     UniqueConstraint,
@@ -54,17 +56,46 @@ class Message(Base):
         ForeignKeyConstraint(
             ["created_by_user_id", "clinic_id"], ["app_user.id", "app_user.clinic_id"]
         ),
+        UniqueConstraint("id", "clinic_id", name="uq_message_id_clinic"),
+        UniqueConstraint("clinic_id", "caused_by_message_id", name="uq_message_cause"),
+        ForeignKeyConstraint(
+            ["caused_by_message_id", "clinic_id"],
+            ["message.id", "message.clinic_id"],
+            name="fk_message_cause",
+        ),
         UniqueConstraint("clinic_id", "request_id", name="uq_message_request"),
         UniqueConstraint(
             "clinic_id", "account_key", "provider_message_id", name="uq_message_provider_id"
         ),
         CheckConstraint("char_length(body) BETWEEN 1 AND 2000", name="body_length"),
         CheckConstraint(
-            "(direction = 'inbound' AND state = 'received' AND created_by_user_id IS NULL "
-            "AND request_id IS NULL AND provider_message_id IS NOT NULL) OR "
-            "(direction = 'outbound' AND state IN ('sending', 'accepted', 'failed', 'unknown') "
-            "AND created_by_user_id IS NOT NULL AND request_id IS NOT NULL)",
+            "(origin = 'provider' AND direction = 'inbound' AND state = 'received' "
+            "AND created_by_user_id IS NULL AND request_id IS NULL "
+            "AND provider_message_id IS NOT NULL AND caused_by_message_id IS NULL) OR "
+            "(origin = 'staff' AND direction = 'outbound' "
+            "AND state IN ('sending', 'accepted', 'failed', 'unknown') "
+            "AND created_by_user_id IS NOT NULL AND request_id IS NOT NULL "
+            "AND caused_by_message_id IS NULL) OR "
+            "(origin = 'automation' AND direction = 'outbound' "
+            "AND state IN ('queued', 'sending', 'accepted', 'failed', 'unknown', 'superseded') "
+            "AND created_by_user_id IS NULL AND request_id IS NULL "
+            "AND caused_by_message_id IS NOT NULL)",
             name="direction_state_actor",
+        ),
+        CheckConstraint(
+            "(origin = 'automation' AND state = 'sending' "
+            "AND dispatch_owner IS NOT NULL AND dispatch_deadline_at IS NOT NULL) OR "
+            "((origin != 'automation' OR state != 'sending') AND dispatch_owner IS NULL "
+            "AND dispatch_deadline_at IS NULL)",
+            name="dispatch_claim",
+        ),
+        Index("ix_message_dispatch_order", "clinic_id", "contact_id", "dispatch_order"),
+        Index(
+            "ix_message_dispatch_claim",
+            "clinic_id",
+            "contact_id",
+            "dispatch_deadline_at",
+            postgresql_where="state = 'sending' AND dispatch_owner IS NOT NULL",
         ),
         Index(
             "ix_message_contact_order", "clinic_id", "contact_id", desc("created_at"), desc("id")
@@ -76,6 +107,11 @@ class Message(Base):
     contact_id: Mapped[UUID] = mapped_column()
     account_key: Mapped[str] = mapped_column(Text)
     direction: Mapped[str] = mapped_column(Text)
+    origin: Mapped[str] = mapped_column(Text)
+    caused_by_message_id: Mapped[UUID | None] = mapped_column()
+    dispatch_order: Mapped[int] = mapped_column(BigInteger, Identity(always=True))
+    dispatch_owner: Mapped[UUID | None] = mapped_column()
+    dispatch_deadline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     body: Mapped[str] = mapped_column(Text)
     state: Mapped[str] = mapped_column(Text)
     created_by_user_id: Mapped[UUID | None] = mapped_column()

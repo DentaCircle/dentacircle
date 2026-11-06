@@ -4,6 +4,10 @@
 require DATABASE_URL. Uvicorn loads `dentacircle.main:app`.
 """
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from uuid import UUID
+
 from fastapi import FastAPI
 from starlette.types import Receive, Scope, Send
 
@@ -25,15 +29,51 @@ from dentacircle.api.recalls import router as recalls_router
 from dentacircle.api.resource_rules import router as resource_rules_router
 from dentacircle.api.timeline import router as timeline_router
 from dentacircle.core.config import get_settings
+from dentacircle.core.database import get_engine
 from dentacircle.core.errors import register_exception_handlers
 from dentacircle.core.logging import configure_logging
 from dentacircle.core.request_context import RequestContextMiddleware
+from dentacircle.integrations.messaging.openwa import OpenWaMessagingProvider
+from dentacircle.services.automatic_dispatch_runtime import Dispatcher
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level)
-    application = FastAPI()
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        dispatcher: Dispatcher | None = None
+        allowlist = {
+            number.strip() for number in settings.messaging_allowlist.split(",") if number.strip()
+        }
+        if (
+            settings.messaging_url
+            and settings.messaging_api_key
+            and settings.messaging_account
+            and settings.messaging_callback_secret
+            and settings.messaging_clinic_id
+            and allowlist
+        ):
+            try:
+                clinic_id = UUID(settings.messaging_clinic_id)
+            except ValueError:
+                clinic_id = None
+            if clinic_id is not None:
+                provider = OpenWaMessagingProvider(
+                    settings.messaging_url, settings.messaging_api_key, settings.messaging_account
+                )
+                dispatcher = Dispatcher(
+                    get_engine(), provider, clinic_id, settings.messaging_account, allowlist
+                )
+                dispatcher.start()
+        try:
+            yield
+        finally:
+            if dispatcher is not None:
+                dispatcher.stop()
+
+    application = FastAPI(lifespan=lifespan)
     register_exception_handlers(application)
     application.add_middleware(RequestContextMiddleware)
     application.include_router(health_router)

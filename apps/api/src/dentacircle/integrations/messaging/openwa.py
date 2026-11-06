@@ -43,7 +43,7 @@ class OpenWaMessagingProvider:
         connected = isinstance(result, dict) and result.get("response") is True
         return Connection("connected" if connected else "disconnected", connected)
 
-    def send_text(self, number: str, body: str) -> SendStatus:
+    def send_text(self, number: str, body: str, *, fence_fd: int | None = None) -> SendStatus:
         try:
             result = self._call("sendText", {"to": number[1:] + "@c.us", "content": body})
         except HTTPError as exc:

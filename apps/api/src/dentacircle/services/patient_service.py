@@ -153,7 +153,9 @@ def set_patient_status(
     status: str,
 ) -> PatientView:
     checked = check_status(status)
-    row = PatientRepository(session, clinic_id).get(patient_id, lock=True)
+    patients = PatientRepository(session, clinic_id)
+    patients.lock_status_gate(patient_id)
+    row = patients.get(patient_id, lock=True)
     if row is None:
         raise PatientNotFoundError
     changed = changed_field_names({"status": row.status}, {"status": checked})

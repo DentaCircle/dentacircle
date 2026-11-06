@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { messageActor, messageState } from "@/features/messages/message-labels";
+
 import type { components } from "@/lib/api/schema";
 
 type InboxPage = components["schemas"]["InboxPage"];
@@ -61,7 +63,7 @@ export function Inbox({ timezone }: { timezone: string }) {
                 {row.patient.status === "inactive" ? <span> · Inactive</span> : null}
                 <p className="whitespace-pre-wrap break-words">{row.latest_message.body}</p>
                 <p className="text-sm text-muted-foreground">
-                  {row.message_count} messages · {new Date(row.latest_message.created_at).toLocaleString("en-IN", { timeZone: timezone })}
+                  {messageActor(row.latest_message)} · {messageState(row.latest_message)} · {row.message_count} messages · {new Date(row.latest_message.created_at).toLocaleString("en-IN", { timeZone: timezone })}
                 </p>
               </li>
             ))}

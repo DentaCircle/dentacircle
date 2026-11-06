@@ -69,6 +69,13 @@ class AppointmentRepository:
         appointment, patient, clinician, appointment_type = row
         return appointment, patient, clinician, appointment_type
 
+    def patient_id_for_appointment(self, appointment_id: UUID) -> UUID | None:
+        return self._session.scalar(
+            select(Appointment.patient_id).where(
+                Appointment.clinic_id == self._clinic_id, Appointment.id == appointment_id
+            )
+        )
+
     def get_for_update(self, appointment_id: UUID) -> Appointment | None:
         """Lock the row so a cancel and a move of the same visit cannot pass each other."""
         statement = (

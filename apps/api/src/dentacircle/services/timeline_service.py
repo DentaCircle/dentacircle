@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
+from typing import Literal
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -13,6 +14,7 @@ from dentacircle.repositories.clinic_day_repository import ClinicDayRepository
 from dentacircle.repositories.patient_repository import PatientRepository
 from dentacircle.repositories.timeline_repository import TimelineRepository
 from dentacircle.services.clinic_day_service import ClinicNotFoundError
+from dentacircle.services.whatsapp_actor import WhatsAppActor, require_patient
 
 
 class UnknownTimelineKindError(Exception):
@@ -25,8 +27,9 @@ class TimelineSubjectError(Exception):
 
 @dataclass(frozen=True)
 class ActorView:
-    id: UUID
+    id: UUID | None
     name: str
+    kind: Literal["staff", "whatsapp"]
 
 
 @dataclass(frozen=True)
@@ -103,7 +106,7 @@ class TimelinePage:
 def record(
     session: Session,
     clinic_id: UUID,
-    actor_user_id: UUID,
+    actor_user_id: UUID | WhatsAppActor,
     patient_id: UUID,
     kind: str,
     *,
@@ -117,6 +120,7 @@ def record(
     occurred_at: datetime | None = None,
 ) -> None:
     """Append one step in the caller's transaction. The row is not updated later."""
+    require_patient(session, actor_user_id, clinic_id, patient_id)
     if kind not in TIMELINE_KINDS:
         raise UnknownTimelineKindError
     subjects = {
@@ -134,7 +138,11 @@ def record(
         TimelineEvent(
             id=uuid4(),
             patient_id=patient_id,
-            actor_user_id=actor_user_id,
+            actor_user_id=actor_user_id if isinstance(actor_user_id, UUID) else None,
+            actor_kind="staff" if isinstance(actor_user_id, UUID) else "whatsapp",
+            actor_message_id=actor_user_id.message_id
+            if isinstance(actor_user_id, WhatsAppActor)
+            else None,
             kind=kind,
             occurred_at=moment,
             appointment_id=appointment_id,
@@ -198,7 +206,9 @@ class _Loaded:
 
 def _loaded(repository: TimelineRepository, rows: list[TimelineEvent]) -> _Loaded:
     return _Loaded(
-        actors=repository.actor_names({row.actor_user_id for row in rows}),
+        actors=repository.actor_names(
+            {row.actor_user_id for row in rows if row.actor_user_id is not None}
+        ),
         visits=repository.visits(
             {row.appointment_id for row in rows if row.appointment_id is not None}
         ),
@@ -222,14 +232,24 @@ def _loaded(repository: TimelineRepository, rows: list[TimelineEvent]) -> _Loade
 
 
 def _item(row: TimelineEvent, zone: ZoneInfo, loaded: _Loaded) -> TimelineItemView:
-    name = loaded.actors.get(row.actor_user_id)
+    name = (
+        "Patient via WhatsApp"
+        if row.actor_kind == "whatsapp"
+        else loaded.actors.get(row.actor_user_id)
+        if row.actor_user_id is not None
+        else None
+    )
     if name is None:
         raise RuntimeError("timeline event points at a missing actor")
     return TimelineItemView(
         id=row.id,
         kind=row.kind,
         occurred_at=row.occurred_at.astimezone(zone),
-        actor=ActorView(id=row.actor_user_id, name=name),
+        actor=ActorView(
+            id=row.actor_user_id,
+            name=name,
+            kind="whatsapp" if row.actor_kind == "whatsapp" else "staff",
+        ),
         subject=_subject(row, zone, loaded),
     )
 

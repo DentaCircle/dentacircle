@@ -49,6 +49,7 @@ from dentacircle.services.inventory_service import consume_for_completed_visit
 from dentacircle.services.patient_service import PatientNotFoundError
 from dentacircle.services.recall_service import record_recall, release_booked_recall
 from dentacircle.services.timeline_service import record as record_timeline
+from dentacircle.services.whatsapp_actor import WhatsAppActor, require_patient
 
 _EXCLUSION_VIOLATION = "23P01"
 _CLINICIAN_OVERLAP = "ex_appointment_no_overlap"
@@ -182,6 +183,17 @@ def get_appointment(
     return _require_detail(session, clinic_id, appointment_id, zone)
 
 
+def _lock_visit_patient(session: Session, clinic_id: UUID, appointment_id: UUID) -> None:
+    patient_id = AppointmentRepository(session, clinic_id).patient_id_for_appointment(
+        appointment_id
+    )
+    if (
+        patient_id is None
+        or PatientRepository(session, clinic_id).get(patient_id, lock=True) is None
+    ):
+        raise AppointmentNotFoundError
+
+
 def cancel_appointment(
     session: Session,
     clinic_id: UUID,
@@ -195,6 +207,7 @@ def cancel_appointment(
     del now
     zone, _timezone_name, _default_minutes = _clinic_clock(session, clinic_id)
     repository = AppointmentRepository(session, clinic_id)
+    _lock_visit_patient(session, clinic_id, appointment_id)
     row = repository.get_for_update(appointment_id)
     if row is None:
         raise AppointmentNotFoundError
@@ -238,10 +251,11 @@ def change_status(
     """Lock the visit, apply one allowed status move, and write one audit event.
 
     Completing the visit may also create or update a follow-up in this same transaction.
-    The patient row is locked only after this visit row.
+    The patient row is locked before this visit row.
     """
     zone, _timezone_name, _default_minutes = _clinic_clock(session, clinic_id)
     repository = AppointmentRepository(session, clinic_id)
+    _lock_visit_patient(session, clinic_id, appointment_id)
     row = repository.get_for_update(appointment_id)
     if row is None:
         raise AppointmentNotFoundError
@@ -363,6 +377,7 @@ def reschedule_appointment(
 ) -> CalendarItemView:
     zone, _timezone_name, _default_minutes = _clinic_clock(session, clinic_id)
     repository = AppointmentRepository(session, clinic_id)
+    _lock_visit_patient(session, clinic_id, appointment_id)
     row = repository.get_for_update(appointment_id)
     if row is None:
         raise AppointmentNotFoundError
@@ -427,7 +442,7 @@ def reschedule_appointment(
 def book_appointment(
     session: Session,
     clinic_id: UUID,
-    actor_user_id: UUID,
+    actor_user_id: UUID | WhatsAppActor,
     patient_id: UUID,
     clinician_id: UUID,
     appointment_type_id: UUID,
@@ -436,6 +451,7 @@ def book_appointment(
 ) -> AppointmentView:
     zone, _timezone_name, default_minutes = _clinic_clock(session, clinic_id)
     _require_patient(session, clinic_id, patient_id)
+    require_patient(session, actor_user_id, clinic_id, patient_id)
     clinician = _require_clinician(session, clinic_id, clinician_id)
     appointment_type = _require_type(session, clinic_id, appointment_type_id)
     if starts_at.tzinfo is None or starts_at.utcoffset() is None:
@@ -517,7 +533,7 @@ def list_upcoming(
 
 
 def _require_patient(session: Session, clinic_id: UUID, patient_id: UUID) -> None:
-    patient = PatientRepository(session, clinic_id).get(patient_id)
+    patient = PatientRepository(session, clinic_id).get(patient_id, lock=True)
     if patient is None:
         raise AppointmentFieldError("patient_id", "unknown")
     if patient.status != "active":

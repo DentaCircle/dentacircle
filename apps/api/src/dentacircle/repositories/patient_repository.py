@@ -1,9 +1,13 @@
 """Reads and writes for one clinic's patients. Every method takes that clinic."""
 
+import hashlib
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import and_, false, func, select, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.elements import ColumnElement
 
@@ -12,10 +16,35 @@ from dentacircle.domain.patient import SearchFilter
 from dentacircle.models.patient import Patient
 
 
+def _status_gate_key(clinic_id: UUID, patient_id: UUID) -> int:
+    digest = hashlib.blake2b(clinic_id.bytes + patient_id.bytes, digest_size=8).digest()
+    return int.from_bytes(digest, byteorder="big", signed=True)
+
+
+@contextmanager
+def send_status_gate(engine: Engine, clinic_id: UUID, patient_id: UUID) -> Iterator[None]:
+    """Hold a session advisory gate, without an open transaction, during a send."""
+    key = _status_gate_key(clinic_id, patient_id)
+    with engine.connect() as connection:
+        connection.execute(select(func.pg_advisory_lock(key)))
+        connection.commit()
+        try:
+            yield
+        finally:
+            connection.execute(select(func.pg_advisory_unlock(key)))
+            connection.commit()
+
+
 class PatientRepository:
     def __init__(self, session: Session, clinic_id: UUID) -> None:
         self._session = session
         self._clinic_id = clinic_id
+
+    def lock_status_gate(self, patient_id: UUID) -> None:
+        """Serialize a status change with a provider send through commit."""
+        self._session.execute(
+            select(func.pg_advisory_xact_lock(_status_gate_key(self._clinic_id, patient_id)))
+        )
 
     def allocate_number(self) -> int:
         """Take the next number. The upsert locks this clinic's counter row until commit."""
@@ -38,7 +67,7 @@ class PatientRepository:
     def get(self, patient_id: UUID, *, lock: bool = False) -> Patient | None:
         statement = scoped_select(Patient, self._clinic_id).where(Patient.id == patient_id)
         if lock:
-            statement = statement.with_for_update()
+            statement = statement.with_for_update().execution_options(populate_existing=True)
         return cast(Patient | None, self._session.scalar(statement))
 
     def search(

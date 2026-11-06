@@ -1048,16 +1048,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** ActorBody */
-        ActorBody: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-        };
         /** AdjustmentBody */
         AdjustmentBody: {
             /** Quantity Change */
@@ -1779,7 +1769,7 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            created_by: components["schemas"]["ActorBody"];
+            created_by: components["schemas"]["dentacircle__api__lab_work__ActorBody"];
             /** Expected On */
             expected_on: string | null;
             /**
@@ -1851,7 +1841,7 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            created_by: components["schemas"]["ActorBody"] | null;
+            created_by: components["schemas"]["dentacircle__api__messaging__ActorBody"] | null;
             /**
              * Direction
              * @enum {string}
@@ -1863,6 +1853,11 @@ export interface components {
              */
             id: string;
             /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "staff" | "provider" | "automation";
+            /**
              * Patient Id
              * Format: uuid
              */
@@ -1873,7 +1868,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "received" | "sending" | "accepted" | "failed" | "unknown";
+            state: "received" | "queued" | "sending" | "accepted" | "failed" | "unknown" | "superseded";
             /**
              * Updated At
              * Format: date-time
@@ -2254,7 +2249,7 @@ export interface components {
         };
         /** TimelineItemBody */
         TimelineItemBody: {
-            actor: components["schemas"]["ActorBody"];
+            actor: components["schemas"]["dentacircle__api__timeline__ActorBody"];
             /**
              * Id
              * Format: uuid
@@ -2450,6 +2445,16 @@ export interface components {
              */
             status: "active" | "inactive";
         };
+        /** ActorBody */
+        dentacircle__api__lab_work__ActorBody: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** StatusBody */
         dentacircle__api__lab_work__StatusBody: {
             /**
@@ -2457,6 +2462,28 @@ export interface components {
              * @enum {string}
              */
             status: "pending" | "ready" | "collected" | "cancelled";
+        };
+        /** ActorBody */
+        dentacircle__api__messaging__ActorBody: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** ActorBody */
+        dentacircle__api__timeline__ActorBody: {
+            /** Id */
+            id: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "staff" | "whatsapp";
+            /** Name */
+            name: string;
         };
     };
     responses: never;

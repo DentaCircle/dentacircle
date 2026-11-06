@@ -10,7 +10,7 @@ function setup(status = "active", body = "<b>not markup</b>") {
     const path = String(input);
     if (init?.method === "POST") throw new Error("network failed");
     if (path.endsWith("/messaging-contact")) return Response.json({ id: "contact", patient_id: patientId, number: "+15551234567" });
-    if (path.includes("/messages?")) return Response.json({ items: [{ id: "message", patient_id: patientId, direction: "inbound", state: "received", body, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", provider_sent_at: null, created_by: null }], total: 1, page: 1, page_size: 20 });
+    if (path.includes("/messages?")) return Response.json({ items: [{ id: "message", patient_id: patientId, direction: "inbound", origin: "provider", state: "received", body, created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", provider_sent_at: null, created_by: null }], total: 1, page: 1, page_size: 20 });
     if (path.endsWith("/messaging/connection")) return Response.json({ status: "connected", can_send_text: true });
     return Response.json({ id: patientId, full_name: "Synthetic Example", display_id: "P-0001", status });
   });
@@ -54,13 +54,13 @@ test("sending from a later page reloads page one and ignores an older page respo
   const oldPage = new Promise<Response>((resolve) => { resolveOldPage = resolve; });
   const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input);
-    if (init?.method === "POST") return Response.json({ id: "sent", patient_id: patientId, direction: "outbound", state: "accepted", body: "Hello", created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", provider_sent_at: null, created_by: { id: "staff", name: "Synthetic Staff" } }, { status: 201 });
+    if (init?.method === "POST") return Response.json({ id: "sent", patient_id: patientId, direction: "outbound", origin: "staff", state: "accepted", body: "Hello", created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", provider_sent_at: null, created_by: { id: "staff", name: "Synthetic Staff" } }, { status: 201 });
     if (path.includes("/messages?page=2")) return oldPage;
     if (path.includes("/messages?")) {
       pageOneLoads += 1;
       const body = pageOneLoads === 1 ? "Initial history" : "Newest message";
       return Response.json({
-        items: [{ id: `page-one-${pageOneLoads}`, patient_id: patientId, direction: "outbound", state: "accepted", body, created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", provider_sent_at: null, created_by: { id: "staff", name: "Synthetic Staff" } }],
+        items: [{ id: `page-one-${pageOneLoads}`, patient_id: patientId, direction: "outbound", origin: "staff", state: "accepted", body, created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z", provider_sent_at: null, created_by: { id: "staff", name: "Synthetic Staff" } }],
         total: 21, page: 1, page_size: 20,
       });
     }
@@ -80,7 +80,7 @@ test("sending from a later page reloads page one and ignores an older page respo
   expect(await screen.findByText("Newest message")).toBeInTheDocument();
   await act(async () => {
     const staleResponse = Response.json({
-      items: [{ id: "old", patient_id: patientId, direction: "inbound", state: "received", body: "Older page", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", provider_sent_at: null, created_by: null }],
+      items: [{ id: "old", patient_id: patientId, direction: "inbound", origin: "provider", state: "received", body: "Older page", created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", provider_sent_at: null, created_by: null }],
       total: 21, page: 2, page_size: 20,
     });
     const readJson = staleResponse.json.bind(staleResponse);

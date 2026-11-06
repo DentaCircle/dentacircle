@@ -13,6 +13,7 @@ import {
   listInventoryItems,
   listDocumentsInBrowser,
   listPatients,
+  listTimeline,
   uploadDocument,
 } from "@/lib/api/client";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/api/errors";
@@ -484,4 +485,17 @@ test("inventory reads validate alert fields and send the alert filter", async ()
   expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("alert=attention"), expect.anything());
   stubFetch(jsonResponse(200, { items: [{ ...item, alerts: ["unknown"] }], total: 1, page: 1, page_size: 20 }));
   expect((await listInventoryItems("dc_session=x", "active", "", "", 1)).ok).toBe(false);
+});
+
+
+test("timeline accepts a patient WhatsApp actor with no staff id", async () => {
+  stubFetch(jsonResponse(200, { items: [{ id: "event", kind: "patient_registered",
+    occurred_at: "2026-01-01T00:00:00Z",
+    actor: { id: null, name: "Patient via WhatsApp", kind: "whatsapp" }, subject: null }],
+    total: 1, page: 1, page_size: 20 }));
+  const result = await listTimeline("session", "patient", 1);
+  expect(result.ok).toBe(true);
+  if (result.ok) expect(result.data.items[0].actor).toEqual({
+    id: null, name: "Patient via WhatsApp", kind: "whatsapp",
+  });
 });

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from dentacircle.domain.audit import AUDIT_ACTIONS
 from dentacircle.models.audit_event import AuditEvent
 from dentacircle.repositories.audit_repository import AuditRepository
+from dentacircle.services.whatsapp_actor import WhatsAppActor
 
 
 class UnknownAuditActionError(Exception):
@@ -16,7 +17,7 @@ class UnknownAuditActionError(Exception):
 def record(
     session: Session,
     clinic_id: UUID,
-    actor_user_id: UUID,
+    actor_user_id: UUID | WhatsAppActor,
     entity_type: str,
     entity_id: UUID,
     action: str,
@@ -27,7 +28,11 @@ def record(
     AuditRepository(session, clinic_id).add(
         AuditEvent(
             id=uuid4(),
-            actor_user_id=actor_user_id,
+            actor_user_id=actor_user_id if isinstance(actor_user_id, UUID) else None,
+            actor_kind="staff" if isinstance(actor_user_id, UUID) else "whatsapp",
+            actor_message_id=actor_user_id.message_id
+            if isinstance(actor_user_id, WhatsAppActor)
+            else None,
             entity_type=entity_type,
             entity_id=entity_id,
             action=action,

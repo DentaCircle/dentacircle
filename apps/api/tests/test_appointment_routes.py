@@ -74,6 +74,24 @@ def test_extra_fields_are_rejected_and_not_echoed(api: TestClient) -> None:
     assert _appointment_count() == 0
 
 
+def test_forged_whatsapp_actor_fields_are_rejected(api: TestClient) -> None:
+    patient_id, clinician_id, type_id = _ids(api)
+    response = api.post(
+        "/appointments",
+        cookies=_cookie(api),
+        json={
+            "patient_id": patient_id,
+            "clinician_id": clinician_id,
+            "appointment_type_id": type_id,
+            "starts_at": _future_at(10, 0).isoformat(),
+            "actor_kind": "whatsapp",
+            "actor_message_id": str(uuid4()),
+        },
+    )
+    assert response.status_code == 422
+    assert _appointment_count() == 0
+
+
 def test_each_bad_start_names_the_field_and_hides_the_value(api: TestClient) -> None:
     patient_id, clinician_id, type_id = _ids(api)
     day = _future_at(10, 0).date().isoformat()

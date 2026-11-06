@@ -20,7 +20,7 @@ class FakeProvider:
     def connection(self) -> Connection:
         return Connection("connected", True)
 
-    def send_text(self, number: str, body: str) -> SendStatus:
+    def send_text(self, number: str, body: str, *, fence_fd: int | None = None) -> SendStatus:
         self.calls.append((number, body))
         return "accepted"
 
@@ -141,7 +141,7 @@ def test_attempt_and_audit_exist_before_dispatch_and_state_is_audited(database: 
     clinic = world()
 
     class InspectProvider(FakeProvider):
-        def send_text(self, number: str, body: str) -> SendStatus:
+        def send_text(self, number: str, body: str, *, fence_fd: int | None = None) -> SendStatus:
             with Session(get_engine()) as other:
                 row = other.scalar(select(Message).where(Message.clinic_id == clinic.clinic_id))
                 assert row is not None and row.state == "sending"
@@ -244,7 +244,7 @@ def test_concurrent_replay_dispatches_once(database: str) -> None:
     provider = FakeProvider()
 
     class ConcurrentProvider(FakeProvider):
-        def send_text(self, number: str, body: str) -> SendStatus:
+        def send_text(self, number: str, body: str, *, fence_fd: int | None = None) -> SendStatus:
             with lock:
                 provider.calls.append((number, body))
             return "accepted"
@@ -434,6 +434,7 @@ def test_history_pagination_and_ties_are_stable(database: str) -> None:
                     contact_id=contact.id,
                     account_key="demo",
                     direction="inbound",
+                    origin="provider",
                     body="Synthetic text",
                     state="received",
                     provider_message_id=f"id-{index}",
@@ -474,6 +475,7 @@ def test_contact_account_foreign_key_rejects_mismatch(database: str) -> None:
                 contact_id=contact.id,
                 account_key="different",
                 direction="inbound",
+                origin="provider",
                 body="Synthetic text",
                 state="received",
                 provider_message_id="id-1",

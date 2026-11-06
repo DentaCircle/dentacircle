@@ -53,7 +53,8 @@ def test_get_returns_the_page_newest_first(api: TestClient) -> None:
     assert set(item) == {"id", "kind", "occurred_at", "actor", "subject"}
     assert item["kind"] == "patient_registered"
     assert item["subject"] is None
-    assert set(item["actor"]) == {"id", "name"}
+    assert set(item["actor"]) == {"id", "name", "kind"}
+    assert item["actor"]["kind"] == "staff"
     assert item["actor"]["name"] == "Synthetic Person"
     assert "Sample" not in found.text
 

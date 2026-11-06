@@ -1,5 +1,7 @@
 "use client";
 
+import { messageActor, messageState } from "@/features/messages/message-labels";
+
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 
 import { PatientWorkspace } from "@/features/patients/patient-workspace";
@@ -204,9 +206,8 @@ export function Conversation({ patientId, timezone }: { patientId: string; timez
 }
 
 function MessageRow({ message, timezone }: { message: Message; timezone: string }) {
-  const actor = message.direction === "inbound" ? "Patient via WhatsApp" : message.created_by?.name ?? "Staff";
-  const state = message.state === "sending" ? "Sending outcome unconfirmed" :
-    message.state === "accepted" ? "Accepted by provider" : message.state;
+  const actor = messageActor(message);
+  const state = messageState(message);
   return (
     <li className="rounded border p-3">
       <p className="text-sm text-muted-foreground">
