@@ -4,6 +4,7 @@ import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Literal
 from uuid import UUID, uuid4
 
 from sqlalchemy.exc import IntegrityError
@@ -13,6 +14,7 @@ from dentacircle.integrations.messaging.base import Connection, IncomingText, Me
 from dentacircle.integrations.messaging.contact_fence import contact_fence
 from dentacircle.models.messaging import Message, MessagingContact
 from dentacircle.models.patient import Patient
+from dentacircle.repositories.clinic_day_repository import ClinicDayRepository
 from dentacircle.repositories.messaging_repository import MessagingRepository
 from dentacircle.repositories.patient_repository import PatientRepository, send_status_gate
 from dentacircle.services.audit_service import record
@@ -23,6 +25,7 @@ from dentacircle.services.whatsapp_actor import (
     WhatsAppActor,
     resolve_actor,
 )
+from dentacircle.services.whatsapp_automation_service import transition
 
 
 class ContactConflict(Exception):
@@ -91,10 +94,10 @@ def list_history(
 
 def list_inbox(
     session: Session, clinic_id: UUID, page: int, page_size: int
-) -> tuple[list[tuple[Patient, MessageView, int]], int]:
+) -> tuple[list[tuple[Patient, MessageView, int, str]], int]:
     repo = MessagingRepository(session, clinic_id)
     rows, total = repo.inbox(page, page_size)
-    return [(patient, _view(repo, row), count) for patient, row, count in rows], total
+    return [(patient, _view(repo, row), count, state) for patient, row, count, state in rows], total
 
 
 def link_contact(
@@ -143,6 +146,10 @@ def link_contact(
     return row
 
 
+def invitation_text(clinic_name: str) -> str:
+    return f"Hello from {clinic_name}. Reply BOOK to choose an appointment time."
+
+
 def send_message(
     session: Session,
     provider: MessagingProvider,
@@ -153,6 +160,8 @@ def send_message(
     request_id: UUID,
     account: str,
     allowlist: set[str],
+    *,
+    purpose: Literal["chat", "booking_invitation"] = "chat",
 ) -> tuple[MessageView, bool]:
     body = body.strip()
     if not 1 <= len(body) <= 2000:
@@ -167,11 +176,20 @@ def send_message(
         contact = repository.contact_for_patient(patient_id)
         prior = repository.by_request(request_id)
         if prior is not None:
-            if contact is None or prior.contact_id != contact.id or prior.body != body:
+            if (
+                contact is None
+                or prior.contact_id != contact.id
+                or prior.body != body
+                or prior.purpose != purpose
+            ):
                 raise ContactConflict
             return _view(repository, prior), False
         if patient.status != "active" or contact is None:
             raise ContactConflict
+        if purpose == "booking_invitation":
+            clinic = ClinicDayRepository(lookup, clinic_id).get_clinic()
+            if clinic is None or body != invitation_text(clinic.name):
+                raise ContactConflict
         contact_account, number = contact.account_key, contact.number
     connection = provider.connection()
     if connection.status != "connected":
@@ -182,10 +200,15 @@ def send_message(
     if patient is None:
         raise PatientNotFoundError
     repository = MessagingRepository(session, clinic_id)
-    contact = repository.contact_for_patient(patient_id)
+    contact = repository.contact_for_patient(patient_id, lock=True)
     prior = repository.by_request(request_id)
     if prior is not None:
-        if contact is None or prior.contact_id != contact.id or prior.body != body:
+        if (
+            contact is None
+            or prior.contact_id != contact.id
+            or prior.body != body
+            or prior.purpose != purpose
+        ):
             raise ContactConflict
         return _view(repository, prior), False
     if (
@@ -196,12 +219,15 @@ def send_message(
     ):
         raise ContactConflict
     contact_id, number = contact.id, contact.number
+    if purpose == "chat":
+        transition(session, clinic_id, contact, actor_id, "staff_handling")
     row = Message(
         id=uuid4(),
         contact_id=contact.id,
         account_key=contact.account_key,
         direction="outbound",
         origin="staff",
+        purpose=purpose,
         body=body,
         state="sending",
         created_by_user_id=actor_id,
@@ -214,7 +240,12 @@ def send_message(
     except IntegrityError:
         session.rollback()
         prior = repository.by_request(request_id)
-        if prior is None or prior.contact_id != contact_id or prior.body != body:
+        if (
+            prior is None
+            or prior.contact_id != contact_id
+            or prior.body != body
+            or prior.purpose != purpose
+        ):
             raise ContactConflict from None
         return _view(repository, prior), False
     # Staff and automatic replies share the contact fence. The status gate prevents
@@ -264,6 +295,9 @@ def receive_event(
     repository = MessagingRepository(session, authority.clinic_id)
     contact = repository.contact_for_number(event.account_key, event.number)
     if contact is None or event.account_key != authority.account_key:
+        return
+    patient = PatientRepository(session, authority.clinic_id).get(contact.patient_id, lock=True)
+    if patient is None:
         return
     message_id = repository.add_incoming(contact, event)
     if message_id is not None and on_action is not None:

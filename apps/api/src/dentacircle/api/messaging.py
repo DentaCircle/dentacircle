@@ -38,6 +38,11 @@ from dentacircle.services.whatsapp_actor import (
     VerifiedCallback,
     authenticate_callback,
 )
+from dentacircle.services.whatsapp_automation_service import (
+    AutomationConflict,
+    set_staff_automation,
+)
+from dentacircle.services.whatsapp_booking_service import process_action
 
 router = APIRouter()
 roles = require_roles("receptionist", "clinician", "clinic_admin")
@@ -53,12 +58,19 @@ class SendInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     body: str
     request_id: UUID
+    purpose: Literal["chat", "booking_invitation"] = "chat"
+
+
+class AutomationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    state: Literal["active", "staff_handling"]
 
 
 class ContactBody(BaseModel):
     id: UUID
     patient_id: UUID
     number: str
+    automation_state: Literal["active", "needs_staff", "staff_handling", "stopped"]
 
 
 class ActorBody(BaseModel):
@@ -90,6 +102,7 @@ class InboxRow(BaseModel):
     patient: PatientBody
     latest_message: MessageBody
     message_count: int
+    automation_state: Literal["active", "needs_staff", "staff_handling", "stopped"]
 
 
 class InboxPage(BaseModel):
@@ -190,8 +203,9 @@ def inbox(
                 ),
                 latest_message=message_body(m, p.id),
                 message_count=n,
+                automation_state=state,
             )
-            for p, m, n in rows
+            for p, m, n, state in rows
         ],
         total=total,
         page=page,
@@ -205,7 +219,16 @@ def get_contact(patient_id: UUID, user: UserDep, session: SessionDep) -> Contact
         row = get_patient_contact(session, user.clinic.id, patient_id)
     except PatientNotFoundError:
         raise HTTPException(404) from None
-    return ContactBody(id=row.id, patient_id=row.patient_id, number=row.number) if row else None
+    return (
+        ContactBody(
+            id=row.id,
+            patient_id=row.patient_id,
+            number=row.number,
+            automation_state=row.automation_state,
+        )
+        if row
+        else None
+    )
 
 
 @router.put("/patients/{patient_id}/messaging-contact")
@@ -226,7 +249,38 @@ def put_contact(
     except (PatientNotFoundError, MessagingInvalid, MessagingUnavailable, ContactConflict) as exc:
         fail(exc)
         raise AssertionError from exc
-    return ContactBody(id=row.id, patient_id=row.patient_id, number=row.number)
+    return ContactBody(
+        id=row.id,
+        patient_id=row.patient_id,
+        number=row.number,
+        automation_state=row.automation_state,
+    )
+
+
+@router.put("/patients/{patient_id}/messaging-automation")
+def put_automation(
+    patient_id: UUID, body: AutomationInput, user: UserDep, session: SessionDep
+) -> ContactBody:
+    try:
+        settings = get_settings()
+        row = set_staff_automation(
+            session,
+            user.clinic.id,
+            user.id,
+            patient_id,
+            body.state,
+            settings.messaging_account if configured(settings, user.clinic.id) else "",
+            allowlist(settings),
+        )
+    except (PatientNotFoundError, AutomationConflict) as exc:
+        fail(exc)
+        raise AssertionError from exc
+    return ContactBody(
+        id=row.id,
+        patient_id=row.patient_id,
+        number=row.number,
+        automation_state=row.automation_state,
+    )
 
 
 @router.get("/patients/{patient_id}/messages")
@@ -270,6 +324,7 @@ def send(
             body.request_id,
             settings.messaging_account,
             allowlist(settings),
+            purpose=body.purpose,
         )
     except (PatientNotFoundError, MessagingInvalid, MessagingUnavailable, ContactConflict) as exc:
         fail(exc)
@@ -303,7 +358,9 @@ async def callback(
         payload = await request.json()
         if not isinstance(payload, dict):
             raise ValueError("Malformed event")
-        await run_in_threadpool(receive_event, session, authority, provider(settings), payload)
+        await run_in_threadpool(
+            receive_event, session, authority, provider(settings), payload, process_action
+        )
     except ValueError:
         raise HTTPException(422) from None
     except SQLAlchemyError:

@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { fieldErrors, type PatientField } from "@/features/patients/field-errors";
 import { parseErrorBody } from "@/lib/api/errors";
 
-const SAVED_ID = /^P-\d{4,}$/;
+const PATIENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UNCERTAIN_SAVE = "We could not confirm the save. Check the patient list before retrying.";
 
 export type PatientFormValues = {
   fullName: string;
@@ -63,11 +64,11 @@ export function PatientForm({ mode, patientId, initial = EMPTY_VALUES }: Patient
       });
       if (response.ok) {
         if (mode === "create") {
-          const displayId = readDisplayId(await readJson(response));
-          if (displayId === null) {
-            setFormMessage("The patient could not be saved.");
+          const savedId = readPatientId(await readJson(response));
+          if (savedId === null) {
+            setFormMessage(UNCERTAIN_SAVE);
           } else {
-            router.push(`/patients?created=${displayId}`);
+            router.push(`/patients/${savedId}?saved=1`);
             router.refresh();
             return;
           }
@@ -88,11 +89,11 @@ export function PatientForm({ mode, patientId, initial = EMPTY_VALUES }: Patient
         } else if (error.kind === "api" && error.status === 403) {
           setFormMessage("You do not have access.");
         } else {
-          setFormMessage("The patient could not be saved.");
+          setFormMessage(mode === "create" && response.status >= 500 ? UNCERTAIN_SAVE : "The patient could not be saved.");
         }
       }
     } catch {
-      setFormMessage("Could not reach the server.");
+      setFormMessage(mode === "create" ? UNCERTAIN_SAVE : "Could not reach the server.");
     }
 
     isSubmittingRef.current = false;
@@ -215,9 +216,9 @@ async function readJson(response: Response): Promise<unknown> {
   }
 }
 
-function readDisplayId(payload: unknown): string | null {
-  if (typeof payload !== "object" || payload === null || !("display_id" in payload)) return null;
-  const displayId = payload.display_id;
-  if (typeof displayId !== "string" || !SAVED_ID.test(displayId)) return null;
-  return displayId;
+function readPatientId(payload: unknown): string | null {
+  if (typeof payload !== "object" || payload === null || !("id" in payload)) return null;
+  const id = payload.id;
+  if (typeof id !== "string" || !PATIENT_ID.test(id)) return null;
+  return id;
 }

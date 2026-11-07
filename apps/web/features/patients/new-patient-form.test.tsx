@@ -18,10 +18,11 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-test("saves a patient and shows the new id on the list", async () => {
+test("saves a patient and opens the saved record", async () => {
   const user = userEvent.setup();
   const fetchMock = stubFetch(
     jsonResponse(201, {
+      id: "123e4567-e89b-42d3-a456-426614174000",
       display_id: "P-0001",
       full_name: "Sample Ada",
       phone: "9000000001",
@@ -44,7 +45,7 @@ test("saves a patient and shows the new id on the list", async () => {
       date_of_birth: "1990-04-05",
     }),
   });
-  expect(push).toHaveBeenCalledWith("/patients?created=P-0001");
+  expect(push).toHaveBeenCalledWith("/patients/123e4567-e89b-42d3-a456-426614174000?saved=1");
   expect(refresh).toHaveBeenCalledOnce();
   expect(screen.queryByText("P-0001")).not.toBeInTheDocument();
 });
@@ -116,3 +117,30 @@ function stubFetch(value: unknown): ReturnType<typeof vi.fn> {
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
+
+
+test("an uncertain save directs staff to check the patient list", async () => {
+  const user = userEvent.setup();
+  vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network")));
+  render(<NewPatientForm />);
+  await user.type(screen.getByLabelText("Name"), "Sample Ada");
+  await user.type(screen.getByLabelText("Phone"), "9000000001");
+  await user.click(screen.getByRole("button", { name: "Save patient" }));
+  expect(screen.getByRole("alert")).toHaveTextContent("Check the patient list before retrying");
+  expect(push).not.toHaveBeenCalled();
+});
+
+
+test.each([jsonResponse(201, { display_id: "P-0001" }), jsonResponse(500, {})])(
+  "a response without a confirmed patient id requires a list check",
+  async (response) => {
+    const user = userEvent.setup();
+    stubFetch(response);
+    render(<NewPatientForm />);
+    await user.type(screen.getByLabelText("Name"), "Sample Ada");
+    await user.type(screen.getByLabelText("Phone"), "9000000001");
+    await user.click(screen.getByRole("button", { name: "Save patient" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Check the patient list before retrying");
+    expect(push).not.toHaveBeenCalled();
+  },
+);

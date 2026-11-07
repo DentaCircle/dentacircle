@@ -279,6 +279,24 @@
         "title": "AppointmentTypeUpdate",
         "type": "object"
       },
+      "AutomationInput": {
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "enum": [
+              "active",
+              "staff_handling"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "AutomationInput",
+        "type": "object"
+      },
       "AvailabilityResponse": {
         "properties": {
           "date": {
@@ -838,6 +856,16 @@
       },
       "ContactBody": {
         "properties": {
+          "automation_state": {
+            "enum": [
+              "active",
+              "needs_staff",
+              "staff_handling",
+              "stopped"
+            ],
+            "title": "Automation State",
+            "type": "string"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -856,7 +884,8 @@
         "required": [
           "id",
           "patient_id",
-          "number"
+          "number",
+          "automation_state"
         ],
         "title": "ContactBody",
         "type": "object"
@@ -1392,6 +1421,16 @@
       },
       "InboxRow": {
         "properties": {
+          "automation_state": {
+            "enum": [
+              "active",
+              "needs_staff",
+              "staff_handling",
+              "stopped"
+            ],
+            "title": "Automation State",
+            "type": "string"
+          },
           "latest_message": {
             "$ref": "#/components/schemas/MessageBody"
           },
@@ -1406,7 +1445,8 @@
         "required": [
           "patient",
           "latest_message",
-          "message_count"
+          "message_count",
+          "automation_state"
         ],
         "title": "InboxRow",
         "type": "object"
@@ -2675,6 +2715,15 @@
         "properties": {
           "body": {
             "title": "Body",
+            "type": "string"
+          },
+          "purpose": {
+            "default": "chat",
+            "enum": [
+              "chat",
+              "booking_invitation"
+            ],
+            "title": "Purpose",
             "type": "string"
           },
           "request_id": {
@@ -7509,6 +7558,56 @@
           }
         },
         "summary": "Send"
+      }
+    },
+    "/patients/{patient_id}/messaging-automation": {
+      "put": {
+        "operationId": "put_automation_patients__patient_id__messaging_automation_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "patient_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Patient Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AutomationInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContactBody"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Put Automation"
       }
     },
     "/patients/{patient_id}/messaging-contact": {

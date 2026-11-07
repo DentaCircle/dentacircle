@@ -35,6 +35,7 @@ from dentacircle.core.logging import configure_logging
 from dentacircle.core.request_context import RequestContextMiddleware
 from dentacircle.integrations.messaging.openwa import OpenWaMessagingProvider
 from dentacircle.services.automatic_dispatch_runtime import Dispatcher
+from dentacircle.services.whatsapp_booking_service import render_queued_reply
 
 
 def create_app() -> FastAPI:
@@ -64,7 +65,12 @@ def create_app() -> FastAPI:
                     settings.messaging_url, settings.messaging_api_key, settings.messaging_account
                 )
                 dispatcher = Dispatcher(
-                    get_engine(), provider, clinic_id, settings.messaging_account, allowlist
+                    get_engine(),
+                    provider,
+                    clinic_id,
+                    settings.messaging_account,
+                    allowlist,
+                    guard=render_queued_reply,
                 )
                 dispatcher.start()
         try:

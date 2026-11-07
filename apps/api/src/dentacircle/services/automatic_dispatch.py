@@ -14,9 +14,10 @@ from dentacircle.integrations.messaging.contact_fence import contact_fence
 from dentacircle.models.messaging import Message, MessagingContact
 from dentacircle.models.patient import Patient
 from dentacircle.repositories.automatic_dispatch_repository import AutomaticDispatchRepository
-from dentacircle.repositories.patient_repository import send_status_gate
+from dentacircle.repositories.patient_repository import PatientRepository, send_status_gate
 from dentacircle.services.audit_service import record
 from dentacircle.services.whatsapp_actor import WhatsAppActor
+from dentacircle.services.whatsapp_booking_service import BookingResultUnavailable
 
 DispatchResult = Literal["busy", "idle", "sent", "superseded"]
 Guard = Callable[[Session, Message], str | None]
@@ -90,6 +91,12 @@ def _dispatch_fenced(
 ) -> DispatchResult:
     with Session(engine, expire_on_commit=False) as session:
         repo = AutomaticDispatchRepository(session, clinic_id)
+        patient_id = repo.patient_id(contact_id)
+        if patient_id is None:
+            return "idle"
+        # Serialize result rendering and the durable claim with staff visit changes.
+        if PatientRepository(session, clinic_id).get(patient_id, lock=True) is None:
+            return "idle"
         while (row := repo.next_outstanding(contact_id)) is not None:
             identity = repo.identity(row)
             if identity is None:
@@ -101,7 +108,11 @@ def _dispatch_fenced(
                 session.flush()
                 continue
             eligible = _eligible(row, identity, account, allowlist)
-            rendered = (guard(session, row) if guard else row.body) if eligible else None
+            try:
+                rendered = (guard(session, row) if guard else row.body) if eligible else None
+            except BookingResultUnavailable:
+                session.rollback()
+                return "idle"
             if rendered is None or not 1 <= len(rendered) <= 2000:
                 _status(session, clinic_id, row, actor, "superseded")
                 session.commit()

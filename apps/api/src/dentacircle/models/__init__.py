@@ -24,6 +24,7 @@ from dentacircle.models.procedure_resource_rule import ProcedureResourceRule
 from dentacircle.models.recall import Recall
 from dentacircle.models.timeline_event import TimelineEvent
 from dentacircle.models.user_role import UserRole
+from dentacircle.models.whatsapp_booking_session import WhatsAppBookingSession
 from dentacircle.models.working_hours import ClinicWorkingHours
 
 __all__ = [
@@ -53,4 +54,5 @@ __all__ = [
     "Recall",
     "TimelineEvent",
     "UserRole",
+    "WhatsAppBookingSession",
 ]

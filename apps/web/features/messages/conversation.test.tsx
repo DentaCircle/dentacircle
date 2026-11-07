@@ -15,7 +15,7 @@ function setup(status = "active", body = "<b>not markup</b>") {
     return Response.json({ id: patientId, full_name: "Synthetic Example", display_id: "P-0001", status });
   });
   vi.stubGlobal("fetch", fetcher);
-  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" />);
+  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" clinicName="Synthetic Clinic" />);
   return fetcher;
 }
 
@@ -69,7 +69,7 @@ test("sending from a later page reloads page one and ignores an older page respo
     return Response.json({ id: patientId, full_name: "Synthetic Example", display_id: "P-0001", status: "active" });
   });
   vi.stubGlobal("fetch", fetcher);
-  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" />);
+  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" clinicName="Synthetic Clinic" />);
   await userEvent.click(await screen.findByRole("button", { name: "Next" }));
   await userEvent.type(await screen.findByLabelText("Message"), "Hello");
   await userEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -113,7 +113,7 @@ test.each(["sending", "unknown"])("keeps the same request after a %s replay", as
     return Response.json({ id: patientId, full_name: "Synthetic Example", display_id: "P-0001", status: "active" });
   });
   vi.stubGlobal("fetch", fetcher);
-  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" />);
+  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" clinicName="Synthetic Clinic" />);
   const input = await screen.findByLabelText("Message");
   await userEvent.type(input, "Hello");
   await userEvent.click(screen.getByRole("button", { name: "Send" }));
@@ -151,7 +151,7 @@ test("unlinked and disconnected patients cannot send", async () => {
     if (path.endsWith("/messaging/connection")) return Response.json({ status: "disconnected", can_send_text: false });
     return Response.json({ id: patientId, full_name: "Synthetic Example", display_id: "P-0001", status: "active" });
   }));
-  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" />);
+  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" clinicName="Synthetic Clinic" />);
   expect(await screen.findByText(/Connection: disconnected/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Link number" })).toBeInTheDocument();
   expect(screen.getByText("No messages yet.")).toBeInTheDocument();
@@ -160,7 +160,7 @@ test("unlinked and disconnected patients cannot send", async () => {
 
 test("shows a no-access state when the API refuses the patient", async () => {
   vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 403 })));
-  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" />);
+  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" clinicName="Synthetic Clinic" />);
   expect(await screen.findByRole("alert")).toHaveTextContent("You do not have access to messages.");
   expect(screen.queryByRole("button", { name: "Send" })).not.toBeInTheDocument();
 });
@@ -178,4 +178,68 @@ test("accepts 2,000 Unicode characters and rejects longer text", async () => {
   const posts = fetcher.mock.calls.filter(([, init]) => init?.method === "POST");
   expect(posts).toHaveLength(1);
   expect(JSON.parse(String(posts[0][1]?.body)).body).toBe("😀".repeat(2000));
+});
+
+test("previews a clinic invitation and sends it with its own purpose", async () => {
+  const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    if (init?.method === "POST") return Response.json({ id: "sent", patient_id: patientId,
+      direction: "outbound", origin: "staff", state: "accepted", body: "invitation",
+      created_at: "2026-01-02T00:00:00Z", updated_at: "2026-01-02T00:00:00Z",
+      provider_sent_at: null, created_by: { id: "staff", name: "Synthetic Staff" } }, { status: 201 });
+    if (path.endsWith("/messaging-contact")) return Response.json({ id: "contact", patient_id: patientId,
+      number: "+15551234567", automation_state: "needs_staff" });
+    if (path.includes("/messages?")) return Response.json({ items: [], total: 0, page: 1, page_size: 20 });
+    if (path.endsWith("/messaging/connection")) return Response.json({ status: "connected", can_send_text: true });
+    return Response.json({ id: patientId, full_name: "Synthetic Example", display_id: "P-0001", status: "active" });
+  });
+  vi.stubGlobal("fetch", fetcher);
+  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" clinicName="Synthetic Clinic" />);
+  expect(await screen.findByText("Handling: Needs reception")).toBeInTheDocument();
+  expect(screen.getByText("Hello from Synthetic Clinic. Reply BOOK to choose an appointment time.")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Send booking invitation" }));
+  const post = fetcher.mock.calls.find(([, init]) => init?.method === "POST");
+  expect(JSON.parse(String(post?.[1]?.body))).toMatchObject({
+    body: "Hello from Synthetic Clinic. Reply BOOK to choose an appointment time.",
+    purpose: "booking_invitation", request_id: expect.any(String),
+  });
+});
+
+test("staff can take over and resume booking", async () => {
+  const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input);
+    if (path.endsWith("/messaging-automation") && init?.method === "PUT") {
+      const state = JSON.parse(String(init.body)).state;
+      return Response.json({ id: "contact", patient_id: patientId, number: "+15551234567", automation_state: state });
+    }
+    if (path.endsWith("/messaging-contact")) return Response.json({ id: "contact", patient_id: patientId,
+      number: "+15551234567", automation_state: "needs_staff" });
+    if (path.includes("/messages?")) return Response.json({ items: [], total: 0, page: 1, page_size: 20 });
+    if (path.endsWith("/messaging/connection")) return Response.json({ status: "connected", can_send_text: true });
+    return Response.json({ id: patientId, full_name: "Synthetic Example", display_id: "P-0001", status: "active" });
+  });
+  vi.stubGlobal("fetch", fetcher);
+  render(<Conversation patientId={patientId} timezone="Asia/Kolkata" clinicName="Synthetic Clinic" />);
+  expect(await screen.findByText("Handling: Needs reception")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Take over" }));
+  expect(await screen.findByText("Handling: Reception handling")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Resume booking" }));
+  expect(await screen.findByText("Handling: Booking available")).toBeInTheDocument();
+  const requests = fetcher.mock.calls.filter(([path]) => String(path).endsWith("/messaging-automation"));
+  expect(requests.map(([, init]) => JSON.parse(String(init?.body)).state)).toEqual(["staff_handling", "active"]);
+});
+
+test("an uncertain invitation reuses its request id after refresh", async () => {
+  const fetcher = setup();
+  await userEvent.click(await screen.findByRole("button", { name: "Send booking invitation" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("uncertain");
+  expect(screen.getByRole("button", { name: "Send booking invitation" })).toBeDisabled();
+  await userEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await userEvent.click(screen.getByRole("button", { name: "Send booking invitation" }));
+  const posts = fetcher.mock.calls.filter(([, init]) => init?.method === "POST");
+  expect(posts).toHaveLength(2);
+  const first = JSON.parse(String(posts[0][1]?.body));
+  const second = JSON.parse(String(posts[1][1]?.body));
+  expect(first.purpose).toBe("booking_invitation");
+  expect(second).toEqual(first);
 });

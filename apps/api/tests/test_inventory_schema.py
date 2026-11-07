@@ -70,7 +70,7 @@ def test_upgrade_downgrade_upgrade(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0022_whatsapp_actions"
+    assert _version(throwaway_database_url) == "0023_whatsapp_booking"
     tables = _public_tables(throwaway_database_url)
     assert "inventory_category" in tables
     assert "inventory_item" in tables
@@ -91,7 +91,7 @@ def test_upgrade_downgrade_upgrade(
     assert "lab_work" in gone
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0022_whatsapp_actions"
+    assert _version(throwaway_database_url) == "0023_whatsapp_booking"
     assert "inventory_item" in _public_tables(throwaway_database_url)
     assert "inventory_transaction" in _public_tables(throwaway_database_url)
 
@@ -209,7 +209,7 @@ def test_transactions_upgrade_then_down_to_batches_then_up_again(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0022_whatsapp_actions"
+    assert _version(throwaway_database_url) == "0023_whatsapp_booking"
     assert _columns(throwaway_database_url, "inventory_transaction") == _TRANSACTION_COLUMNS
     assert "item_id" not in _TRANSACTION_COLUMNS
     assert _columns(throwaway_database_url, "inventory_batch") == _BATCH_COLUMNS
@@ -222,7 +222,7 @@ def test_transactions_upgrade_then_down_to_batches_then_up_again(
     assert _function_exists(throwaway_database_url) is False
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0022_whatsapp_actions"
+    assert _version(throwaway_database_url) == "0023_whatsapp_booking"
     assert "inventory_transaction" in _public_tables(throwaway_database_url)
     assert _function_exists(throwaway_database_url) is True
 
@@ -293,7 +293,7 @@ def test_a_restock_from_before_consumption_stays_valid(
         _insert_transaction(session, _CLINIC, _BATCH, _USER, "restock", None, 4)
         session.commit()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0022_whatsapp_actions"
+    assert _version(throwaway_database_url) == "0023_whatsapp_booking"
     assert _columns(throwaway_database_url, "inventory_transaction") == _TRANSACTION_COLUMNS
     assert _columns(throwaway_database_url, "procedure_resource_rule") == _RULE_COLUMNS
     with Session(engine) as session:
@@ -314,7 +314,7 @@ def test_a_restock_from_before_consumption_stays_valid(
         remaining = session.scalar(text("SELECT count(*) FROM inventory_transaction"))
         assert int(remaining or 0) == 1
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0022_whatsapp_actions"
+    assert _version(throwaway_database_url) == "0023_whatsapp_booking"
     engine.dispose()
 
 

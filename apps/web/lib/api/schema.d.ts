@@ -907,6 +907,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patients/{patient_id}/messaging-automation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Automation */
+        put: operations["put_automation_patients__patient_id__messaging_automation_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patients/{patient_id}/messaging-contact": {
         parameters: {
             query?: never;
@@ -1164,6 +1181,14 @@ export interface components {
             /** Recall After Months */
             recall_after_months?: number | null;
         };
+        /** AutomationInput */
+        AutomationInput: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "active" | "staff_handling";
+        };
         /** AvailabilityResponse */
         AvailabilityResponse: {
             /**
@@ -1411,6 +1436,11 @@ export interface components {
         /** ContactBody */
         ContactBody: {
             /**
+             * Automation State
+             * @enum {string}
+             */
+            automation_state: "active" | "needs_staff" | "staff_handling" | "stopped";
+            /**
              * Id
              * Format: uuid
              */
@@ -1635,6 +1665,11 @@ export interface components {
         };
         /** InboxRow */
         InboxRow: {
+            /**
+             * Automation State
+             * @enum {string}
+             */
+            automation_state: "active" | "needs_staff" | "staff_handling" | "stopped";
             latest_message: components["schemas"]["MessageBody"];
             /** Message Count */
             message_count: number;
@@ -2167,6 +2202,12 @@ export interface components {
         SendInput: {
             /** Body */
             body: string;
+            /**
+             * Purpose
+             * @default chat
+             * @enum {string}
+             */
+            purpose: "chat" | "booking_invitation";
             /**
              * Request Id
              * Format: uuid
@@ -5324,6 +5365,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_automation_patients__patient_id__messaging_automation_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutomationInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactBody"];
                 };
             };
             /** @description Validation Error */

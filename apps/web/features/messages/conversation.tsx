@@ -15,7 +15,7 @@ type Message = components["schemas"]["MessageBody"];
 
 const TIMEOUT_MS = 10_000;
 
-export function Conversation({ patientId, timezone }: { patientId: string; timezone: string }) {
+export function Conversation({ patientId, timezone, clinicName }: { patientId: string; timezone: string; clinicName: string }) {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [contact, setContact] = useState<Contact | null>(null);
   const [history, setHistory] = useState<History | null>(null);
@@ -27,7 +27,7 @@ export function Conversation({ patientId, timezone }: { patientId: string; timez
   const [error, setError] = useState("");
   const [uncertain, setUncertain] = useState(false);
   const [reviewed, setReviewed] = useState(false);
-  const attempt = useRef<{ id: string; body: string } | null>(null);
+  const attempt = useRef<{ id: string; body: string; purpose: "chat" | "booking_invitation" } | null>(null);
   const inFlight = useRef(false);
   const loadSequence = useRef(0);
   const root = `/api/patients/${encodeURIComponent(patientId)}`;
@@ -108,12 +108,18 @@ export function Conversation({ patientId, timezone }: { patientId: string; timez
   async function send(event: FormEvent) {
     event.preventDefault();
     if (inFlight.current) return;
-    const cleaned = body.trim();
+    await sendText(body, "chat");
+  }
+
+  async function sendText(text: string, purpose: "chat" | "booking_invitation") {
+    if (inFlight.current) return;
+    const cleaned = text.trim();
     if (!cleaned || Array.from(cleaned).length > 2000) {
       setError("Enter 1 to 2,000 characters.");
       return;
     }
-    if (attempt.current === null) attempt.current = { id: crypto.randomUUID(), body: cleaned };
+    if (attempt.current === null) attempt.current = { id: crypto.randomUUID(), body: cleaned, purpose };
+    if (attempt.current.purpose !== purpose || attempt.current.body !== cleaned) return;
     inFlight.current = true;
     setBusy(true);
     setError("");
@@ -122,7 +128,7 @@ export function Conversation({ patientId, timezone }: { patientId: string; timez
         method: "POST",
         signal: AbortSignal.timeout(TIMEOUT_MS),
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ body: attempt.current.body, request_id: attempt.current.id }),
+        body: JSON.stringify({ body: attempt.current.body, request_id: attempt.current.id, purpose: attempt.current.purpose }),
       });
       if (response.ok) {
         const message = await response.json() as Message;
@@ -152,6 +158,27 @@ export function Conversation({ patientId, timezone }: { patientId: string; timez
     }
   }
 
+  async function setAutomation(state: "active" | "staff_handling") {
+    if (inFlight.current) return;
+    inFlight.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(`${root}/messaging-automation`, {
+        method: "PUT", signal: AbortSignal.timeout(TIMEOUT_MS),
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state }),
+      });
+      if (!response.ok) setError("Handling could not be changed. Refresh and check the patient status.");
+      else setContact(await response.json() as Contact);
+    } catch {
+      setError("Handling could not be confirmed. Refresh the conversation.");
+    } finally {
+      inFlight.current = false;
+      setBusy(false);
+    }
+  }
+
+  const invitation = `Hello from ${clinicName}. Reply BOOK to choose an appointment time.`;
   const canSend = patient?.status === "active" && contact !== null &&
     connection?.status === "connected" && connection.can_send_text;
   if (patient === null) return error ? <p role="alert">{error}</p> : <p>Loading conversation…</p>;
@@ -174,6 +201,19 @@ export function Conversation({ patientId, timezone }: { patientId: string; timez
             </label>
             <button className="rounded border px-3" disabled={busy || connection?.status === "unconfigured"}>Link number</button>
           </form>
+        ) : null}
+        {contact ? (
+          <div className="space-y-2">
+            <p>Handling: {handlingLabel(contact.automation_state)}</p>
+            <p>Reception can review messages. Clinical questions need a clinician.</p>
+            <button className="rounded border px-3 py-2" disabled={busy || patient.status !== "active"} onClick={() => void setAutomation("staff_handling")}>Take over</button>{" "}
+            <button className="rounded border px-3 py-2" disabled={busy || patient.status !== "active"} onClick={() => void setAutomation("active")}>Resume booking</button>
+            <div>
+              <p>Booking invitation preview:</p>
+              <p>{invitation}</p>
+              <button className="rounded border px-3 py-2" disabled={!canSend || busy || (uncertain && (!reviewed || attempt.current?.purpose !== "booking_invitation"))} onClick={() => void sendText(invitation, "booking_invitation")}>Send booking invitation</button>
+            </div>
+          </div>
         ) : null}
         <button className="rounded border px-3 py-2" disabled={busy} onClick={() => {
           void load().then((ok) => { if (ok && uncertain) setReviewed(true); });
@@ -198,7 +238,7 @@ export function Conversation({ patientId, timezone }: { patientId: string; timez
             Message
             <textarea className="block w-full rounded border p-2" value={body} onChange={(event) => setBody(event.target.value)} disabled={!canSend || busy || uncertain} maxLength={4000} />
           </label>
-          <button className="rounded border px-3 py-2" disabled={!canSend || busy || (uncertain && !reviewed) || !body.trim()}>Send</button>
+          <button className="rounded border px-3 py-2" disabled={!canSend || busy || (uncertain && (!reviewed || attempt.current?.purpose !== "chat")) || !body.trim()}>Send</button>
         </form>
       </section>
     </PatientWorkspace>
@@ -216,4 +256,13 @@ function MessageRow({ message, timezone }: { message: Message; timezone: string 
       <p className="whitespace-pre-wrap break-words">{message.body}</p>
     </li>
   );
+}
+
+function handlingLabel(state: Contact["automation_state"]): string {
+  switch (state) {
+    case "needs_staff": return "Needs reception";
+    case "staff_handling": return "Reception handling";
+    case "stopped": return "Patient stopped booking";
+    default: return "Booking available";
+  }
 }

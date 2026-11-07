@@ -61,6 +61,10 @@ export function Inbox({ timezone }: { timezone: string }) {
                   {row.patient.full_name} · {row.patient.display_id}
                 </Link>
                 {row.patient.status === "inactive" ? <span> · Inactive</span> : null}
+                {row.automation_state === "active" ? <span> · Booking available</span> : null}
+                {row.automation_state === "needs_staff" ? <span> · Needs reception</span> : null}
+                {row.automation_state === "staff_handling" ? <span> · Reception handling</span> : null}
+                {row.automation_state === "stopped" ? <span> · Booking stopped</span> : null}
                 <p className="whitespace-pre-wrap break-words">{row.latest_message.body}</p>
                 <p className="text-sm text-muted-foreground">
                   {messageActor(row.latest_message)} · {messageState(row.latest_message)} · {row.message_count} messages · {new Date(row.latest_message.created_at).toLocaleString("en-IN", { timeZone: timezone })}

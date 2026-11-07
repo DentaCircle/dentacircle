@@ -11,10 +11,12 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Identity,
     Index,
+    Integer,
     Text,
     UniqueConstraint,
     desc,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -40,6 +42,11 @@ class MessagingContact(Base):
     number: Mapped[str] = mapped_column(Text)
     created_by_user_id: Mapped[UUID] = mapped_column()
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    automation_state: Mapped[str] = mapped_column(Text, server_default=text("'active'"))
+    automation_version: Mapped[int] = mapped_column(Integer, server_default=text("0"))
+    automation_changed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
 
 
 class Message(Base):
@@ -112,6 +119,11 @@ class Message(Base):
     dispatch_order: Mapped[int] = mapped_column(BigInteger, Identity(always=True))
     dispatch_owner: Mapped[UUID | None] = mapped_column()
     dispatch_deadline_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    purpose: Mapped[str | None] = mapped_column(Text)
+    booking_session_id: Mapped[UUID | None] = mapped_column()
+    menu_version: Mapped[int | None] = mapped_column(Integer)
+    automation_version: Mapped[int | None] = mapped_column(Integer)
+    reply_kind: Mapped[str | None] = mapped_column(Text)
     body: Mapped[str] = mapped_column(Text)
     state: Mapped[str] = mapped_column(Text)
     created_by_user_id: Mapped[UUID | None] = mapped_column()

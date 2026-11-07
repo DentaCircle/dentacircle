@@ -17,13 +17,16 @@ class MessagingRepository:
         self.session = session
         self.clinic_id = clinic_id
 
-    def contact_for_patient(self, patient_id: UUID) -> MessagingContact | None:
-        return self.session.scalar(
-            select(MessagingContact).where(
-                MessagingContact.clinic_id == self.clinic_id,
-                MessagingContact.patient_id == patient_id,
-            )
+    def contact_for_patient(
+        self, patient_id: UUID, *, lock: bool = False
+    ) -> MessagingContact | None:
+        statement = select(MessagingContact).where(
+            MessagingContact.clinic_id == self.clinic_id,
+            MessagingContact.patient_id == patient_id,
         )
+        if lock:
+            statement = statement.with_for_update().execution_options(populate_existing=True)
+        return self.session.scalar(statement)
 
     def contact_for_number(self, account: str, number: str) -> MessagingContact | None:
         return self.session.scalar(
@@ -113,7 +116,9 @@ class MessagingRepository:
         )
         return list(rows), total
 
-    def inbox(self, page: int, page_size: int) -> tuple[list[tuple[Patient, Message, int]], int]:
+    def inbox(
+        self, page: int, page_size: int
+    ) -> tuple[list[tuple[Patient, Message, int, str]], int]:
         ranked = (
             select(
                 Message.id.label("message_id"),
@@ -130,7 +135,7 @@ class MessagingRepository:
             .subquery()
         )
         query = (
-            select(Patient, Message, ranked.c.message_count)
+            select(Patient, Message, ranked.c.message_count, MessagingContact.automation_state)
             .join(
                 MessagingContact,
                 (MessagingContact.patient_id == Patient.id)
@@ -148,7 +153,7 @@ class MessagingRepository:
             .offset((page - 1) * page_size)
             .limit(page_size)
         ).all()
-        return [(patient, message, count) for patient, message, count in rows], total
+        return [(patient, message, count, state) for patient, message, count, state in rows], total
 
     def actor(self, user_id: UUID) -> AppUser | None:
         return self.session.scalar(
