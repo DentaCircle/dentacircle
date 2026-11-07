@@ -24,3 +24,23 @@ the database URL in `/private/tmp/s52a-proof-db` and the synthetic patient ID in
 `COOKIE_SECURE=false`; start the web app with `API_BASE_URL=http://127.0.0.1:8100`.
 The automatic dispatcher was left unconfigured in the proof server so the queued state
 remained visible; the unconfirmed attempt came from the fake provider.
+
+To reproduce from this worktree, first ensure the local PostgreSQL service is running. Then:
+
+```sh
+cd apps/api
+PYTHONPATH=. uv run python ../../.shipit/proof/S5.2a/seed.py
+DATABASE_URL="$(cat /private/tmp/s52a-proof-db)" COOKIE_SECURE=false \
+  uv run uvicorn dentacircle.main:app --host 127.0.0.1 --port 8100 --no-access-log
+```
+
+In a second terminal:
+
+```sh
+cd apps/web
+API_BASE_URL=http://127.0.0.1:8100 pnpm exec next dev --hostname 127.0.0.1 --port 3100
+```
+
+Open `http://127.0.0.1:3100`, sign in with the synthetic login above, and use the steps for
+the three images. The seed creates a new disposable database each time; it never uses the
+normal application database for its synthetic rows.
