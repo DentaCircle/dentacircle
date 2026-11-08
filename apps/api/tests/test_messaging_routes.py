@@ -46,7 +46,8 @@ def test_routes_and_callback(
             "event": "onMessage",
             "data": {
                 "id": "synthetic-id",
-                "from": "15551234567@c.us",
+                "from": "123456789@lid",
+                "sender": {"lid": "123456789@lid", "phoneNumber": "15551234567@c.us"},
                 "body": "Hello",
                 "type": "chat",
                 "fromMe": False,

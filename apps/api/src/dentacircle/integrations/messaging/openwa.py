@@ -10,6 +10,7 @@ from urllib.request import Request, urlopen
 from dentacircle.integrations.messaging.base import Connection, IncomingText, SendStatus
 
 _ADDRESS = re.compile(r"^([1-9][0-9]{1,14})@c\.us$")
+_LID = re.compile(r"^[0-9]+@lid$")
 
 
 class OpenWaMessagingProvider:
@@ -91,6 +92,12 @@ class OpenWaMessagingProvider:
         ):
             raise ValueError("Malformed event")
         address = _ADDRESS.fullmatch(sender)
+        if address is None and _LID.fullmatch(sender):
+            contact = data.get("sender")
+            if isinstance(contact, dict) and contact.get("lid") == sender:
+                phone = contact.get("phoneNumber")
+                if isinstance(phone, str):
+                    address = _ADDRESS.fullmatch(phone)
         body = body.strip()
         if not address or not 1 <= len(body) <= 2000 or not message_id:
             return None

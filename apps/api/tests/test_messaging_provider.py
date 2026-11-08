@@ -50,6 +50,22 @@ def test_unsupported_events_are_ignored() -> None:
     assert provider().normalize_event(wrong_session) is None
 
 
+def test_lid_sender_requires_matching_contact_identity() -> None:
+    sender = {"lid": "123456789@lid", "phoneNumber": "15551234567@c.us"}
+    result = provider().normalize_event(event(**{"from": "123456789@lid", "sender": sender}))
+    assert result is not None
+    assert result.number == "+15551234567"
+    for invalid in (
+        {"lid": "999@lid", "phoneNumber": "15551234567@c.us"},
+        {"lid": "123456789@lid", "phoneNumber": "123@g.us"},
+        {"lid": "123456789@lid"},
+    ):
+        assert (
+            provider().normalize_event(event(**{"from": "123456789@lid", "sender": invalid}))
+            is None
+        )
+
+
 def test_send_uses_v4_argument_envelope_and_session_guard(monkeypatch: object) -> None:
     import json
     from unittest.mock import patch
