@@ -3,6 +3,17 @@
 from dentacircle.domain.whatsapp_booking import menu_page, parse_menu_command
 
 
+def test_menu_is_readable_and_explains_how_to_reply() -> None:
+    page = menu_page("Choose an appointment type", ["Consultation", "Cleaning"], 0, "AB12")
+    assert page.text == (
+        "*Choose an appointment type*\n\n"
+        "AB12:1 Consultation\n"
+        "AB12:2 Cleaning\n\n"
+        "Reply with the code next to your choice.\n\n"
+        "Need help? Reply STAFF. To stop, reply STOP."
+    )
+
+
 def test_pages_show_every_entry_with_current_codes() -> None:
     entries = [f"Choice {i}" for i in range(23)]
     cursor = 0

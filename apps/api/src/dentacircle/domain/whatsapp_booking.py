@@ -17,15 +17,16 @@ def menu_page(title: str, entries: list[str], cursor: int, token: str) -> MenuPa
     if not 0 <= cursor <= len(entries) or not re.fullmatch(r"[A-Z0-9]{4,12}", token):
         raise ValueError("invalid menu cursor or token")
     labels = entries[cursor : cursor + 5]
-    lines = [title[:300]]
+    lines = [f"*{title[:300]}*", ""]
     for index, label in enumerate(labels, start=1):
         clean = " ".join(label.split())
         display = clean if len(clean) <= 300 else clean[:299] + "…"
         lines.append(f"{token}:{index} {display}")
     next_cursor = cursor + len(labels)
+    lines.extend(["", "Reply with the code next to your choice."])
     if next_cursor < len(entries):
-        lines.append(f"More choices: MORE {token}")
-    lines.append("For reception, reply STAFF. To stop, reply STOP.")
+        lines.append(f"More choices: reply MORE {token}.")
+    lines.extend(["", "Need help? Reply STAFF. To stop, reply STOP."])
     message = "\n".join(lines)
     if len(message) > 2000:
         raise ValueError("menu text exceeds limit")

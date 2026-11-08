@@ -235,9 +235,11 @@ def _resume_menu(session: Session, actor: WhatsAppActor, booking: WhatsAppBookin
         queue_reply(
             session,
             actor,
-            f"Please check: {kind} · {choice['label']}. "
-            f"Reply CONFIRM {booking.menu_token} to book. Nothing is reserved yet. "
-            f"Change time: TIMES {booking.menu_token}; type: TYPE {booking.menu_token}.",
+            f"*Please check your appointment*\n\n{kind}\n{choice['label']}\n\n"
+            f"To book, reply CONFIRM {booking.menu_token}.\n"
+            "Your appointment is not reserved yet.\n\n"
+            f"Change time: TIMES {booking.menu_token}\n"
+            f"Change type: TYPE {booking.menu_token}",
             booking=booking,
             kind="menu",
         )
@@ -581,9 +583,11 @@ def _choice_command(
         queue_reply(
             session,
             actor,
-            f"Please check: {type_name} · {choice['label']}. "
-            f"Reply CONFIRM {booking.menu_token} to book. Nothing is reserved yet. "
-            f"Change time: TIMES {booking.menu_token}; type: TYPE {booking.menu_token}.",
+            f"*Please check your appointment*\n\n{type_name}\n{choice['label']}\n\n"
+            f"To book, reply CONFIRM {booking.menu_token}.\n"
+            "Your appointment is not reserved yet.\n\n"
+            f"Change time: TIMES {booking.menu_token}\n"
+            f"Change type: TYPE {booking.menu_token}",
             booking=booking,
             kind="menu",
         )
