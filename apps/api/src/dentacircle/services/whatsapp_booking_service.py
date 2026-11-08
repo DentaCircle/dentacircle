@@ -287,13 +287,15 @@ def _show_visits(
     visits = booking.choices["visits"]
     display = booking.choices["display"]
     cursor = booking.choices["cursor"]
-    lines = [notice, "Your appointment details:"] if notice else ["Your appointment details:"]
-    for visit in display[cursor : cursor + 5]:
+    lines = [notice, "", "*Your appointments*"] if notice else ["*Your appointments*"]
+    for index, visit in enumerate(display[cursor : cursor + 5], start=cursor + 1):
         start = datetime.fromisoformat(visit["starts_at"]).astimezone(zone)
         name = " ".join(visit["type_name"].split())[:150]
         clinician = " ".join(visit["clinician_name"].split())[:150]
         lines.append(
-            f"{visit['id']} · {start:%Y-%m-%d %H:%M} · {name} · {clinician} · {visit['status']}"
+            f"\nAppointment {index}\n"
+            f"{start:%d %b %Y} at {start:%H:%M}\n"
+            f"{name} with {clinician}\nStatus: {visit['status']}"
         )
     next_cursor = min(cursor + 5, len(display))
     booking.choices = {
@@ -302,13 +304,14 @@ def _show_visits(
         "cursor": cursor,
         "next_cursor": next_cursor,
     }
+    lines.append("")
     if next_cursor < len(display):
         lines.append(f"More appointments: MORE {booking.menu_token}")
     elif visits:
         lines.append(f"To book another visit, reply ANOTHER {booking.menu_token}.")
     else:
         lines.append(f"To continue, reply CONTINUE {booking.menu_token}.")
-    lines.append("For reception, reply STAFF.")
+    lines.extend(["", "Need help? Reply STAFF."])
     queue_reply(session, actor, "\n".join(lines), booking=booking, kind="menu")
 
 

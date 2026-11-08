@@ -580,7 +580,8 @@ def test_cancelled_acknowledged_visit_is_shown_before_fresh_choice(database: str
         )
         session.commit()
         reply = send(f"CONFIRM {booking.menu_token}")
-        assert "cancelled" in reply.body and str(existing.id) in reply.body
+        assert "cancelled" in reply.body and "Appointment" in reply.body
+        assert str(existing.id) not in reply.body
         assert "CONTINUE" in reply.body
         assert booking.booked_appointment_id is None
 
