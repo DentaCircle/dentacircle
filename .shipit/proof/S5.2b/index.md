@@ -33,5 +33,22 @@ handoff and invitation, the patient timeline for attribution, Calendar for the v
 and Follow-ups → All open for the booked queue item. Crop any new screenshots to omit
 patient IDs, visit references and numbers.
 
-Live OpenWA pairing, actual sending and incoming delivery require the dedicated phones;
-the synthetic transcript does not claim those checks passed.
+Live test: the dedicated clinic phone paired and the service reported connected after a
+restart. One invitation attempt had an uncertain outcome, the recipient confirmed that it
+did not arrive, and OpenWA reported `t.isRegularUser is not a function`. After the patient
+started the WhatsApp conversation and the application learned to recognize OpenWA's linked
+sender identifier, a new BOOK reached the app and the patient confirmed receipt of replies.
+The patient selected a general consultation and an available time, confirmed it, and received
+the result; the synthetic appointment was verified as scheduled in the database. A subsequent
+STATUS request returned the appointment details to the patient. The original
+clinic-initiated invitation and remaining live scenarios have not been verified. The synthetic
+transcript does not claim those checks passed.
+
+STOP was also confirmed on the patient's phone; the stored conversation state became stopped
+and the synthetic appointment remained scheduled. A later BOOK produced a fresh resume
+challenge; the patient's challenge response reactivated the conversation and returned the
+existing appointment menu.
+
+In the staff UI, Take over changed the synthetic conversation to reception handling, and
+Resume booking restored booking availability. This check covers the controls' displayed
+state; it does not claim a separate live patient message was tested during takeover.
