@@ -41,8 +41,11 @@ sender identifier, a new BOOK reached the app and the patient confirmed receipt 
 The patient selected a general consultation and an available time, confirmed it, and received
 the result; the synthetic appointment was verified as scheduled in the database. A subsequent
 STATUS request returned the appointment details to the patient. The original
-clinic-initiated invitation and remaining live scenarios have not been verified. The synthetic
-transcript does not claim those checks passed.
+clinic-initiated invitation was later retried after the patient started a conversation; OpenWA
+accepted it and the patient confirmed receipt. The synthetic transcript remains fake-provider
+evidence and does not itself claim real delivery. The patient replied BOOK to the invitation
+and confirmed receiving the existing-appointment details and the option to book another visit.
+The failed first invitation is not proven fixed for a contact with no existing conversation.
 
 STOP was also confirmed on the patient's phone; the stored conversation state became stopped
 and the synthetic appointment remained scheduled. A later BOOK produced a fresh resume
