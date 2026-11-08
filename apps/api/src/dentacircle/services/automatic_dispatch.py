@@ -8,8 +8,8 @@ from uuid import UUID, uuid4
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
-from dentacircle.integrations.messaging.base import MessagingProvider, SendStatus
-from dentacircle.integrations.messaging.bounded import bounded_send
+from dentacircle.integrations.messaging.base import MessagingProvider
+from dentacircle.integrations.messaging.bounded import bounded_send_receipt
 from dentacircle.integrations.messaging.contact_fence import contact_fence
 from dentacircle.models.messaging import Message, MessagingContact
 from dentacircle.models.patient import Patient
@@ -130,12 +130,14 @@ def _dispatch_fenced(
         else:
             session.commit()
             return "idle"
-    outcome: SendStatus = bounded_send(
+    receipt = bounded_send_receipt(
         provider, number, body, timeout_seconds=_SEND_SECONDS, fence_fd=fd
     )
     with Session(engine) as session:
         claimed = AutomaticDispatchRepository(session, clinic_id).claimed(message_id, owner)
         if claimed is not None:
-            _status(session, clinic_id, claimed, actor, outcome)
+            if receipt.status == "accepted" and receipt.provider_message_id:
+                claimed.provider_message_id = receipt.provider_message_id
+            _status(session, clinic_id, claimed, actor, receipt.status)
             session.commit()
     return "sent"

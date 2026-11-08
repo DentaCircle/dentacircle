@@ -21,6 +21,112 @@ from tests.timeline_support import world
 pytest_plugins = ["tests.timeline_support"]
 
 
+def test_quoted_prompt_must_match_current_contact_and_version(database: str) -> None:
+    from dentacircle.services.whatsapp_booking_service import _matches_current_prompt
+
+    clinic = world()
+    number = "+15551234567"
+    with Session(get_engine(), expire_on_commit=False) as session:
+        contact = link_contact(
+            session, clinic.clinic_id, clinic.actor_id, clinic.patient_id, "demo", number, {number}
+        )
+        receive_message(
+            session, clinic.clinic_id, IncomingText("demo", number, "incoming", "BOOK", None)
+        )
+        incoming = session.scalar(select(Message).where(Message.provider_message_id == "incoming"))
+        assert incoming is not None
+        actor = resolve_actor(session, authority(clinic.clinic_id), incoming.id)
+        process_action(session, actor)
+        session.flush()
+        booking = session.scalar(
+            select(WhatsAppBookingSession).where(WhatsAppBookingSession.contact_id == contact.id)
+        )
+        prompt = session.scalar(select(Message).where(Message.caused_by_message_id == incoming.id))
+        assert booking is not None and prompt is not None
+        prompt.state = "accepted"
+        prompt.provider_message_id = "true_chat_STANZA123"
+        session.flush()
+        quoted = resolve_actor(
+            session, authority(clinic.clinic_id), incoming.id, quoted_stanza_id="STANZA123"
+        )
+        assert _matches_current_prompt(session, quoted, contact, booking)
+        other = resolve_actor(
+            session, authority(clinic.clinic_id), incoming.id, quoted_stanza_id="OTHER"
+        )
+        assert not _matches_current_prompt(session, other, contact, booking)
+        prompt.state = "unknown"
+        session.flush()
+        assert not _matches_current_prompt(session, quoted, contact, booking)
+        prompt.state = "accepted"
+        contact.automation_version += 1
+        session.flush()
+        assert not _matches_current_prompt(session, quoted, contact, booking)
+        contact.automation_version -= 1
+        booking.menu_version += 1
+        session.flush()
+        assert not _matches_current_prompt(session, quoted, contact, booking)
+
+
+def test_numbered_quoted_replies_book_and_stale_prompt_cannot_choose(database: str) -> None:
+    from sqlalchemy import func
+
+    from dentacircle.models.appointment import Appointment
+
+    clinic = world()
+    number = "+15551234567"
+    with Session(get_engine(), expire_on_commit=False) as session:
+        contact = link_contact(
+            session, clinic.clinic_id, clinic.actor_id, clinic.patient_id, "demo", number, {number}
+        )
+
+        def send(body: str, quoted: str | None = None) -> Message:
+            event_id = str(uuid4())
+            receive_message(
+                session, clinic.clinic_id, IncomingText("demo", number, event_id, body, None)
+            )
+            incoming = session.scalar(
+                select(Message).where(Message.provider_message_id == event_id)
+            )
+            assert incoming is not None
+            actor = resolve_actor(
+                session, authority(clinic.clinic_id), incoming.id, quoted_stanza_id=quoted
+            )
+            process_action(session, actor)
+            session.flush()
+            reply = session.scalar(
+                select(Message).where(Message.caused_by_message_id == incoming.id)
+            )
+            assert reply is not None
+            return reply
+
+        def accepted(reply: Message, stanza: str) -> None:
+            reply.state = "accepted"
+            reply.provider_message_id = f"true_chat_{stanza}"
+            session.flush()
+
+        source = send("BOOK")
+        accepted(source, "SOURCE")
+        appointment_type = send("1", "SOURCE")
+        accepted(appointment_type, "TYPE")
+        booking = session.scalar(
+            select(WhatsAppBookingSession).where(WhatsAppBookingSession.contact_id == contact.id)
+        )
+        assert booking is not None and booking.state == "type"
+        stale_reply = send("1", "SOURCE")
+        assert booking.state == "type"
+        assert "invalid" in stale_reply.body.lower()
+        slots = send("1\ufe0f\u20e3", "TYPE")
+        accepted(slots, "SLOTS")
+        assert booking.state == "slots"
+        confirmation = send("1", "SLOTS")
+        accepted(confirmation, "CONFIRM")
+        assert booking.state == "confirmation"
+        assert session.scalar(select(func.count()).select_from(Appointment)) == 0
+        send("1", "CONFIRM")
+        assert booking.state == "booked"
+        assert session.scalar(select(func.count()).select_from(Appointment)) == 1
+
+
 def test_pause_requires_current_fresh_challenge(database: str) -> None:
     clinic = world()
     number = "+15551234567"
@@ -187,7 +293,7 @@ def test_existing_visits_must_be_paged_before_additional_booking(database: str) 
         assert booking is not None
         assert len(booking.choices["visits"]) == 23
         assert booking.acknowledged_visits == []
-        assert "MORE" in reply.body and "ANOTHER" not in reply.body
+        assert "See more appointments" in reply.body and "Book another visit" not in reply.body
         token = booking.menu_token
         send(f"ANOTHER {token}")
         assert booking.state == "visits" and booking.acknowledged_visits == []
@@ -325,7 +431,7 @@ def test_patient_confirms_once_after_selecting_an_earliest_slot(database: str) -
         session.commit()
         refreshed = render_queued_reply(session, initial_reply)
         assert refreshed is not None and "cancelled" in refreshed
-        assert str(booking.booked_appointment_id)[:8] in refreshed
+        assert str(booking.booked_appointment_id) not in refreshed
         repeat = send(f"CONFIRM {code}")
         assert "cancelled" in repeat.body
         assert session.scalar(select(func.count()).select_from(Appointment)) == 1
@@ -582,7 +688,7 @@ def test_cancelled_acknowledged_visit_is_shown_before_fresh_choice(database: str
         reply = send(f"CONFIRM {booking.menu_token}")
         assert "cancelled" in reply.body and "Appointment" in reply.body
         assert str(existing.id) not in reply.body
-        assert "CONTINUE" in reply.body
+        assert "Continue" in reply.body
         assert booking.booked_appointment_id is None
 
 

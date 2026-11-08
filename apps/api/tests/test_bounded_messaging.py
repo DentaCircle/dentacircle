@@ -2,8 +2,13 @@
 
 import time
 
-from dentacircle.integrations.messaging.base import Connection, IncomingText, SendStatus
-from dentacircle.integrations.messaging.bounded import bounded_send
+from dentacircle.integrations.messaging.base import (
+    Connection,
+    IncomingText,
+    SendReceipt,
+    SendStatus,
+)
+from dentacircle.integrations.messaging.bounded import bounded_send, bounded_send_receipt
 
 
 class SlowProvider:
@@ -21,6 +26,16 @@ class SlowProvider:
 class AcceptedProvider(SlowProvider):
     def send_text(self, number: str, body: str, *, fence_fd: int | None = None) -> SendStatus:
         return "accepted"
+
+
+class ReceiptProvider(AcceptedProvider):
+    def send_text_receipt(self, number: str, body: str) -> SendReceipt:
+        return SendReceipt("accepted", "true_chat_STANZA123")
+
+
+def test_bounded_send_retains_provider_receipt() -> None:
+    result = bounded_send_receipt(ReceiptProvider(), "+15551234567", "hello", timeout_seconds=3)
+    assert result == SendReceipt("accepted", "true_chat_STANZA123")
 
 
 def test_bounded_send_cuts_off_a_stuck_provider() -> None:

@@ -54,9 +54,16 @@ class WhatsAppActor:
     message_id: UUID
     account_key: str
     _seal: bytes = field(default=b"", repr=False)
+    quoted_stanza_id: str | None = field(default=None, repr=False)
 
 
-def resolve_actor(session: Session, callback: VerifiedCallback, message_id: UUID) -> WhatsAppActor:
+def resolve_actor(
+    session: Session,
+    callback: VerifiedCallback,
+    message_id: UUID,
+    *,
+    quoted_stanza_id: str | None = None,
+) -> WhatsAppActor:
     expected = _sign(
         "callback", str(callback.clinic_id), callback.account_key, *sorted(callback.allowlist)
     )
@@ -69,8 +76,15 @@ def resolve_actor(session: Session, callback: VerifiedCallback, message_id: UUID
     message, contact, patient = result
     if contact.number not in allowlist:
         raise InvalidWhatsAppActor
-    seal = _sign("actor", str(clinic_id), str(patient.id), str(message.id), account_key)
-    return WhatsAppActor(clinic_id, patient.id, message.id, account_key, seal)
+    seal = _sign(
+        "actor",
+        str(clinic_id),
+        str(patient.id),
+        str(message.id),
+        account_key,
+        quoted_stanza_id or "",
+    )
+    return WhatsAppActor(clinic_id, patient.id, message.id, account_key, seal, quoted_stanza_id)
 
 
 def require_patient(
@@ -84,6 +98,7 @@ def require_patient(
         str(actor.patient_id),
         str(actor.message_id),
         actor.account_key,
+        actor.quoted_stanza_id or "",
     )
     if not hmac.compare_digest(actor._seal, expected):
         raise InvalidWhatsAppActor

@@ -302,7 +302,9 @@ def receive_event(
     message_id = repository.add_incoming(contact, event)
     if message_id is not None and on_action is not None:
         try:
-            actor = resolve_actor(session, authority, message_id)
+            actor = resolve_actor(
+                session, authority, message_id, quoted_stanza_id=event.quoted_stanza_id
+            )
         except InvalidWhatsAppActor:
             actor = None
         if actor is not None:

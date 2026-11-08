@@ -15,12 +15,19 @@ class Connection:
 
 
 @dataclass(frozen=True)
+class SendReceipt:
+    status: SendStatus
+    provider_message_id: str | None = None
+
+
+@dataclass(frozen=True)
 class IncomingText:
     account_key: str
     number: str
     provider_message_id: str
     body: str
     provider_sent_at: datetime | None
+    quoted_stanza_id: str | None = None
 
 
 class MessagingProvider(Protocol):

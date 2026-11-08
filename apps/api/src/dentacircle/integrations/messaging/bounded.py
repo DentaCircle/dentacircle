@@ -7,7 +7,7 @@ from multiprocessing.connection import Connection
 from multiprocessing.reduction import DupFd
 from typing import Any, cast
 
-from dentacircle.integrations.messaging.base import MessagingProvider, SendStatus
+from dentacircle.integrations.messaging.base import MessagingProvider, SendReceipt, SendStatus
 
 
 def _timeout(_signal: int, _frame: object) -> None:
@@ -21,6 +21,7 @@ def _send(
     output: Connection,
     shared_fence: Any,
     timeout_seconds: float,
+    include_receipt: bool,
 ) -> None:
     fence_fd: int | None = None
     try:
@@ -29,12 +30,19 @@ def _send(
         signal.signal(signal.SIGALRM, _timeout)
         signal.setitimer(signal.ITIMER_REAL, timeout_seconds)
         connection = provider.connection()
-        result = (
-            provider.send_text(number, body)
-            if connection.status == "connected" and connection.can_send_text
-            else "failed"
-        )
-        output.send(result if result in ("accepted", "failed", "unknown") else "unknown")
+        if connection.status == "connected" and connection.can_send_text:
+            receipt_method = getattr(provider, "send_text_receipt", None)
+            result = (
+                receipt_method(number, body)
+                if include_receipt and callable(receipt_method)
+                else provider.send_text(number, body)
+            )
+        else:
+            result = "failed"
+        if isinstance(result, SendReceipt):
+            output.send(result if include_receipt else result.status)
+        else:
+            output.send(result if result in ("accepted", "failed", "unknown") else "unknown")
     except Exception:
         try:
             output.send("unknown")
@@ -46,20 +54,22 @@ def _send(
             os.close(fence_fd)
 
 
-def bounded_send(
+def _bounded_send(
     provider: MessagingProvider,
     number: str,
     body: str,
     *,
     timeout_seconds: float,
     fence_fd: int | None = None,
-) -> SendStatus:
+    include_receipt: bool = False,
+) -> SendStatus | SendReceipt:
     """A child keeps the fence if its parent dies during the provider call."""
     context = multiprocessing.get_context("spawn")
     receive, send = context.Pipe(duplex=False)
     shared_fence = DupFd(fence_fd) if fence_fd is not None else None
     child = context.Process(
-        target=_send, args=(provider, number, body, send, shared_fence, timeout_seconds)
+        target=_send,
+        args=(provider, number, body, send, shared_fence, timeout_seconds, include_receipt),
     )
     try:
         child.start()
@@ -75,6 +85,8 @@ def bounded_send(
         if child.is_alive():
             child.terminate()
             child.join(timeout=1)
+        if include_receipt and isinstance(result, SendReceipt):
+            return result
         return cast(
             SendStatus, result if result in ("accepted", "failed", "unknown") else "unknown"
         )
@@ -83,6 +95,39 @@ def bounded_send(
     finally:
         send.close()
         receive.close()
+
+
+def bounded_send(
+    provider: MessagingProvider,
+    number: str,
+    body: str,
+    *,
+    timeout_seconds: float,
+    fence_fd: int | None = None,
+) -> SendStatus:
+    return cast(
+        SendStatus,
+        _bounded_send(provider, number, body, timeout_seconds=timeout_seconds, fence_fd=fence_fd),
+    )
+
+
+def bounded_send_receipt(
+    provider: MessagingProvider,
+    number: str,
+    body: str,
+    *,
+    timeout_seconds: float,
+    fence_fd: int | None = None,
+) -> SendReceipt:
+    result = _bounded_send(
+        provider,
+        number,
+        body,
+        timeout_seconds=timeout_seconds,
+        fence_fd=fence_fd,
+        include_receipt=True,
+    )
+    return result if isinstance(result, SendReceipt) else SendReceipt(result)
 
 
 def _connection(provider: MessagingProvider, output: Connection, timeout_seconds: float) -> None:

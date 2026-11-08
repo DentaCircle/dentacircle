@@ -72,6 +72,63 @@ def _new_session(
     return booking
 
 
+def _matches_current_prompt(
+    session: Session,
+    actor: WhatsAppActor,
+    contact: MessagingContact,
+    booking: WhatsAppBookingSession,
+) -> bool:
+    """Only a verified reply to this contact's current accepted prompt can select."""
+    quoted = actor.quoted_stanza_id
+    if quoted is None or booking.automation_version != contact.automation_version:
+        return False
+    rows = session.scalars(
+        select(Message).where(
+            Message.clinic_id == actor.clinic_id,
+            Message.contact_id == contact.id,
+            Message.account_key == actor.account_key,
+            Message.origin == "automation",
+            Message.state == "accepted",
+            Message.booking_session_id == booking.id,
+            Message.menu_version == booking.menu_version,
+            Message.automation_version == booking.automation_version,
+            Message.reply_kind.in_(("menu", "resume_challenge")),
+            Message.provider_message_id.is_not(None),
+        )
+    ).all()
+    matches = [
+        row
+        for row in rows
+        if row.provider_message_id is not None
+        and row.provider_message_id.rsplit("_", 1)[-1] == quoted
+    ]
+    return len(matches) == 1
+
+
+def _quoted_command(booking: WhatsAppBookingSession, command: str) -> str:
+    """Translate a reply only after its prompt has been authenticated."""
+    token = booking.menu_token
+    number = command.replace("\ufe0f", "").replace("\u20e3", "")
+    if booking.state == "resume_challenge" and number == "1":
+        return f"BOOK {token}"
+    if booking.state == "visits" and number == "1":
+        if booking.choices["next_cursor"] < len(booking.choices["display"]):
+            return f"MORE {token}"
+        return f"{'ANOTHER' if booking.choices['visits'] else 'CONTINUE'} {token}"
+    if booking.state == "confirmation":
+        return {"1": f"CONFIRM {token}", "2": f"TIMES {token}", "3": f"TYPE {token}"}.get(
+            number, command
+        )
+    if booking.state in ("source", "type", "slots"):
+        if number.isdigit():
+            return f"{token}:{number}"
+        if command in ("MORE", "TYPE", "CLINICIANS"):
+            return f"{command} {token}"
+        if booking.state == "slots" and command.startswith("DATE "):
+            return f"{command} {token}"
+    return command
+
+
 def process_action(session: Session, actor: WhatsAppActor) -> None:
     """Apply one authenticated inbound message within the callback transaction."""
     patient = PatientRepository(session, actor.clinic_id).get(actor.patient_id, lock=True)
@@ -87,7 +144,7 @@ def process_action(session: Session, actor: WhatsAppActor) -> None:
     if contact is None or incoming is None or incoming.contact_id != contact.id:
         return
     now = datetime.now(UTC)
-    command = incoming.body.strip().upper()
+    command = incoming.body.strip().upper().replace("\ufe0f", "").replace("\u20e3", "")
     booking = _current(session, actor, contact)
     if command == "STATUS" or command.startswith("CONFIRM "):
         query = select(WhatsAppBookingSession).where(
@@ -117,6 +174,8 @@ def process_action(session: Session, actor: WhatsAppActor) -> None:
         booking.state = "expired"
         session.flush()
         booking = None
+    if booking is not None and _matches_current_prompt(session, actor, contact, booking):
+        command = _quoted_command(booking, command)
     if command in ("STOP", "STAFF", "TALK TO RECEPTION"):
         state: Literal["stopped", "needs_staff"] = "stopped" if command == "STOP" else "needs_staff"
         transition(session, actor.clinic_id, contact, actor, state)
@@ -133,7 +192,7 @@ def process_action(session: Session, actor: WhatsAppActor) -> None:
             queue_reply(
                 session,
                 actor,
-                f"To resume booking, reply BOOK {booking.menu_token} within 15 minutes.",
+                "To resume booking, reply to this message with 1\ufe0f\u20e3 within 15 minutes.",
                 booking=booking,
                 kind="resume_challenge",
             )
@@ -148,7 +207,7 @@ def process_action(session: Session, actor: WhatsAppActor) -> None:
                 _start(session, actor, contact, now)
             else:
                 queue_reply(
-                    session, actor, "That code is no longer valid. Reply BOOK for a new code."
+                    session, actor, "That reply is no longer valid. Send BOOK to start again."
                 )
         return
     if (
@@ -188,7 +247,11 @@ def process_action(session: Session, actor: WhatsAppActor) -> None:
         or command.isdigit()
         or re.fullmatch(r"[A-Z0-9]+:\d+", command)
     ):
-        queue_reply(session, actor, "That code is invalid. Reply BOOK or STAFF.")
+        queue_reply(
+            session,
+            actor,
+            "That choice is invalid. Reply to the latest message or send STAFF for help.",
+        )
     elif command in ("HI", "HELLO", "HEY"):
         queue_reply(
             session,
@@ -236,10 +299,10 @@ def _resume_menu(session: Session, actor: WhatsAppActor, booking: WhatsAppBookin
             session,
             actor,
             f"*Please check your appointment*\n\n{kind}\n{choice['label']}\n\n"
-            f"To book, reply CONFIRM {booking.menu_token}.\n"
             "Your appointment is not reserved yet.\n\n"
-            f"Change time: TIMES {booking.menu_token}\n"
-            f"Change type: TYPE {booking.menu_token}",
+            "1\ufe0f\u20e3 Confirm booking\n2\ufe0f\u20e3 Change time\n"
+            "3\ufe0f\u20e3 Change appointment type\n\n"
+            "Use WhatsApp Reply on this message, then send your choice.",
             booking=booking,
             kind="menu",
         )
@@ -306,12 +369,14 @@ def _show_visits(
     }
     lines.append("")
     if next_cursor < len(display):
-        lines.append(f"More appointments: MORE {booking.menu_token}")
+        lines.append("1\ufe0f\u20e3 See more appointments")
     elif visits:
-        lines.append(f"To book another visit, reply ANOTHER {booking.menu_token}.")
+        lines.append("1\ufe0f\u20e3 Book another visit")
     else:
-        lines.append(f"To continue, reply CONTINUE {booking.menu_token}.")
-    lines.extend(["", "Need help? Reply STAFF."])
+        lines.append("1\ufe0f\u20e3 Continue")
+    lines.extend(
+        ["", "Use WhatsApp Reply on this message, then send 1.", "", "Need help? Reply STAFF."]
+    )
     queue_reply(session, actor, "\n".join(lines), booking=booking, kind="menu")
 
 
@@ -389,9 +454,8 @@ def _offer_slots(
     else:
         title = "Choose an available time."
     title += (
-        f" Change date: DATE YYYY-MM-DD {booking.menu_token}. "
-        f"Change clinician: CLINICIANS {booking.menu_token}. "
-        f"Change type: TYPE {booking.menu_token}."
+        "\nTo change date, reply DATE YYYY-MM-DD.\n"
+        "For another clinician, reply CLINICIANS.\nTo change type, reply TYPE."
     )
     _show_options(session, actor, booking, all_entries, title, 0)
 
@@ -467,7 +531,7 @@ def _choice_command(
                 _confirm(session, actor, contact, booking, now)
             else:
                 queue_reply(
-                    session, actor, "That confirmation code is invalid. Reply BOOK or STAFF."
+                    session, actor, "That confirmation is invalid. Send BOOK or STAFF for help."
                 )
             return True
         return False
@@ -482,7 +546,9 @@ def _choice_command(
             if not today <= chosen <= today + timedelta(days=365):
                 raise ValueError
         except ValueError:
-            queue_reply(session, actor, "That date or code is invalid. Reply BOOK or STAFF.")
+            queue_reply(
+                session, actor, "That date or reply is invalid. Send BOOK or STAFF for help."
+            )
             return True
         booking.selected_date = chosen
         _rotate(booking, now)
@@ -536,7 +602,9 @@ def _choice_command(
     parsed, selected = parse_menu_command(command, booking.menu_token, booking.choices["count"])
     if parsed == "invalid":
         queue_reply(
-            session, actor, "That code is invalid. Reply BOOK to resume or STAFF for reception."
+            session,
+            actor,
+            "That choice is invalid. Reply to the latest message or send STAFF for help.",
         )
         return True
     if parsed == "more":
@@ -587,10 +655,10 @@ def _choice_command(
             session,
             actor,
             f"*Please check your appointment*\n\n{type_name}\n{choice['label']}\n\n"
-            f"To book, reply CONFIRM {booking.menu_token}.\n"
             "Your appointment is not reserved yet.\n\n"
-            f"Change time: TIMES {booking.menu_token}\n"
-            f"Change type: TYPE {booking.menu_token}",
+            "1\ufe0f\u20e3 Confirm booking\n2\ufe0f\u20e3 Change time\n"
+            "3\ufe0f\u20e3 Change appointment type\n\n"
+            "Use WhatsApp Reply on this message, then send your choice.",
             booking=booking,
             kind="menu",
         )
@@ -692,9 +760,9 @@ def _result_text(
     local = visit.starts_at.astimezone(ZoneInfo(clinic.timezone))
     local_end = visit.ends_at.astimezone(ZoneInfo(clinic.timezone))
     return (
-        f"Appointment {visit.id}: {local:%Y-%m-%d %H:%M}–{local_end:%H:%M} {clinic.timezone}, "
-        f"{kind.name}, {clinician.full_name}. Status: {visit.status}. "
-        f"Details as of {now.astimezone(ZoneInfo(clinic.timezone)):%Y-%m-%d %H:%M %Z}."
+        f"*Appointment update*\n\n{local:%d %b %Y} at {local:%H:%M}–{local_end:%H:%M}\n"
+        f"{kind.name} with {clinician.full_name}\nStatus: {visit.status}\n\n"
+        f"Updated {now.astimezone(ZoneInfo(clinic.timezone)):%d %b %Y at %H:%M %Z}."
     )
 
 

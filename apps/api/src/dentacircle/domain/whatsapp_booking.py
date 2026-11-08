@@ -17,15 +17,23 @@ def menu_page(title: str, entries: list[str], cursor: int, token: str) -> MenuPa
     if not 0 <= cursor <= len(entries) or not re.fullmatch(r"[A-Z0-9]{4,12}", token):
         raise ValueError("invalid menu cursor or token")
     labels = entries[cursor : cursor + 5]
-    lines = [f"*{title[:300]}*", ""]
+    heading, _, description = title[:300].partition("\n")
+    lines = [f"*{heading}*", ""]
     for index, label in enumerate(labels, start=1):
         clean = " ".join(label.split())
         display = clean if len(clean) <= 300 else clean[:299] + "…"
-        lines.append(f"{token}:{index} {display}")
+        lines.append(f"{index}\ufe0f\u20e3 {display}")
     next_cursor = cursor + len(labels)
-    lines.extend(["", "Reply with the code next to your choice."])
+    if labels:
+        lines.extend(
+            ["", "Use WhatsApp Reply on this message, then send the number of your choice."]
+        )
     if next_cursor < len(entries):
-        lines.append(f"More choices: reply MORE {token}.")
+        lines.append("To see more choices, reply MORE to this message.")
+    if description.strip():
+        lines.extend(["", description.strip()])
+        if not labels:
+            lines.append("Use WhatsApp Reply on this message to change your search.")
     lines.extend(["", "Need help? Reply STAFF. To stop, reply STOP."])
     message = "\n".join(lines)
     if len(message) > 2000:

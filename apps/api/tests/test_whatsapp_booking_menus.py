@@ -7,9 +7,9 @@ def test_menu_is_readable_and_explains_how_to_reply() -> None:
     page = menu_page("Choose an appointment type", ["Consultation", "Cleaning"], 0, "AB12")
     assert page.text == (
         "*Choose an appointment type*\n\n"
-        "AB12:1 Consultation\n"
-        "AB12:2 Cleaning\n\n"
-        "Reply with the code next to your choice.\n\n"
+        "1\ufe0f\u20e3 Consultation\n"
+        "2\ufe0f\u20e3 Cleaning\n\n"
+        "Use WhatsApp Reply on this message, then send the number of your choice.\n\n"
         "Need help? Reply STAFF. To stop, reply STOP."
     )
 
@@ -23,7 +23,7 @@ def test_pages_show_every_entry_with_current_codes() -> None:
         assert len(page.text) <= 2000
         assert 1 <= len(page.entries) <= 5
         for index, entry in enumerate(page.entries, start=1):
-            assert f"AB12:{index} {entry}" in page.text
+            assert f"{index}\ufe0f\u20e3 {entry}" in page.text
         seen.extend(page.entries)
         cursor = page.next_cursor
     assert seen == entries
@@ -33,8 +33,15 @@ def test_long_labels_fit_without_ambiguous_codes() -> None:
     page = menu_page("Choose", ["A" * 4000, "Other"], 0, "AB12")
     assert len(page.text) <= 2000
     assert page.next_cursor > 0
-    assert "AB12:1 " in page.text
+    assert "1\ufe0f\u20e3 " in page.text
+    assert "AB12" not in page.text
     assert page.entries[0] == "A" * 4000
+
+
+def test_empty_menu_does_not_ask_for_a_number() -> None:
+    page = menu_page("No slots found.", [], 0, "AB12")
+    assert "number of your choice" not in page.text
+    assert "STAFF" in page.text
 
 
 def test_only_current_token_can_select_or_page() -> None:

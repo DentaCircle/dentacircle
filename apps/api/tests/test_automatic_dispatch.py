@@ -7,7 +7,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from dentacircle.core.database import get_engine
-from dentacircle.integrations.messaging.base import Connection, IncomingText, SendStatus
+from dentacircle.integrations.messaging.base import (
+    Connection,
+    IncomingText,
+    SendReceipt,
+    SendStatus,
+)
 from dentacircle.integrations.messaging.contact_fence import contact_fence
 from dentacircle.models.messaging import Message
 from dentacircle.services.automatic_dispatch import dispatch_one
@@ -30,6 +35,23 @@ class Provider:
 
     def normalize_event(self, payload: object) -> IncomingText | None:
         return None
+
+
+class ReceiptProvider(Provider):
+    def send_text_receipt(self, number: str, body: str) -> SendReceipt:
+        return SendReceipt("accepted", "true_chat_STANZA123")
+
+
+def test_dispatch_records_provider_receipt(database: str) -> None:
+    clinic, contact, ids = prepare()
+    assert (
+        dispatch_one(get_engine(), ReceiptProvider(), clinic, contact, "demo", {NUMBER}) == "sent"
+    )
+    with Session(get_engine()) as session:
+        sent = session.get(Message, ids[0])
+        assert sent is not None
+        assert sent.state == "accepted"
+        assert sent.provider_message_id == "true_chat_STANZA123"
 
 
 def prepare() -> tuple[UUID, UUID, list[UUID]]:
