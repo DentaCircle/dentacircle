@@ -13,47 +13,47 @@
   },
   {
     "from": "clinic",
-    "text": "*Your appointments*\n\nAppointment 1\n09 Nov 2026 at 10:00\nConsultation with Synthetic Staff\nStatus: scheduled\n\nTo book another visit, reply ANOTHER 82585F58.\n\nNeed help? Reply STAFF."
+    "text": "*Your appointments*\n\nAppointment 1\n09 Nov 2026 at 10:00\nConsultation with Synthetic Staff\nStatus: scheduled\n\n1\ufe0f\u20e3 Book another visit\n\nUse WhatsApp Reply on this message, then send 1.\n\nNeed help? Reply STAFF."
   },
   {
     "from": "patient",
-    "text": "ANOTHER 82585F58"
+    "text": "1"
   },
   {
     "from": "clinic",
-    "text": "*Choose a booking source*\n\n7FB74771:1 General visit\n\nReply with the code next to your choice.\n\nNeed help? Reply STAFF. To stop, reply STOP."
+    "text": "*Choose a booking source*\n\n1\ufe0f\u20e3 General visit\n\nUse WhatsApp Reply on this message, then send the number of your choice.\n\nNeed help? Reply STAFF. To stop, reply STOP."
   },
   {
     "from": "patient",
-    "text": "7FB74771:1"
+    "text": "1"
   },
   {
     "from": "clinic",
-    "text": "*Choose an appointment type*\n\n18CE1A78:1 Root canal visit\n18CE1A78:2 Consultation\n18CE1A78:3 Scaling\n18CE1A78:4 Crown visit\n18CE1A78:5 Not sure what to book\n\nReply with the code next to your choice.\n\nNeed help? Reply STAFF. To stop, reply STOP."
+    "text": "*Choose an appointment type*\n\n1\ufe0f\u20e3 Crown visit\n2\ufe0f\u20e3 Scaling\n3\ufe0f\u20e3 Consultation\n4\ufe0f\u20e3 Root canal visit\n5\ufe0f\u20e3 Not sure what to book\n\nUse WhatsApp Reply on this message, then send the number of your choice.\n\nNeed help? Reply STAFF. To stop, reply STOP."
   },
   {
     "from": "patient",
-    "text": "18CE1A78:1"
+    "text": "1"
   },
   {
     "from": "clinic",
-    "text": "*Choose an available time. Change date: DATE YYYY-MM-DD FAF62332. Change clinician: CLINICIANS FAF62332. Change type: TYPE FAF62332.*\n\nFAF62332:1 2026-11-09 09:00\u201310:00 Asia/Kolkata \u00b7 Synthetic Staff\nFAF62332:2 2026-11-09 10:30\u201311:30 Asia/Kolkata \u00b7 Synthetic Staff\nFAF62332:3 2026-11-09 10:45\u201311:45 Asia/Kolkata \u00b7 Synthetic Staff\nFAF62332:4 2026-11-09 11:00\u201312:00 Asia/Kolkata \u00b7 Synthetic Staff\nFAF62332:5 2026-11-09 11:15\u201312:15 Asia/Kolkata \u00b7 Synthetic Staff\n\nReply with the code next to your choice.\nMore choices: reply MORE FAF62332.\n\nNeed help? Reply STAFF. To stop, reply STOP."
+    "text": "*Choose an available time.*\n\n1\ufe0f\u20e3 2026-11-09 09:00\u201309:45 Asia/Kolkata \u00b7 Synthetic Staff\n2\ufe0f\u20e3 2026-11-09 09:15\u201310:00 Asia/Kolkata \u00b7 Synthetic Staff\n3\ufe0f\u20e3 2026-11-09 10:30\u201311:15 Asia/Kolkata \u00b7 Synthetic Staff\n4\ufe0f\u20e3 2026-11-09 10:45\u201311:30 Asia/Kolkata \u00b7 Synthetic Staff\n5\ufe0f\u20e3 2026-11-09 11:00\u201311:45 Asia/Kolkata \u00b7 Synthetic Staff\n\nUse WhatsApp Reply on this message, then send the number of your choice.\nTo see more choices, reply MORE to this message.\n\nTo change date, reply DATE YYYY-MM-DD.\nFor another clinician, reply CLINICIANS.\nTo change type, reply TYPE.\n\nNeed help? Reply STAFF. To stop, reply STOP."
   },
   {
     "from": "patient",
-    "text": "FAF62332:1"
+    "text": "1"
   },
   {
     "from": "clinic",
-    "text": "*Please check your appointment*\n\nRoot canal visit\n2026-11-09 09:00\u201310:00 Asia/Kolkata \u00b7 Synthetic Staff\n\nTo book, reply CONFIRM C0055F4C.\nYour appointment is not reserved yet.\n\nChange time: TIMES C0055F4C\nChange type: TYPE C0055F4C"
+    "text": "*Please check your appointment*\n\nCrown visit\n2026-11-09 09:00\u201309:45 Asia/Kolkata \u00b7 Synthetic Staff\n\nYour appointment is not reserved yet.\n\n1\ufe0f\u20e3 Confirm booking\n2\ufe0f\u20e3 Change time\n3\ufe0f\u20e3 Change appointment type\n\nUse WhatsApp Reply on this message, then send your choice."
   },
   {
     "from": "patient",
-    "text": "CONFIRM C0055F4C"
+    "text": "1"
   },
   {
     "from": "clinic",
-    "text": "Appointment [visit reference]: 2026-11-09 09:00\u201310:00 Asia/Kolkata, Root canal visit, Synthetic Staff. Status: scheduled. Details as of 2026-11-08 21:47 IST."
+    "text": "*Appointment update*\n\n09 Nov 2026 at 09:00\u201309:45\nCrown visit with Synthetic Staff\nStatus: scheduled\n\nUpdated 08 Nov 2026 at 23:19 IST."
   },
   {
     "from": "patient",
@@ -61,7 +61,7 @@
   },
   {
     "from": "clinic",
-    "text": "Appointment [visit reference]: 2026-11-09 09:00\u201310:00 Asia/Kolkata, Root canal visit, Synthetic Staff. Status: scheduled. Details as of 2026-11-08 21:47 IST."
+    "text": "*Appointment update*\n\n09 Nov 2026 at 09:00\u201309:45\nCrown visit with Synthetic Staff\nStatus: scheduled\n\nUpdated 08 Nov 2026 at 23:19 IST."
   },
   {
     "from": "patient",
@@ -77,15 +77,15 @@
   },
   {
     "from": "clinic",
-    "text": "To resume booking, reply BOOK 66679073 within 15 minutes."
+    "text": "To resume booking, reply to this message with 1\ufe0f\u20e3 within 15 minutes."
   },
   {
     "from": "patient",
-    "text": "BOOK 66679073"
+    "text": "1"
   },
   {
     "from": "clinic",
-    "text": "*Your appointments*\n\nAppointment 1\n09 Nov 2026 at 09:00\nRoot canal visit with Synthetic Staff\nStatus: scheduled\n\nAppointment 2\n09 Nov 2026 at 10:00\nConsultation with Synthetic Staff\nStatus: scheduled\n\nTo book another visit, reply ANOTHER B68F9183.\n\nNeed help? Reply STAFF."
+    "text": "*Your appointments*\n\nAppointment 1\n09 Nov 2026 at 09:00\nCrown visit with Synthetic Staff\nStatus: scheduled\n\nAppointment 2\n09 Nov 2026 at 10:00\nConsultation with Synthetic Staff\nStatus: scheduled\n\n1\ufe0f\u20e3 Book another visit\n\nUse WhatsApp Reply on this message, then send 1.\n\nNeed help? Reply STAFF."
   },
   {
     "from": "patient",
@@ -113,38 +113,38 @@
   },
   {
     "from": "clinic",
-    "text": "*Choose a booking source*\n\n7A3F5EE4:1 General visit\n7A3F5EE4:2 Follow-up due 2026-11-08\n\nReply with the code next to your choice.\n\nNeed help? Reply STAFF. To stop, reply STOP."
+    "text": "*Choose a booking source*\n\n1\ufe0f\u20e3 General visit\n2\ufe0f\u20e3 Follow-up due 2026-11-08\n\nUse WhatsApp Reply on this message, then send the number of your choice.\n\nNeed help? Reply STAFF. To stop, reply STOP."
   },
   {
     "from": "patient",
-    "text": "7A3F5EE4:2"
+    "text": "2"
   },
   {
     "from": "clinic",
-    "text": "*Choose an appointment type*\n\n51AAF43F:1 Root canal visit\n51AAF43F:2 Consultation\n51AAF43F:3 Scaling\n51AAF43F:4 Crown visit\n51AAF43F:5 Not sure what to book\n\nReply with the code next to your choice.\n\nNeed help? Reply STAFF. To stop, reply STOP."
+    "text": "*Choose an appointment type*\n\n1\ufe0f\u20e3 Crown visit\n2\ufe0f\u20e3 Scaling\n3\ufe0f\u20e3 Consultation\n4\ufe0f\u20e3 Root canal visit\n5\ufe0f\u20e3 Not sure what to book\n\nUse WhatsApp Reply on this message, then send the number of your choice.\n\nNeed help? Reply STAFF. To stop, reply STOP."
   },
   {
     "from": "patient",
-    "text": "51AAF43F:1"
+    "text": "1"
   },
   {
     "from": "clinic",
-    "text": "*Choose an available time. Change date: DATE YYYY-MM-DD F8EAB21E. Change clinician: CLINICIANS F8EAB21E. Change type: TYPE F8EAB21E.*\n\nF8EAB21E:1 2026-11-09 10:30\u201311:30 Asia/Kolkata \u00b7 Synthetic Staff\nF8EAB21E:2 2026-11-09 10:45\u201311:45 Asia/Kolkata \u00b7 Synthetic Staff\nF8EAB21E:3 2026-11-09 11:00\u201312:00 Asia/Kolkata \u00b7 Synthetic Staff\nF8EAB21E:4 2026-11-09 11:15\u201312:15 Asia/Kolkata \u00b7 Synthetic Staff\nF8EAB21E:5 2026-11-09 11:30\u201312:30 Asia/Kolkata \u00b7 Synthetic Staff\n\nReply with the code next to your choice.\nMore choices: reply MORE F8EAB21E.\n\nNeed help? Reply STAFF. To stop, reply STOP."
+    "text": "*Choose an available time.*\n\n1\ufe0f\u20e3 2026-11-09 10:30\u201311:15 Asia/Kolkata \u00b7 Synthetic Staff\n2\ufe0f\u20e3 2026-11-09 10:45\u201311:30 Asia/Kolkata \u00b7 Synthetic Staff\n3\ufe0f\u20e3 2026-11-09 11:00\u201311:45 Asia/Kolkata \u00b7 Synthetic Staff\n4\ufe0f\u20e3 2026-11-09 11:15\u201312:00 Asia/Kolkata \u00b7 Synthetic Staff\n5\ufe0f\u20e3 2026-11-09 11:30\u201312:15 Asia/Kolkata \u00b7 Synthetic Staff\n\nUse WhatsApp Reply on this message, then send the number of your choice.\nTo see more choices, reply MORE to this message.\n\nTo change date, reply DATE YYYY-MM-DD.\nFor another clinician, reply CLINICIANS.\nTo change type, reply TYPE.\n\nNeed help? Reply STAFF. To stop, reply STOP."
   },
   {
     "from": "patient",
-    "text": "F8EAB21E:1"
+    "text": "1"
   },
   {
     "from": "clinic",
-    "text": "*Please check your appointment*\n\nRoot canal visit\n2026-11-09 10:30\u201311:30 Asia/Kolkata \u00b7 Synthetic Staff\n\nTo book, reply CONFIRM 2D4B0784.\nYour appointment is not reserved yet.\n\nChange time: TIMES 2D4B0784\nChange type: TYPE 2D4B0784"
+    "text": "*Please check your appointment*\n\nCrown visit\n2026-11-09 10:30\u201311:15 Asia/Kolkata \u00b7 Synthetic Staff\n\nYour appointment is not reserved yet.\n\n1\ufe0f\u20e3 Confirm booking\n2\ufe0f\u20e3 Change time\n3\ufe0f\u20e3 Change appointment type\n\nUse WhatsApp Reply on this message, then send your choice."
   },
   {
     "from": "patient",
-    "text": "CONFIRM 2D4B0784"
+    "text": "1"
   },
   {
     "from": "clinic",
-    "text": "Appointment [visit reference]: 2026-11-09 10:30\u201311:30 Asia/Kolkata, Root canal visit, Synthetic Staff. Status: scheduled. Details as of 2026-11-08 21:47 IST."
+    "text": "*Appointment update*\n\n09 Nov 2026 at 10:30\u201311:15\nCrown visit with Synthetic Staff\nStatus: scheduled\n\nUpdated 08 Nov 2026 at 23:19 IST."
   }
 ]

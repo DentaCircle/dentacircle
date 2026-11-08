@@ -1,7 +1,7 @@
 # S5.2b synthetic review evidence
 
-Screenshot application commit: `362475f`. The transcript was regenerated after message
-formatting commits `8b310c8` and `b57619a`. All records and messages shown here are synthetic.
+Screenshot application commit: `362475f`. The transcript was regenerated for the numbered
+reply implementation at `e35f8e1`. All records and messages shown here are synthetic.
 No real WhatsApp messages were sent to produce these files. The phone and patient
 identifiers are excluded from the cropped screenshots.
 
@@ -47,6 +47,12 @@ accepted it and the patient confirmed receipt. The synthetic transcript remains 
 evidence and does not itself claim real delivery. The patient replied BOOK to the invitation
 and confirmed receiving the existing-appointment details and the option to book another visit.
 The failed first invitation is not proven fixed for a contact with no existing conversation.
+
+The developer later requested numbered replies without visible codes. A live WhatsApp test
+confirmed that replying to the appointment message with 1 opened the booking-source menu,
+and the bridge recorded the outgoing message reference. The complete numbered booking and
+rejection of an old prompt were also exercised by automated tests; a complete numbered live
+booking has not been performed.
 
 STOP was also confirmed on the patient's phone; the stored conversation state became stopped
 and the synthetic appointment remained scheduled. A later BOOK produced a fresh resume

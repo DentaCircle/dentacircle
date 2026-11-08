@@ -12,7 +12,6 @@ from dentacircle.core.config import Settings
 from dentacircle.core.database import get_engine
 from dentacircle.integrations.messaging.base import Connection, IncomingText
 from dentacircle.models.messaging import Message
-from dentacircle.models.whatsapp_booking_session import WhatsAppBookingSession
 from dentacircle.services.follow_up_service import create_manual_follow_up
 from dentacircle.services.messaging_service import (
     invitation_text,
@@ -64,11 +63,15 @@ def main() -> None:
     authority = authenticate_callback("synthetic-secret", settings)
     provider = FakeProvider()
     transcript: list[dict[str, str]] = []
+    latest_reference: dict[str, str] = {}
     with Session(get_engine(), expire_on_commit=False) as session:
         link_contact(session, clinic, staff, patient, "demo", "+15551234567", numbers)
 
-        def send(number: str, body: str) -> None:
-            event = IncomingText("demo", number, str(uuid4()), body, None)
+        def send(number: str, body: str, *, quote: bool = False) -> None:
+            event = IncomingText(
+                "demo", number, str(uuid4()), body, None,
+                latest_reference[number] if quote else None,
+            )
             receive_event(session, authority, provider, event, process_action)  # type: ignore[arg-type]
             incoming = session.scalar(
                 select(Message).where(
@@ -82,39 +85,23 @@ def main() -> None:
             transcript.append({"from": "patient", "text": safe(body)})
             if reply is not None:
                 transcript.append({"from": "clinic", "text": safe(reply.body)})
-
-        def current() -> WhatsAppBookingSession:
-            row = session.scalar(
-                select(WhatsAppBookingSession)
-                .where(
-                    WhatsAppBookingSession.clinic_id == clinic,
-                    WhatsAppBookingSession.state.in_(
-                        (
-                            "visits",
-                            "source",
-                            "type",
-                            "slots",
-                            "confirmation",
-                            "resume_challenge",
-                        )
-                    ),
-                )
-                .order_by(WhatsAppBookingSession.created_at.desc())
-                .limit(1)
-            )
-            assert row is not None
-            return row
+                if reply.booking_session_id and reply.reply_kind in ("menu", "resume_challenge"):
+                    reference = uuid4().hex.upper()
+                    reply.state = "accepted"
+                    reply.provider_message_id = f"true_chat_{reference}"
+                    latest_reference[number] = reference
+                    session.commit()
 
         send("+15551234567", "HI")
         send("+15551234567", "BOOK")
-        send("+15551234567", f"ANOTHER {current().menu_token}")
+        send("+15551234567", "1", quote=True)
         for _ in range(3):
-            send("+15551234567", f"{current().menu_token}:1")
-        send("+15551234567", f"CONFIRM {current().menu_token}")
+            send("+15551234567", "1", quote=True)
+        send("+15551234567", "1", quote=True)
         send("+15551234567", "STATUS")
         send("+15551234567", "STOP")
         send("+15551234567", "BOOK")
-        send("+15551234567", f"BOOK {current().menu_token}")
+        send("+15551234567", "1", quote=True)
         send("+15551234567", "STAFF")
         set_staff_automation(
             session, clinic, staff, patient, "staff_handling", "demo", numbers
@@ -152,10 +139,10 @@ def main() -> None:
         )
         session.commit()
         send("+15551234568", "BOOK")
-        send("+15551234568", f"{current().menu_token}:2")
+        send("+15551234568", "2", quote=True)
         for _ in range(2):
-            send("+15551234568", f"{current().menu_token}:1")
-        send("+15551234568", f"CONFIRM {current().menu_token}")
+            send("+15551234568", "1", quote=True)
+        send("+15551234568", "1", quote=True)
         Path("../../.openwa/proof-patients.json").write_text(
             json.dumps(
                 {"patient_id": str(patient), "invited_patient_id": str(other.id)}
