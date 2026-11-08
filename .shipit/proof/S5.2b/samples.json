@@ -13,47 +13,47 @@
   },
   {
     "from": "clinic",
-    "text": "Your appointment details:\n[visit reference] \u00b7 2026-11-09 10:00 \u00b7 Consultation \u00b7 Synthetic Staff \u00b7 scheduled\nTo book another visit, reply ANOTHER CDD043D9.\nFor reception, reply STAFF."
+    "text": "Your appointment details:\n[visit reference] \u00b7 2026-11-09 10:00 \u00b7 Consultation \u00b7 Synthetic Staff \u00b7 scheduled\nTo book another visit, reply ANOTHER 87B460F0.\nFor reception, reply STAFF."
   },
   {
     "from": "patient",
-    "text": "ANOTHER CDD043D9"
+    "text": "ANOTHER 87B460F0"
   },
   {
     "from": "clinic",
-    "text": "Choose a booking source\n0CBA5853:1 General visit\nFor reception, reply STAFF. To stop, reply STOP."
+    "text": "*Choose a booking source*\n\nE0415754:1 General visit\n\nReply with the code next to your choice.\n\nNeed help? Reply STAFF. To stop, reply STOP."
   },
   {
     "from": "patient",
-    "text": "0CBA5853:1"
+    "text": "E0415754:1"
   },
   {
     "from": "clinic",
-    "text": "Choose an appointment type\n4212B310:1 Consultation\n4212B310:2 Scaling\n4212B310:3 Root canal visit\n4212B310:4 Crown visit\n4212B310:5 Not sure what to book\nFor reception, reply STAFF. To stop, reply STOP."
+    "text": "*Choose an appointment type*\n\n6F150487:1 Crown visit\n6F150487:2 Consultation\n6F150487:3 Root canal visit\n6F150487:4 Scaling\n6F150487:5 Not sure what to book\n\nReply with the code next to your choice.\n\nNeed help? Reply STAFF. To stop, reply STOP."
   },
   {
     "from": "patient",
-    "text": "4212B310:1"
+    "text": "6F150487:1"
   },
   {
     "from": "clinic",
-    "text": "Choose an available time. Change date: DATE YYYY-MM-DD 5BD1CE61. Change clinician: CLINICIANS 5BD1CE61. Change type: TYPE 5BD1CE61.\n5BD1CE61:1 2026-11-09 09:00\u201309:30 Asia/Kolkata \u00b7 Synthetic Staff\n5BD1CE61:2 2026-11-09 09:15\u201309:45 Asia/Kolkata \u00b7 Synthetic Staff\n5BD1CE61:3 2026-11-09 09:30\u201310:00 Asia/Kolkata \u00b7 Synthetic Staff\n5BD1CE61:4 2026-11-09 10:30\u201311:00 Asia/Kolkata \u00b7 Synthetic Staff\n5BD1CE61:5 2026-11-09 10:45\u201311:15 Asia/Kolkata \u00b7 Synthetic Staff\nMore choices: MORE 5BD1CE61\nFor reception, reply STAFF. To stop, reply STOP."
+    "text": "*Choose an available time. Change date: DATE YYYY-MM-DD 8B6EE889. Change clinician: CLINICIANS 8B6EE889. Change type: TYPE 8B6EE889.*\n\n8B6EE889:1 2026-11-09 09:00\u201309:45 Asia/Kolkata \u00b7 Synthetic Staff\n8B6EE889:2 2026-11-09 09:15\u201310:00 Asia/Kolkata \u00b7 Synthetic Staff\n8B6EE889:3 2026-11-09 10:30\u201311:15 Asia/Kolkata \u00b7 Synthetic Staff\n8B6EE889:4 2026-11-09 10:45\u201311:30 Asia/Kolkata \u00b7 Synthetic Staff\n8B6EE889:5 2026-11-09 11:00\u201311:45 Asia/Kolkata \u00b7 Synthetic Staff\n\nReply with the code next to your choice.\nMore choices: reply MORE 8B6EE889.\n\nNeed help? Reply STAFF. To stop, reply STOP."
   },
   {
     "from": "patient",
-    "text": "5BD1CE61:1"
+    "text": "8B6EE889:1"
   },
   {
     "from": "clinic",
-    "text": "Please check: Consultation \u00b7 2026-11-09 09:00\u201309:30 Asia/Kolkata \u00b7 Synthetic Staff. Reply CONFIRM 779BBE91 to book. Nothing is reserved yet. Change time: TIMES 779BBE91; type: TYPE 779BBE91."
+    "text": "*Please check your appointment*\n\nCrown visit\n2026-11-09 09:00\u201309:45 Asia/Kolkata \u00b7 Synthetic Staff\n\nTo book, reply CONFIRM 20CA7F3B.\nYour appointment is not reserved yet.\n\nChange time: TIMES 20CA7F3B\nChange type: TYPE 20CA7F3B"
   },
   {
     "from": "patient",
-    "text": "CONFIRM 779BBE91"
+    "text": "CONFIRM 20CA7F3B"
   },
   {
     "from": "clinic",
-    "text": "Appointment [visit reference]: 2026-11-09 09:00\u201309:30 Asia/Kolkata, Consultation, Synthetic Staff. Status: scheduled. Details as of 2026-11-08 19:42 IST."
+    "text": "Appointment [visit reference]: 2026-11-09 09:00\u201309:45 Asia/Kolkata, Crown visit, Synthetic Staff. Status: scheduled. Details as of 2026-11-08 21:38 IST."
   },
   {
     "from": "patient",
@@ -61,7 +61,7 @@
   },
   {
     "from": "clinic",
-    "text": "Appointment [visit reference]: 2026-11-09 09:00\u201309:30 Asia/Kolkata, Consultation, Synthetic Staff. Status: scheduled. Details as of 2026-11-08 19:42 IST."
+    "text": "Appointment [visit reference]: 2026-11-09 09:00\u201309:45 Asia/Kolkata, Crown visit, Synthetic Staff. Status: scheduled. Details as of 2026-11-08 21:38 IST."
   },
   {
     "from": "patient",
@@ -77,15 +77,15 @@
   },
   {
     "from": "clinic",
-    "text": "To resume booking, reply BOOK 858DFCAB within 15 minutes."
+    "text": "To resume booking, reply BOOK DDB6CD87 within 15 minutes."
   },
   {
     "from": "patient",
-    "text": "BOOK 858DFCAB"
+    "text": "BOOK DDB6CD87"
   },
   {
     "from": "clinic",
-    "text": "Your appointment details:\n[visit reference] \u00b7 2026-11-09 09:00 \u00b7 Consultation \u00b7 Synthetic Staff \u00b7 scheduled\n[visit reference] \u00b7 2026-11-09 10:00 \u00b7 Consultation \u00b7 Synthetic Staff \u00b7 scheduled\nTo book another visit, reply ANOTHER CC079B1C.\nFor reception, reply STAFF."
+    "text": "Your appointment details:\n[visit reference] \u00b7 2026-11-09 09:00 \u00b7 Crown visit \u00b7 Synthetic Staff \u00b7 scheduled\n[visit reference] \u00b7 2026-11-09 10:00 \u00b7 Consultation \u00b7 Synthetic Staff \u00b7 scheduled\nTo book another visit, reply ANOTHER 6394F6CA.\nFor reception, reply STAFF."
   },
   {
     "from": "patient",
@@ -113,38 +113,38 @@
   },
   {
     "from": "clinic",
-    "text": "Choose a booking source\nFB0C07CE:1 General visit\nFB0C07CE:2 Follow-up due 2026-11-08\nFor reception, reply STAFF. To stop, reply STOP."
+    "text": "*Choose a booking source*\n\nDAC18663:1 General visit\nDAC18663:2 Follow-up due 2026-11-08\n\nReply with the code next to your choice.\n\nNeed help? Reply STAFF. To stop, reply STOP."
   },
   {
     "from": "patient",
-    "text": "FB0C07CE:2"
+    "text": "DAC18663:2"
   },
   {
     "from": "clinic",
-    "text": "Choose an appointment type\nA755F11F:1 Consultation\nA755F11F:2 Scaling\nA755F11F:3 Root canal visit\nA755F11F:4 Crown visit\nA755F11F:5 Not sure what to book\nFor reception, reply STAFF. To stop, reply STOP."
+    "text": "*Choose an appointment type*\n\nE010FD22:1 Crown visit\nE010FD22:2 Consultation\nE010FD22:3 Root canal visit\nE010FD22:4 Scaling\nE010FD22:5 Not sure what to book\n\nReply with the code next to your choice.\n\nNeed help? Reply STAFF. To stop, reply STOP."
   },
   {
     "from": "patient",
-    "text": "A755F11F:1"
+    "text": "E010FD22:1"
   },
   {
     "from": "clinic",
-    "text": "Choose an available time. Change date: DATE YYYY-MM-DD FCD25417. Change clinician: CLINICIANS FCD25417. Change type: TYPE FCD25417.\nFCD25417:1 2026-11-09 09:30\u201310:00 Asia/Kolkata \u00b7 Synthetic Staff\nFCD25417:2 2026-11-09 10:30\u201311:00 Asia/Kolkata \u00b7 Synthetic Staff\nFCD25417:3 2026-11-09 10:45\u201311:15 Asia/Kolkata \u00b7 Synthetic Staff\nFCD25417:4 2026-11-09 11:00\u201311:30 Asia/Kolkata \u00b7 Synthetic Staff\nFCD25417:5 2026-11-09 11:15\u201311:45 Asia/Kolkata \u00b7 Synthetic Staff\nMore choices: MORE FCD25417\nFor reception, reply STAFF. To stop, reply STOP."
+    "text": "*Choose an available time. Change date: DATE YYYY-MM-DD B2099DFB. Change clinician: CLINICIANS B2099DFB. Change type: TYPE B2099DFB.*\n\nB2099DFB:1 2026-11-09 10:30\u201311:15 Asia/Kolkata \u00b7 Synthetic Staff\nB2099DFB:2 2026-11-09 10:45\u201311:30 Asia/Kolkata \u00b7 Synthetic Staff\nB2099DFB:3 2026-11-09 11:00\u201311:45 Asia/Kolkata \u00b7 Synthetic Staff\nB2099DFB:4 2026-11-09 11:15\u201312:00 Asia/Kolkata \u00b7 Synthetic Staff\nB2099DFB:5 2026-11-09 11:30\u201312:15 Asia/Kolkata \u00b7 Synthetic Staff\n\nReply with the code next to your choice.\nMore choices: reply MORE B2099DFB.\n\nNeed help? Reply STAFF. To stop, reply STOP."
   },
   {
     "from": "patient",
-    "text": "FCD25417:1"
+    "text": "B2099DFB:1"
   },
   {
     "from": "clinic",
-    "text": "Please check: Consultation \u00b7 2026-11-09 09:30\u201310:00 Asia/Kolkata \u00b7 Synthetic Staff. Reply CONFIRM 9F9B3A4B to book. Nothing is reserved yet. Change time: TIMES 9F9B3A4B; type: TYPE 9F9B3A4B."
+    "text": "*Please check your appointment*\n\nCrown visit\n2026-11-09 10:30\u201311:15 Asia/Kolkata \u00b7 Synthetic Staff\n\nTo book, reply CONFIRM 51E91B27.\nYour appointment is not reserved yet.\n\nChange time: TIMES 51E91B27\nChange type: TYPE 51E91B27"
   },
   {
     "from": "patient",
-    "text": "CONFIRM 9F9B3A4B"
+    "text": "CONFIRM 51E91B27"
   },
   {
     "from": "clinic",
-    "text": "Appointment [visit reference]: 2026-11-09 09:30\u201310:00 Asia/Kolkata, Consultation, Synthetic Staff. Status: scheduled. Details as of 2026-11-08 19:42 IST."
+    "text": "Appointment [visit reference]: 2026-11-09 10:30\u201311:15 Asia/Kolkata, Crown visit, Synthetic Staff. Status: scheduled. Details as of 2026-11-08 21:38 IST."
   }
 ]

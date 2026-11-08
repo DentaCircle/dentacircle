@@ -1,6 +1,7 @@
 # S5.2b synthetic review evidence
 
-Application commit: `362475f`. All records and messages shown here are synthetic.
+Screenshot application commit: `362475f`. The transcript was regenerated after message
+formatting commit `8b310c8`. All records and messages shown here are synthetic.
 No real WhatsApp messages were sent to produce these files. The phone and patient
 identifiers are excluded from the cropped screenshots.
 
