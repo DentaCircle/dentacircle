@@ -65,7 +65,13 @@ export function PatientDetail({
         </div>
       </div>
       {status === "ready" && patient !== null ? <PatientNavigation patientId={patient.id} current="overview" /> : null}
-      {saved ? <p role="status">Saved.</p> : null}
+      {saved ? (
+        <p role="status">
+          Saved. {status === "ready" && patient !== null && canEdit ? (
+            <Link href={`/patients/${patient.id}/messages`}>Open WhatsApp</Link>
+          ) : null}
+        </p>
+      ) : null}
       {booked ? <p role="status">Booked.</p> : null}
       {status === "not-found" ? <p role="alert">Patient not found</p> : null}
       {status === "forbidden" ? <p role="alert">You do not have access.</p> : null}

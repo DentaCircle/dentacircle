@@ -1,0 +1,50 @@
+{
+  "messages": [
+    {
+      "origin": "automation",
+      "direction": "outbound",
+      "state": "queued",
+      "body": "Synthetic automatic reply queued for dispatch.",
+      "created_by": null
+    },
+    {
+      "origin": "provider",
+      "direction": "inbound",
+      "state": "received",
+      "body": "STATUS",
+      "created_by": null
+    },
+    {
+      "origin": "automation",
+      "direction": "outbound",
+      "state": "unknown",
+      "body": "Synthetic automatic reply: your request is being processed.",
+      "created_by": null
+    },
+    {
+      "origin": "provider",
+      "direction": "inbound",
+      "state": "received",
+      "body": "BOOK",
+      "created_by": null
+    }
+  ],
+  "timeline": [
+    {
+      "kind": "visit_booked",
+      "actor": {
+        "id": null,
+        "name": "Patient via WhatsApp",
+        "kind": "whatsapp"
+      }
+    },
+    {
+      "kind": "patient_registered",
+      "actor": {
+        "id": "<staff-id>",
+        "name": "Synthetic Staff",
+        "kind": "staff"
+      }
+    }
+  ]
+}

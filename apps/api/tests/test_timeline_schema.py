@@ -45,6 +45,8 @@ _COLUMNS = {
     "clinic_id",
     "patient_id",
     "actor_user_id",
+    "actor_kind",
+    "actor_message_id",
     "kind",
     "occurred_at",
     "appointment_id",
@@ -70,7 +72,7 @@ def test_upgrade_downgrade_upgrade(
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = _config()
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0021_messaging"
+    assert _version(throwaway_database_url) == "0023_whatsapp_booking"
     assert "timeline_event" in _public_tables(throwaway_database_url)
     assert _columns(throwaway_database_url) == _COLUMNS
     assert "DESC" in _index_def(throwaway_database_url)
@@ -81,7 +83,7 @@ def test_upgrade_downgrade_upgrade(
     assert "recall" in _public_tables(throwaway_database_url)
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0021_messaging"
+    assert _version(throwaway_database_url) == "0023_whatsapp_booking"
     assert "timeline_event" in _public_tables(throwaway_database_url)
 
 
@@ -107,7 +109,7 @@ def test_downgrade_removes_document_uploaded_rows_before_the_old_check(
     assert kinds == ["patient_registered"]
     assert ids == [kept]
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0021_messaging"
+    assert _version(throwaway_database_url) == "0023_whatsapp_booking"
     assert "document_id" in _columns(throwaway_database_url)
     clear_engine()
     with Session(get_engine()) as session:

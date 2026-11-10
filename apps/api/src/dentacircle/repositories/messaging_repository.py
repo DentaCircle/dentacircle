@@ -17,13 +17,16 @@ class MessagingRepository:
         self.session = session
         self.clinic_id = clinic_id
 
-    def contact_for_patient(self, patient_id: UUID) -> MessagingContact | None:
-        return self.session.scalar(
-            select(MessagingContact).where(
-                MessagingContact.clinic_id == self.clinic_id,
-                MessagingContact.patient_id == patient_id,
-            )
+    def contact_for_patient(
+        self, patient_id: UUID, *, lock: bool = False
+    ) -> MessagingContact | None:
+        statement = select(MessagingContact).where(
+            MessagingContact.clinic_id == self.clinic_id,
+            MessagingContact.patient_id == patient_id,
         )
+        if lock:
+            statement = statement.with_for_update().execution_options(populate_existing=True)
+        return self.session.scalar(statement)
 
     def contact_for_number(self, account: str, number: str) -> MessagingContact | None:
         return self.session.scalar(
@@ -50,7 +53,7 @@ class MessagingRepository:
         row.clinic_id = self.clinic_id
         self.session.add(row)
 
-    def add_incoming(self, contact: MessagingContact, event: IncomingText) -> None:
+    def add_incoming(self, contact: MessagingContact, event: IncomingText) -> UUID | None:
         statement = (
             insert(Message)
             .values(
@@ -59,14 +62,47 @@ class MessagingRepository:
                 contact_id=contact.id,
                 account_key=event.account_key,
                 direction="inbound",
+                origin="provider",
                 body=event.body,
                 state="received",
                 provider_message_id=event.provider_message_id,
                 provider_sent_at=event.provider_sent_at,
             )
             .on_conflict_do_nothing(constraint="uq_message_provider_id")
+            .returning(Message.id)
         )
-        self.session.execute(statement)
+        return self.session.scalar(statement)
+
+    def inbound_identity(
+        self, message_id: UUID, account_key: str
+    ) -> tuple[Message, MessagingContact, Patient] | None:
+        row = self.session.execute(
+            select(Message, MessagingContact, Patient)
+            .join(
+                MessagingContact,
+                (MessagingContact.id == Message.contact_id)
+                & (MessagingContact.clinic_id == Message.clinic_id)
+                & (MessagingContact.account_key == Message.account_key),
+            )
+            .join(
+                Patient,
+                (Patient.id == MessagingContact.patient_id)
+                & (Patient.clinic_id == MessagingContact.clinic_id),
+            )
+            .where(
+                Message.clinic_id == self.clinic_id,
+                Message.id == message_id,
+                Message.origin == "provider",
+                Message.direction == "inbound",
+                Message.state == "received",
+                Message.account_key == account_key,
+                Patient.status == "active",
+            )
+        ).one_or_none()
+        if row is None:
+            return None
+        message, contact, patient = row
+        return message, contact, patient
 
     def history(self, contact_id: UUID, page: int, page_size: int) -> tuple[list[Message], int]:
         query = select(Message).where(
@@ -80,7 +116,9 @@ class MessagingRepository:
         )
         return list(rows), total
 
-    def inbox(self, page: int, page_size: int) -> tuple[list[tuple[Patient, Message, int]], int]:
+    def inbox(
+        self, page: int, page_size: int
+    ) -> tuple[list[tuple[Patient, Message, int, str]], int]:
         ranked = (
             select(
                 Message.id.label("message_id"),
@@ -97,7 +135,7 @@ class MessagingRepository:
             .subquery()
         )
         query = (
-            select(Patient, Message, ranked.c.message_count)
+            select(Patient, Message, ranked.c.message_count, MessagingContact.automation_state)
             .join(
                 MessagingContact,
                 (MessagingContact.patient_id == Patient.id)
@@ -115,7 +153,7 @@ class MessagingRepository:
             .offset((page - 1) * page_size)
             .limit(page_size)
         ).all()
-        return [(patient, message, count) for patient, message, count in rows], total
+        return [(patient, message, count, state) for patient, message, count, state in rows], total
 
     def actor(self, user_id: UUID) -> AppUser | None:
         return self.session.scalar(

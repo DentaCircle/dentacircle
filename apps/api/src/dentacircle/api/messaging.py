@@ -1,6 +1,5 @@
 """Staff messaging routes and the credential-protected OpenWA callback."""
 
-import hmac
 from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
@@ -14,6 +13,8 @@ from dentacircle.core.access import SessionDep, require_roles
 from dentacircle.core.config import Settings, get_settings
 from dentacircle.core.errors import CodedHttpError
 from dentacircle.domain.patient import display_id
+from dentacircle.integrations.messaging.base import MessagingProvider
+from dentacircle.integrations.messaging.bounded_provider import BoundedMessagingProvider
 from dentacircle.integrations.messaging.openwa import OpenWaMessagingProvider
 from dentacircle.services.auth_service import CurrentUser
 from dentacircle.services.messaging_service import (
@@ -32,6 +33,16 @@ from dentacircle.services.messaging_service import (
     get_contact as get_patient_contact,
 )
 from dentacircle.services.patient_service import PatientNotFoundError
+from dentacircle.services.whatsapp_actor import (
+    InvalidCallbackCredential,
+    VerifiedCallback,
+    authenticate_callback,
+)
+from dentacircle.services.whatsapp_automation_service import (
+    AutomationConflict,
+    set_staff_automation,
+)
+from dentacircle.services.whatsapp_booking_service import process_action
 
 router = APIRouter()
 roles = require_roles("receptionist", "clinician", "clinic_admin")
@@ -47,12 +58,19 @@ class SendInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     body: str
     request_id: UUID
+    purpose: Literal["chat", "booking_invitation"] = "chat"
+
+
+class AutomationInput(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    state: Literal["active", "staff_handling"]
 
 
 class ContactBody(BaseModel):
     id: UUID
     patient_id: UUID
     number: str
+    automation_state: Literal["active", "needs_staff", "staff_handling", "stopped"]
 
 
 class ActorBody(BaseModel):
@@ -64,8 +82,9 @@ class MessageBody(BaseModel):
     id: UUID
     patient_id: UUID
     direction: Literal["inbound", "outbound"]
+    origin: Literal["staff", "provider", "automation"]
     body: str
-    state: Literal["received", "sending", "accepted", "failed", "unknown"]
+    state: Literal["received", "queued", "sending", "accepted", "failed", "unknown", "superseded"]
     created_at: datetime
     updated_at: datetime
     provider_sent_at: datetime | None
@@ -83,6 +102,7 @@ class InboxRow(BaseModel):
     patient: PatientBody
     latest_message: MessageBody
     message_count: int
+    automation_state: Literal["active", "needs_staff", "staff_handling", "stopped"]
 
 
 class InboxPage(BaseModel):
@@ -108,9 +128,11 @@ def allowlist(settings: Settings) -> set[str]:
     return {number.strip() for number in settings.messaging_allowlist.split(",") if number.strip()}
 
 
-def provider(settings: Settings) -> OpenWaMessagingProvider:
-    return OpenWaMessagingProvider(
-        settings.messaging_url, settings.messaging_api_key, settings.messaging_account
+def provider(settings: Settings) -> MessagingProvider:
+    return BoundedMessagingProvider(
+        OpenWaMessagingProvider(
+            settings.messaging_url, settings.messaging_api_key, settings.messaging_account
+        )
     )
 
 
@@ -128,6 +150,7 @@ def message_body(row: MessageView, patient_id: UUID) -> MessageBody:
         id=row.id,
         patient_id=patient_id,
         direction=row.direction,
+        origin=row.origin,
         body=row.body,
         state=row.state,
         created_at=row.created_at,
@@ -180,8 +203,9 @@ def inbox(
                 ),
                 latest_message=message_body(m, p.id),
                 message_count=n,
+                automation_state=state,
             )
-            for p, m, n in rows
+            for p, m, n, state in rows
         ],
         total=total,
         page=page,
@@ -195,7 +219,16 @@ def get_contact(patient_id: UUID, user: UserDep, session: SessionDep) -> Contact
         row = get_patient_contact(session, user.clinic.id, patient_id)
     except PatientNotFoundError:
         raise HTTPException(404) from None
-    return ContactBody(id=row.id, patient_id=row.patient_id, number=row.number) if row else None
+    return (
+        ContactBody(
+            id=row.id,
+            patient_id=row.patient_id,
+            number=row.number,
+            automation_state=row.automation_state,
+        )
+        if row
+        else None
+    )
 
 
 @router.put("/patients/{patient_id}/messaging-contact")
@@ -216,7 +249,38 @@ def put_contact(
     except (PatientNotFoundError, MessagingInvalid, MessagingUnavailable, ContactConflict) as exc:
         fail(exc)
         raise AssertionError from exc
-    return ContactBody(id=row.id, patient_id=row.patient_id, number=row.number)
+    return ContactBody(
+        id=row.id,
+        patient_id=row.patient_id,
+        number=row.number,
+        automation_state=row.automation_state,
+    )
+
+
+@router.put("/patients/{patient_id}/messaging-automation")
+def put_automation(
+    patient_id: UUID, body: AutomationInput, user: UserDep, session: SessionDep
+) -> ContactBody:
+    try:
+        settings = get_settings()
+        row = set_staff_automation(
+            session,
+            user.clinic.id,
+            user.id,
+            patient_id,
+            body.state,
+            settings.messaging_account if configured(settings, user.clinic.id) else "",
+            allowlist(settings),
+        )
+    except (PatientNotFoundError, AutomationConflict) as exc:
+        fail(exc)
+        raise AssertionError from exc
+    return ContactBody(
+        id=row.id,
+        patient_id=row.patient_id,
+        number=row.number,
+        automation_state=row.automation_state,
+    )
 
 
 @router.get("/patients/{patient_id}/messages")
@@ -260,6 +324,7 @@ def send(
             body.request_id,
             settings.messaging_account,
             allowlist(settings),
+            purpose=body.purpose,
         )
     except (PatientNotFoundError, MessagingInvalid, MessagingUnavailable, ContactConflict) as exc:
         fail(exc)
@@ -270,10 +335,13 @@ def send(
 
 def callback_credential(
     secret: Annotated[str | None, Header(alias="X-Webhook-Secret")] = None,
-) -> None:
-    expected = get_settings().messaging_callback_secret
-    if not expected or not secret or not hmac.compare_digest(secret.encode(), expected.encode()):
-        raise HTTPException(401)
+) -> VerifiedCallback:
+    try:
+        return authenticate_callback(secret, get_settings())
+    except InvalidCallbackCredential:
+        raise HTTPException(401) from None
+    except ValueError:
+        raise HTTPException(422) from None
 
 
 callback_credential.credential_protected = True  # type: ignore[attr-defined]
@@ -283,16 +351,15 @@ callback_credential.credential_protected = True  # type: ignore[attr-defined]
 async def callback(
     request: Request,
     session: SessionDep,
-    _: Annotated[None, Depends(callback_credential)],
+    authority: Annotated[VerifiedCallback, Depends(callback_credential)],
 ) -> Response:
     settings = get_settings()
     try:
         payload = await request.json()
         if not isinstance(payload, dict):
             raise ValueError("Malformed event")
-        clinic_id = UUID(settings.messaging_clinic_id)
         await run_in_threadpool(
-            receive_event, session, clinic_id, provider(settings), payload, allowlist(settings)
+            receive_event, session, authority, provider(settings), payload, process_action
         )
     except ValueError:
         raise HTTPException(422) from None

@@ -11,7 +11,7 @@ from dentacircle.core.database import to_sqlalchemy_url
 def test_messaging_migration(throwaway_database_url: str, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DATABASE_URL", throwaway_database_url)
     config = Config("alembic.ini")
-    command.upgrade(config, "head")
+    command.upgrade(config, "0021_messaging")
     engine = create_engine(to_sqlalchemy_url(throwaway_database_url))
     try:
         inspector = inspect(engine)

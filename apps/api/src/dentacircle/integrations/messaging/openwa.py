@@ -7,9 +7,15 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from dentacircle.integrations.messaging.base import Connection, IncomingText, SendStatus
+from dentacircle.integrations.messaging.base import (
+    Connection,
+    IncomingText,
+    SendReceipt,
+    SendStatus,
+)
 
 _ADDRESS = re.compile(r"^([1-9][0-9]{1,14})@c\.us$")
+_LID = re.compile(r"^[0-9]+@lid$")
 
 
 class OpenWaMessagingProvider:
@@ -43,27 +49,30 @@ class OpenWaMessagingProvider:
         connected = isinstance(result, dict) and result.get("response") is True
         return Connection("connected" if connected else "disconnected", connected)
 
-    def send_text(self, number: str, body: str) -> SendStatus:
+    def send_text(self, number: str, body: str, *, fence_fd: int | None = None) -> SendStatus:
+        return self.send_text_receipt(number, body).status
+
+    def send_text_receipt(self, number: str, body: str) -> SendReceipt:
         try:
             result = self._call("sendText", {"to": number[1:] + "@c.us", "content": body})
         except HTTPError as exc:
-            return "failed" if 400 <= exc.code < 500 else "unknown"
+            return SendReceipt("failed" if 400 <= exc.code < 500 else "unknown")
         except (URLError, OSError, ValueError):
-            return "unknown"
+            return SendReceipt("unknown")
         if not isinstance(result, dict):
-            return "unknown"
+            return SendReceipt("unknown")
         response = result.get("response")
         if response is False or (
             isinstance(response, str) and response.lower().startswith("error")
         ):
-            return "failed"
+            return SendReceipt("failed")
         if result.get("success") is False:
-            return "unknown"
-        return (
-            "accepted"
-            if response is True or (isinstance(response, str) and response)
-            else "unknown"
-        )
+            return SendReceipt("unknown")
+        if response is True:
+            return SendReceipt("accepted")
+        if isinstance(response, str) and response:
+            return SendReceipt("accepted", response)
+        return SendReceipt("unknown")
 
     def normalize_event(self, payload: object) -> IncomingText | None:
         if not isinstance(payload, dict):
@@ -91,6 +100,12 @@ class OpenWaMessagingProvider:
         ):
             raise ValueError("Malformed event")
         address = _ADDRESS.fullmatch(sender)
+        if address is None and _LID.fullmatch(sender):
+            contact = data.get("sender")
+            if isinstance(contact, dict) and contact.get("lid") == sender:
+                phone = contact.get("phoneNumber")
+                if isinstance(phone, str):
+                    address = _ADDRESS.fullmatch(phone)
         body = body.strip()
         if not address or not 1 <= len(body) <= 2000 or not message_id:
             return None
@@ -101,4 +116,12 @@ class OpenWaMessagingProvider:
                 sent_at = datetime.fromtimestamp(timestamp, UTC)
             except (OverflowError, OSError, ValueError):
                 pass
-        return IncomingText(self.account_key, "+" + address.group(1), message_id, body, sent_at)
+        quoted = data.get("quotedStanzaID")
+        quoted_stanza_id = (
+            quoted
+            if isinstance(quoted, str) and re.fullmatch(r"[A-Za-z0-9_-]{1,128}", quoted)
+            else None
+        )
+        return IncomingText(
+            self.account_key, "+" + address.group(1), message_id, body, sent_at, quoted_stanza_id
+        )

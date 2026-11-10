@@ -33,6 +33,15 @@ def test_direct_text_is_normalized() -> None:
     assert result.provider_sent_at is not None
 
 
+def test_direct_text_preserves_valid_quoted_message_reference() -> None:
+    result = provider().normalize_event(event(quotedStanzaID="ABC123"))
+    assert result is not None
+    assert result.quoted_stanza_id == "ABC123"
+    invalid = provider().normalize_event(event(quotedStanzaID="bad reference!"))
+    assert invalid is not None
+    assert invalid.quoted_stanza_id is None
+
+
 def test_unsupported_events_are_ignored() -> None:
     for changes in (
         {"from": "123@g.us"},
@@ -48,6 +57,22 @@ def test_unsupported_events_are_ignored() -> None:
     wrong_session = event()
     wrong_session["sessionId"] = "other"
     assert provider().normalize_event(wrong_session) is None
+
+
+def test_lid_sender_requires_matching_contact_identity() -> None:
+    sender = {"lid": "123456789@lid", "phoneNumber": "15551234567@c.us"}
+    result = provider().normalize_event(event(**{"from": "123456789@lid", "sender": sender}))
+    assert result is not None
+    assert result.number == "+15551234567"
+    for invalid in (
+        {"lid": "999@lid", "phoneNumber": "15551234567@c.us"},
+        {"lid": "123456789@lid", "phoneNumber": "123@g.us"},
+        {"lid": "123456789@lid"},
+    ):
+        assert (
+            provider().normalize_event(event(**{"from": "123456789@lid", "sender": invalid}))
+            is None
+        )
 
 
 def test_send_uses_v4_argument_envelope_and_session_guard(monkeypatch: object) -> None:
@@ -69,6 +94,16 @@ def test_send_uses_v4_argument_envelope_and_session_guard(monkeypatch: object) -
         request = call.call_args.args[0]
         assert json.loads(request.data) == {"args": {"to": "15551234567@c.us", "content": "Hello"}}
         assert request.get_header("Owa-check-value") == "demo"
+
+
+def test_send_receipt_keeps_provider_reference() -> None:
+    from unittest.mock import patch
+
+    bridge = provider()
+    with patch.object(bridge, "_call", return_value={"response": "true_chat_STANZA123"}):
+        receipt = bridge.send_text_receipt("+15551234567", "Hello")
+    assert receipt.status == "accepted"
+    assert receipt.provider_message_id == "true_chat_STANZA123"
 
 
 def test_transport_failures_are_translated_without_provider_error_text() -> None:

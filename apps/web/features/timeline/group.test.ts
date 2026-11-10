@@ -54,7 +54,7 @@ function event(
     id,
     kind,
     occurred_at: occurredAt,
-    actor: { id: "user-1", name: "Dr Rao" },
+    actor: { id: "user-1", name: "Dr Rao", kind: "staff" },
     subject,
   };
 }

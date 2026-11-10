@@ -35,6 +35,7 @@ from dentacircle.services.audit_service import record
 from dentacircle.services.clinic_day_service import ClinicNotFoundError
 from dentacircle.services.patient_lock import lock_patient
 from dentacircle.services.timeline_service import record as record_timeline
+from dentacircle.services.whatsapp_actor import WhatsAppActor, require_patient
 
 if TYPE_CHECKING:
     from dentacircle.services.appointment_service import AppointmentView
@@ -310,7 +311,7 @@ def mark_contacted(
 def book_recall(
     session: Session,
     clinic_id: UUID,
-    actor_user_id: UUID,
+    actor_user_id: UUID | WhatsAppActor,
     recall_id: UUID,
     clinician_id: UUID,
     appointment_type_id: UUID,
@@ -321,6 +322,7 @@ def book_recall(
     from dentacircle.services.appointment_service import book_appointment
 
     row, patient = _locked_row(session, clinic_id, recall_id)
+    require_patient(session, actor_user_id, clinic_id, patient.id)
     if patient.status != "active":
         raise PatientInactiveError
     if row.status not in BOOKABLE_STATUSES:

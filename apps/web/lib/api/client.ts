@@ -262,7 +262,7 @@ export type TimelineItem = {
   id: string;
   kind: TimelineKind;
   occurred_at: string;
-  actor: { id: string; name: string };
+  actor: { id: string | null; name: string; kind: "staff" | "whatsapp" };
   subject: TimelineSubject;
 };
 
@@ -1269,12 +1269,23 @@ function isTimelineKind(value: unknown): value is TimelineKind {
   return typeof value === "string" && TIMELINE_KINDS.some((kind) => kind === value);
 }
 
-function timelineActorData(value: unknown): { id: string; name: string } | null {
+function timelineActorData(value: unknown): TimelineItem["actor"] | null {
+  if (!isRecord(value)) return null;
+  const name = stringField(value, "name");
+  if (name === null) return null;
+  if (value.kind === "whatsapp" && value.id === null) {
+    return { id: null, name, kind: "whatsapp" };
+  }
+  const id = stringField(value, "id");
+  if (value.kind !== "staff" || id === null) return null;
+  return { id, name, kind: "staff" };
+}
+
+function staffActorData(value: unknown): { id: string; name: string } | null {
   if (!isRecord(value)) return null;
   const id = stringField(value, "id");
   const name = stringField(value, "name");
-  if (id === null || name === null) return null;
-  return { id, name };
+  return id === null || name === null ? null : { id, name };
 }
 
 function timelineSubjectData(kind: TimelineKind, value: unknown): TimelineSubject | undefined {
@@ -1377,7 +1388,7 @@ function documentItemData(value: unknown): DocumentItem | null {
   const contentType = value.content_type;
   if (id === null || filename === null || sizeBytes === null || uploadedAt === null) return null;
   if (!isDocumentContentType(contentType)) return null;
-  const uploadedBy = timelineActorData(value.uploaded_by);
+  const uploadedBy = staffActorData(value.uploaded_by);
   const appointment = documentAppointmentData(value.appointment);
   const followUp = documentFollowUpData(value.follow_up);
   const labWork = documentLabWorkData(value.lab_work);
@@ -1433,7 +1444,7 @@ function labWorkItemData(value: unknown): LabWorkItem | null {
   if (expectedOn !== null && typeof expectedOn !== "string") return null;
   const appointment = documentAppointmentData(value.appointment);
   const patient = labPatientData(value.patient);
-  const createdBy = timelineActorData(value.created_by);
+  const createdBy = staffActorData(value.created_by);
   if (appointment === undefined || patient === null || createdBy === null) return null;
   return {
     id,

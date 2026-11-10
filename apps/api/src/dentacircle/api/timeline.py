@@ -71,8 +71,9 @@ MAX_PAGE = (2**63 - 1) // MAX_PAGE_SIZE + 1
 
 
 class ActorBody(BaseModel):
-    id: UUID
+    id: UUID | None
     name: str
+    kind: Literal["staff", "whatsapp"]
 
 
 class VisitSubjectBody(BaseModel):
@@ -180,7 +181,7 @@ def _item(row: TimelineItemView) -> TimelineItemBody:
         id=row.id,
         kind=cast(TimelineKind, row.kind),
         occurred_at=row.occurred_at,
-        actor=ActorBody(id=row.actor.id, name=row.actor.name),
+        actor=ActorBody(id=row.actor.id, name=row.actor.name, kind=row.actor.kind),
         subject=_subject(row),
     )
 

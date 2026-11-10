@@ -907,6 +907,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/patients/{patient_id}/messaging-automation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Automation */
+        put: operations["put_automation_patients__patient_id__messaging_automation_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/patients/{patient_id}/messaging-contact": {
         parameters: {
             query?: never;
@@ -1048,16 +1065,6 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** ActorBody */
-        ActorBody: {
-            /**
-             * Id
-             * Format: uuid
-             */
-            id: string;
-            /** Name */
-            name: string;
-        };
         /** AdjustmentBody */
         AdjustmentBody: {
             /** Quantity Change */
@@ -1173,6 +1180,14 @@ export interface components {
             name: string;
             /** Recall After Months */
             recall_after_months?: number | null;
+        };
+        /** AutomationInput */
+        AutomationInput: {
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "active" | "staff_handling";
         };
         /** AvailabilityResponse */
         AvailabilityResponse: {
@@ -1421,6 +1436,11 @@ export interface components {
         /** ContactBody */
         ContactBody: {
             /**
+             * Automation State
+             * @enum {string}
+             */
+            automation_state: "active" | "needs_staff" | "staff_handling" | "stopped";
+            /**
              * Id
              * Format: uuid
              */
@@ -1645,6 +1665,11 @@ export interface components {
         };
         /** InboxRow */
         InboxRow: {
+            /**
+             * Automation State
+             * @enum {string}
+             */
+            automation_state: "active" | "needs_staff" | "staff_handling" | "stopped";
             latest_message: components["schemas"]["MessageBody"];
             /** Message Count */
             message_count: number;
@@ -1779,7 +1804,7 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            created_by: components["schemas"]["ActorBody"];
+            created_by: components["schemas"]["dentacircle__api__lab_work__ActorBody"];
             /** Expected On */
             expected_on: string | null;
             /**
@@ -1851,7 +1876,7 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
-            created_by: components["schemas"]["ActorBody"] | null;
+            created_by: components["schemas"]["dentacircle__api__messaging__ActorBody"] | null;
             /**
              * Direction
              * @enum {string}
@@ -1863,6 +1888,11 @@ export interface components {
              */
             id: string;
             /**
+             * Origin
+             * @enum {string}
+             */
+            origin: "staff" | "provider" | "automation";
+            /**
              * Patient Id
              * Format: uuid
              */
@@ -1873,7 +1903,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "received" | "sending" | "accepted" | "failed" | "unknown";
+            state: "received" | "queued" | "sending" | "accepted" | "failed" | "unknown" | "superseded";
             /**
              * Updated At
              * Format: date-time
@@ -2173,6 +2203,12 @@ export interface components {
             /** Body */
             body: string;
             /**
+             * Purpose
+             * @default chat
+             * @enum {string}
+             */
+            purpose: "chat" | "booking_invitation";
+            /**
              * Request Id
              * Format: uuid
              */
@@ -2254,7 +2290,7 @@ export interface components {
         };
         /** TimelineItemBody */
         TimelineItemBody: {
-            actor: components["schemas"]["ActorBody"];
+            actor: components["schemas"]["dentacircle__api__timeline__ActorBody"];
             /**
              * Id
              * Format: uuid
@@ -2450,6 +2486,16 @@ export interface components {
              */
             status: "active" | "inactive";
         };
+        /** ActorBody */
+        dentacircle__api__lab_work__ActorBody: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
         /** StatusBody */
         dentacircle__api__lab_work__StatusBody: {
             /**
@@ -2457,6 +2503,28 @@ export interface components {
              * @enum {string}
              */
             status: "pending" | "ready" | "collected" | "cancelled";
+        };
+        /** ActorBody */
+        dentacircle__api__messaging__ActorBody: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+        };
+        /** ActorBody */
+        dentacircle__api__timeline__ActorBody: {
+            /** Id */
+            id: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "staff" | "whatsapp";
+            /** Name */
+            name: string;
         };
     };
     responses: never;
@@ -5297,6 +5365,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MessageBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_automation_patients__patient_id__messaging_automation_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                patient_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutomationInput"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContactBody"];
                 };
             };
             /** @description Validation Error */

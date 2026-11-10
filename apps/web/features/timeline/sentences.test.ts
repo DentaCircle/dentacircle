@@ -43,7 +43,7 @@ function item(kind: TimelineItem["kind"], subject: TimelineItem["subject"]): Tim
     id: "event-1",
     kind,
     occurred_at: "2026-10-12T10:00:00+05:30",
-    actor: { id: "user-1", name: "Dr Rao" },
+    actor: { id: "user-1", name: "Dr Rao", kind: "staff" },
     subject,
   };
 }

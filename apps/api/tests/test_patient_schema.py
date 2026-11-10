@@ -43,6 +43,7 @@ _HEAD_TABLES = [
     "recall",
     "timeline_event",
     "user_role",
+    "whatsapp_booking_session",
 ]
 
 _PATIENT_COLUMNS = {
@@ -61,6 +62,8 @@ _AUDIT_COLUMNS = {
     "id",
     "clinic_id",
     "actor_user_id",
+    "actor_kind",
+    "actor_message_id",
     "entity_type",
     "entity_id",
     "action",
@@ -83,7 +86,7 @@ def test_upgrade_downgrade_upgrade(
     config = _config()
     command.upgrade(config, "head")
     assert _public_tables(throwaway_database_url) == _HEAD_TABLES
-    assert _version(throwaway_database_url) == "0021_messaging"
+    assert _version(throwaway_database_url) == "0023_whatsapp_booking"
     assert _columns(throwaway_database_url, "patient") == _PATIENT_COLUMNS
     assert _columns(throwaway_database_url, "patient_number_counter") == _COUNTER_COLUMNS
     assert _columns(throwaway_database_url, "audit_event") == _AUDIT_COLUMNS
@@ -100,7 +103,7 @@ def test_upgrade_downgrade_upgrade(
 
     command.upgrade(config, "head")
     assert _public_tables(throwaway_database_url) == _HEAD_TABLES
-    assert _version(throwaway_database_url) == "0021_messaging"
+    assert _version(throwaway_database_url) == "0023_whatsapp_booking"
 
 
 def test_existing_patients_become_active_and_downgrade_drops_the_columns(
@@ -112,7 +115,7 @@ def test_existing_patients_become_active_and_downgrade_drops_the_columns(
     _insert_patient_at_0004(throwaway_database_url)
 
     command.upgrade(config, "head")
-    assert _version(throwaway_database_url) == "0021_messaging"
+    assert _version(throwaway_database_url) == "0023_whatsapp_booking"
     nullable, default = _column(throwaway_database_url, "patient", "status")
     assert nullable == "NO"
     assert default is not None and "active" in default

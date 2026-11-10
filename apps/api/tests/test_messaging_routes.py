@@ -46,7 +46,8 @@ def test_routes_and_callback(
             "event": "onMessage",
             "data": {
                 "id": "synthetic-id",
-                "from": "15551234567@c.us",
+                "from": "123456789@lid",
+                "sender": {"lid": "123456789@lid", "phoneNumber": "15551234567@c.us"},
                 "body": "Hello",
                 "type": "chat",
                 "fromMe": False,
@@ -110,11 +111,12 @@ def test_routes_and_callback(
         assert patient_id not in server_logs
         assert "+15551234567" not in server_logs
         assert history.status_code == 200
-        assert history.json()["total"] == 1
-        assert history.json()["items"][0]["body"] == "Hello"
+        assert history.json()["total"] == 2
+        assert any(item["body"] == "Hello" for item in history.json()["items"])
+        assert any(item["origin"] == "automation" for item in history.json()["items"])
         listing = api.get("/messages", cookies=desk)
         assert listing.status_code == 200
-        assert listing.json()["items"][0]["message_count"] == 1
+        assert listing.json()["items"][0]["message_count"] == 2
         assert api.get(f"/patients/{uuid4()}/messages", cookies=desk).status_code == 404
 
 
@@ -186,3 +188,48 @@ def test_staff_roles_and_session_are_enforced(
             assert api.request(method, path, cookies=inventory, json=body).status_code == 403
         api.cookies.clear()
         assert api.get("/messages").status_code == 401
+
+
+def test_staff_automation_role_tenancy_and_resume(
+    throwaway_database_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    with patient_api(throwaway_database_url, monkeypatch) as api:
+        with Session(get_engine()) as session:
+            clinic = session.scalar(select(Clinic))
+            assert clinic is not None
+            monkeypatch.setenv("MESSAGING_CLINIC_ID", str(clinic.id))
+        monkeypatch.setenv("MESSAGING_ACCOUNT", "demo")
+        monkeypatch.setenv("MESSAGING_CALLBACK_SECRET", "synthetic-secret")
+        monkeypatch.setenv("MESSAGING_ALLOWLIST", "+15551234567")
+        desk = {"dc_session": login(api, "receptionist@x.test")}
+        inventory = {"dc_session": login(api, "inventory@x.test")}
+        api.cookies.clear()
+        patient_id = api.post(
+            "/patients",
+            cookies=desk,
+            json={"full_name": "Synthetic Person", "phone": "9000000001"},
+        ).json()["id"]
+        path = f"/patients/{patient_id}/messaging-automation"
+        assert api.put(path, json={"state": "active"}).status_code == 401
+        assert api.put(path, cookies=inventory, json={"state": "active"}).status_code == 403
+        assert api.put(path, cookies=desk, json={"state": "active"}).status_code == 409
+        assert (
+            api.put(
+                f"/patients/{patient_id}/messaging-contact",
+                cookies=desk,
+                json={"number": "+15551234567"},
+            ).status_code
+            == 200
+        )
+        takeover = api.put(path, cookies=desk, json={"state": "staff_handling"})
+        assert takeover.status_code == 200
+        assert takeover.json()["automation_state"] == "staff_handling"
+        resume = api.put(path, cookies=desk, json={"state": "active"})
+        assert resume.status_code == 200 and resume.json()["automation_state"] == "active"
+        assert (
+            api.put(
+                f"/patients/{uuid4()}/messaging-automation", cookies=desk, json={"state": "active"}
+            ).status_code
+            == 404
+        )
+        assert api.put(path, cookies=desk, json={"state": "stopped"}).status_code == 422

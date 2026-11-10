@@ -3,7 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Select, select
+from sqlalchemy import Select, select, tuple_
 from sqlalchemy.orm import Session
 
 from dentacircle.core.tenancy import scoped_select
@@ -69,6 +69,13 @@ class AppointmentRepository:
         appointment, patient, clinician, appointment_type = row
         return appointment, patient, clinician, appointment_type
 
+    def patient_id_for_appointment(self, appointment_id: UUID) -> UUID | None:
+        return self._session.scalar(
+            select(Appointment.patient_id).where(
+                Appointment.clinic_id == self._clinic_id, Appointment.id == appointment_id
+            )
+        )
+
     def get_for_update(self, appointment_id: UUID) -> Appointment | None:
         """Lock the row so a cancel and a move of the same visit cannot pass each other."""
         statement = (
@@ -131,6 +138,25 @@ class AppointmentRepository:
         statement = statement.order_by(Appointment.starts_at, Appointment.id)
         rows = self._session.scalars(statement)
         return [(row.starts_at, row.ends_at) for row in rows]
+
+    def booking_upcoming_page(
+        self,
+        patient_id: UUID,
+        now: datetime,
+        after: tuple[datetime, UUID] | None,
+    ) -> list[tuple[Appointment, Patient, AppUser, AppointmentType]]:
+        """A stable bounded page for the patient's complete upcoming visit set."""
+        statement = self._joined().where(
+            Appointment.patient_id == patient_id,
+            Appointment.status.notin_(NON_BLOCKING_STATUSES),
+            Appointment.ends_at > now,
+        )
+        if after is not None:
+            statement = statement.where(tuple_(Appointment.starts_at, Appointment.id) > after)
+        rows = self._session.execute(
+            statement.order_by(Appointment.starts_at, Appointment.id).limit(5)
+        ).all()
+        return [(visit, patient, clinician, kind) for visit, patient, clinician, kind in rows]
 
     def upcoming_for_patient(
         self, patient_id: UUID, now: datetime, limit: int

@@ -73,6 +73,16 @@ class TimelineEvent(Base):
             ["lab_work.id", "lab_work.clinic_id"],
             name="fk_timeline_event_lab_work_id_clinic_id",
         ),
+        ForeignKeyConstraint(
+            ["actor_message_id", "clinic_id"],
+            ["message.id", "message.clinic_id"],
+            name="fk_timeline_event_actor_message",
+        ),
+        CheckConstraint(
+            "(actor_kind = 'staff' AND actor_user_id IS NOT NULL AND actor_message_id IS NULL) OR "
+            "(actor_kind = 'whatsapp' AND actor_user_id IS NULL AND actor_message_id IS NOT NULL)",
+            name="actor",
+        ),
         Index(
             "ix_timeline_event_patient_order",
             "clinic_id",
@@ -86,7 +96,9 @@ class TimelineEvent(Base):
     seq: Mapped[int] = mapped_column(BigInteger, Identity(always=True))
     clinic_id: Mapped[UUID] = mapped_column(ForeignKey("clinic.id"))
     patient_id: Mapped[UUID] = mapped_column()
-    actor_user_id: Mapped[UUID] = mapped_column()
+    actor_user_id: Mapped[UUID | None] = mapped_column()
+    actor_kind: Mapped[str] = mapped_column(Text, server_default="staff")
+    actor_message_id: Mapped[UUID | None] = mapped_column()
     kind: Mapped[str] = mapped_column(Text)
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
