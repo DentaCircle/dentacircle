@@ -51,6 +51,8 @@ repeat test, the developer removed the synthetic chat from the clinic phone; Ope
 that no chat existed and that the contact was saved. The invitation again produced an unknown
 outcome and the same `t.isRegularUser is not a function` provider error; the recipient confirmed
 that it did not arrive. No automatic retry was attempted.
+Opening the saved contact on the clinic phone without sending a message did not create a
+chat visible to OpenWA. OpenWA's number-status check confirmed that the test number exists.
 
 The developer later requested numbered replies without visible codes. A live WhatsApp test
 confirmed that replying to the appointment message with 1 opened the booking-source menu,
