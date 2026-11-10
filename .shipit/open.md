@@ -1,5 +1,11 @@
 # Open items
 
+- **Automatic first-contact WhatsApp invitations.** The pinned OpenWA bridge fails to send
+  the first invitation when no chat exists, even for the saved test contact. Invitations to
+  an existing chat and patient-initiated BOOK were verified live. Next action: investigate a
+  supported provider path or Meta integration in a later approved slice, then test first
+  contact with dedicated test phones. Until then, ask the patient to message BOOK first.
+
 - **Appointment status undo.** A mistaken arrived, no-show, start or complete cannot be reversed
   from the calendar. Care sessions do not undo the visit either. Next action: a small slice
   if the desk needs it.
@@ -19,9 +25,7 @@
   leave the connection unusable for the next call through `:3000/api`. S3.1 relies on the
   8 MiB API limit and the browser pre-check. Next action: decide in hardening whether to
   raise `proxyClientMaxBodySize` or document the limit for operators.
-- **S5.1 live OpenWA verification.** The adapter and inbox were checked with automated tests,
-  a container startup probe and a loopback fake provider, but no dedicated WhatsApp account
-  or test phones were available. Live pairing, send/reply, restart/disconnect behavior and
-  provider licence requirements remain unverified. Next action: when a dedicated test number
-  and phones are available, follow the S5.1 click-through and record the live result; do not
-  use patient data.
+- **S5.1 live OpenWA verification.** Dedicated test phones verified pairing, incoming replies
+  and sends to an existing conversation. Disconnect/reconnect behavior and provider licence
+  requirements need a separate live check. First-contact sending is tracked above. Next action:
+  exercise restart and disconnect recovery using test phones, with synthetic data only.
