@@ -53,6 +53,7 @@ def test_the_list_returns_the_visit_in_clinic_time(api: TestClient) -> None:
         "id": patient_id,
         "full_name": "Sample Ada",
         "display_id": "P-0001",
+        "status": "active",
     }
     assert item["clinician"]["id"] == clinician_id
     assert item["clinician"]["full_name"] == "Synthetic Person"
