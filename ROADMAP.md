@@ -60,6 +60,7 @@ Milestones are demoable. Each one is a real stopping point.
 
 - [x] [S5.1 Local WhatsApp inbox](.shipit/slices/S5.1-openwa-inbox.md): replaceable messaging provider interface, local OpenWA adapter and inbox; live account verification deferred
 - [ ] S5.2 Coordinator flow: send message, patient picks a slot, appointment booked
+- [ ] [S5.2c First-contact invitations](.shipit/slices/S5.2c-first-contact-invitations.md): investigate and support automatic invitations when no WhatsApp conversation exists
 - [ ] S5.3 Reminders: model, states, due list
 
 ## Phase 6: Dashboard and analytics (M4)

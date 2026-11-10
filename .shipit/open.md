@@ -3,7 +3,7 @@
 - **Automatic first-contact WhatsApp invitations.** The pinned OpenWA bridge fails to send
   the first invitation when no chat exists, even for the saved test contact. Invitations to
   an existing chat and patient-initiated BOOK were verified live. Next action: investigate a
-  supported provider path or Meta integration in a later approved slice, then test first
+  supported provider path or Meta integration in [S5.2c](slices/S5.2c-first-contact-invitations.md), then test first
   contact with dedicated test phones. Until then, ask the patient to message BOOK first.
 
 - **Appointment status undo.** A mistaken arrived, no-show, start or complete cannot be reversed
