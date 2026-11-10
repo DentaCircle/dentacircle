@@ -373,7 +373,7 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 
 ## Current state
 
-S0.1 through S5.1 are done. S5.1 adds a clinic-scoped WhatsApp inbox through a replaceable provider interface, with an optional local OpenWA bridge. Automated checks and local fake-provider proof pass; live pairing, delivery and provider licensing remain deferred until a dedicated test account and phones are available (tracked in `.shipit/open.md`). `make dev` starts PostgreSQL, applies migrations, and runs
+S0.1 through S5.1 and S5.3 are done. S5.2 is in progress. S5.1 adds a clinic-scoped WhatsApp inbox through a replaceable provider interface, with an optional local OpenWA bridge. Automated checks and local fake-provider proof pass; live pairing, delivery and provider licensing remain deferred until a dedicated test account and phones are available (tracked in `.shipit/open.md`). `make dev` starts PostgreSQL, applies migrations, and runs
 the API and the web app. Sign in at `/login`. The browser posts through the `/api` rewrite,
 so `dc_session` stays on the web origin. The dashboard shows the signed-in user's name,
 roles and clinic from `GET /auth/me`. `/` and `/status` require that session. Create a
@@ -545,3 +545,5 @@ expired and expiring-soon alerts. Alerts use the clinic-local date, inactive ite
 and list filtering happens before count and paging. No alert state is stored. Inventory writers
 can restock or adjust batches from item detail; clinicians see the same stock attention
 information without write controls.
+
+For a future scheduled visit of an active patient, receptionist, clinician and clinic admin can schedule one staff reminder for now or a chosen time before the visit. Due and All pending queues use clinic-local time. Staff complete or cancel reminders manually. Rescheduling to a different start, cancelling, arrival and no-show cancel a pending reminder, with audit recorded in the same transaction. Reminders do not message patients or change follow-up, recall or appointment state. Migration `0024` adds the clinic-scoped reminder table.
