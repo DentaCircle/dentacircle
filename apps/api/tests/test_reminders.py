@@ -348,3 +348,36 @@ def test_service_time_boundaries_and_create_rollback(api: TestClient) -> None:
             ).one_or_none()
             is None
         )
+
+
+def test_database_enforces_one_pending_and_clinic_appointment_pair(api: TestClient) -> None:
+    from sqlalchemy.exc import IntegrityError
+
+    visit, _ = _visit(api)
+    clinic, actor = _identity()
+    now = datetime.now(UTC)
+    with Session(get_engine()) as session:
+        schedule(session, clinic, actor, UUID(visit), None, now)
+        session.commit()
+    with Session(get_engine()) as session:
+        session.add(
+            Reminder(
+                id=uuid4(),
+                clinic_id=clinic,
+                appointment_id=UUID(visit),
+                due_at=now,
+                status="pending",
+            )
+        )
+        with pytest.raises(IntegrityError):
+            session.flush()
+        session.rollback()
+    with Session(get_engine()) as session:
+        session.add(
+            Reminder(
+                id=uuid4(), clinic_id=clinic, appointment_id=uuid4(), due_at=now, status="pending"
+            )
+        )
+        with pytest.raises(IntegrityError):
+            session.flush()
+        session.rollback()
