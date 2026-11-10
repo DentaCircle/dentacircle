@@ -95,7 +95,7 @@ def main() -> None:
         send("+15551234567", "HI")
         send("+15551234567", "BOOK")
         send("+15551234567", "1", quote=True)
-        for _ in range(3):
+        for _ in range(5):
             send("+15551234567", "1", quote=True)
         send("+15551234567", "1", quote=True)
         send("+15551234567", "STATUS")
@@ -140,7 +140,7 @@ def main() -> None:
         session.commit()
         send("+15551234568", "BOOK")
         send("+15551234568", "2", quote=True)
-        for _ in range(2):
+        for _ in range(4):
             send("+15551234568", "1", quote=True)
         send("+15551234568", "1", quote=True)
         Path("../../.openwa/proof-patients.json").write_text(

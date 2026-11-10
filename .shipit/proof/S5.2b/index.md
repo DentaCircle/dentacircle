@@ -1,7 +1,7 @@
 # S5.2b synthetic review evidence
 
-Screenshot application commit: `362475f`. The transcript was regenerated for the numbered
-reply implementation at `e35f8e1`. All records and messages shown here are synthetic.
+Screenshot application commit: `362475f`. The transcript was regenerated for the date and
+clinician preference flow at `9b5a333`. All records and messages shown here are synthetic.
 No real WhatsApp messages were sent to produce these files. The phone and patient
 identifiers are excluded from the cropped screenshots.
 
@@ -53,6 +53,10 @@ confirmed that replying to the appointment message with 1 opened the booking-sou
 and the bridge recorded the outgoing message reference. The complete numbered booking and
 rejection of an old prompt were also exercised by automated tests; a complete numbered live
 booking has not been performed.
+
+After the preference-flow change, the developer confirmed on the test phone that the date
+and clinician menus both appeared before the available times. Automated tests additionally
+cover choosing a specific date and clinician and completing the synthetic booking.
 
 STOP was also confirmed on the patient's phone; the stored conversation state became stopped
 and the synthetic appointment remained scheduled. A later BOOK produced a fresh resume
