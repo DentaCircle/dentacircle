@@ -1,5 +1,5 @@
 export type NavItem = {
-  href: "/" | "/patients" | "/calendar" | "/follow-ups" | "/recalls" | "/lab" | "/inventory" | "/status" | "/messages";
+  href: "/" | "/patients" | "/calendar" | "/follow-ups" | "/recalls" | "/reminders" | "/lab" | "/inventory" | "/status" | "/messages";
   label: string;
 };
 
@@ -9,6 +9,7 @@ export const navItems = [
   { href: "/calendar", label: "Calendar" },
   { href: "/follow-ups", label: "Follow-ups" },
   { href: "/recalls", label: "Recalls" },
+  { href: "/reminders", label: "Reminders" },
   { href: "/lab", label: "Lab" },
   { href: "/inventory", label: "Inventory" },
   { href: "/messages", label: "Messages" },

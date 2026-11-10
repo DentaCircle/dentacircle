@@ -161,6 +161,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/appointments/{appointment_id}/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Reminder */
+        post: operations["post_reminder_appointments__appointment_id__reminders_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/appointments/{appointment_id}/reschedule": {
         parameters: {
             query?: never;
@@ -1055,6 +1072,57 @@ export interface paths {
         put?: never;
         /** Post Contacted */
         post: operations["post_contacted_recalls__recall_id__contacted_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reminders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Reminders */
+        get: operations["get_reminders_reminders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reminders/{reminder_id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Cancel */
+        post: operations["post_cancel_reminders__reminder_id__cancel_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reminders/{reminder_id}/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Post Complete */
+        post: operations["post_complete_reminders__reminder_id__complete_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2020,6 +2088,8 @@ export interface components {
              * Format: uuid
              */
             id: string;
+            /** Status */
+            status: string;
         };
         /** PatientUpdate */
         PatientUpdate: {
@@ -2166,6 +2236,69 @@ export interface components {
             /** Items */
             items: components["schemas"]["SessionItemBody"][];
         };
+        /** ReminderBody */
+        ReminderBody: {
+            /**
+             * Appointment Id
+             * Format: uuid
+             */
+            appointment_id: string;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Status */
+            status: string;
+        };
+        /** ReminderItem */
+        ReminderItem: {
+            /**
+             * Appointment Id
+             * Format: uuid
+             */
+            appointment_id: string;
+            /**
+             * Due At
+             * Format: date-time
+             */
+            due_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Patient Id
+             * Format: uuid
+             */
+            patient_id: string;
+            /** Patient Name */
+            patient_name: string;
+            /**
+             * Starts At
+             * Format: date-time
+             */
+            starts_at: string;
+            /** Status */
+            status: string;
+        };
+        /** ReminderList */
+        ReminderList: {
+            /** Items */
+            items: components["schemas"]["ReminderItem"][];
+            /** Page */
+            page: number;
+            /** Page Size */
+            page_size: number;
+            /** Total */
+            total: number;
+        };
         /** RescheduleBody */
         RescheduleBody: {
             /** Clinician Id */
@@ -2197,6 +2330,11 @@ export interface components {
             item_name: string;
             /** Quantity */
             quantity: number;
+        };
+        /** ScheduleBody */
+        ScheduleBody: {
+            /** Due At */
+            due_at?: string | null;
         };
         /** SendInput */
         SendInput: {
@@ -3090,6 +3228,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
+                };
+            };
+        };
+    };
+    post_reminder_appointments__appointment_id__reminders_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appointment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleBody"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderBody"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -5767,6 +5940,96 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_reminders_reminders_get: {
+        parameters: {
+            query?: {
+                view?: "due" | "pending";
+                page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReminderList"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_cancel_reminders__reminder_id__cancel_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reminder_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    post_complete_reminders__reminder_id__complete_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reminder_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

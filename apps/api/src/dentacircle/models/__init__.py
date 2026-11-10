@@ -22,6 +22,7 @@ from dentacircle.models.patient import Patient
 from dentacircle.models.patient_number_counter import PatientNumberCounter
 from dentacircle.models.procedure_resource_rule import ProcedureResourceRule
 from dentacircle.models.recall import Recall
+from dentacircle.models.reminder import Reminder
 from dentacircle.models.timeline_event import TimelineEvent
 from dentacircle.models.user_role import UserRole
 from dentacircle.models.whatsapp_booking_session import WhatsAppBookingSession
@@ -52,6 +53,7 @@ __all__ = [
     "PatientNumberCounter",
     "ProcedureResourceRule",
     "Recall",
+    "Reminder",
     "TimelineEvent",
     "UserRole",
     "WhatsAppBookingSession",

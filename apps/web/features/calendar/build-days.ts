@@ -17,6 +17,8 @@ export function buildDays(dates: readonly string[], visits: readonly CalendarVis
     if (start === null || end === null || bucket === undefined) return null;
     bucket.visits.push({
       id: visit.id,
+      startsAt: visit.starts_at,
+      patientActive: visit.patient.status === "active",
       timeRange: `${start}–${end}`,
       patientId: visit.patient.id,
       patientName: visit.patient.full_name,

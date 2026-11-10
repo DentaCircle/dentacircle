@@ -16,11 +16,13 @@ export function DaySection({
   returnHref,
   canAdvance,
   showBookingLink,
+  timezone,
 }: {
   day: CalendarDay;
   returnHref: string;
   canAdvance: boolean;
   showBookingLink: boolean;
+  timezone?: string;
 }) {
   return (
     <section className="flex flex-col gap-2">
@@ -32,7 +34,7 @@ export function DaySection({
       ) : (
         <ul>
           {day.visits.map((visit) => (
-            <AppointmentRow key={visit.id} {...visit} returnHref={returnHref} canAdvance={canAdvance} />
+            <AppointmentRow key={visit.id} {...visit} returnHref={returnHref} canAdvance={canAdvance} timezone={timezone} />
           ))}
         </ul>
       )}

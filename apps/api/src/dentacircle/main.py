@@ -26,6 +26,7 @@ from dentacircle.api.lab_work import router as lab_work_router
 from dentacircle.api.messaging import router as messaging_router
 from dentacircle.api.patients import router as patients_router
 from dentacircle.api.recalls import router as recalls_router
+from dentacircle.api.reminders import router as reminders_router
 from dentacircle.api.resource_rules import router as resource_rules_router
 from dentacircle.api.timeline import router as timeline_router
 from dentacircle.core.config import get_settings
@@ -93,6 +94,7 @@ def create_app() -> FastAPI:
     application.include_router(care_sessions_router)
     application.include_router(follow_ups_router)
     application.include_router(recalls_router)
+    application.include_router(reminders_router)
     application.include_router(timeline_router)
     application.include_router(documents_router)
     application.include_router(lab_work_router)

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { CancelButton } from "@/features/calendar/cancel-button";
+import { ScheduleButton } from "@/features/reminders/schedule-button";
 import { StatusButton } from "@/features/calendar/status-button";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -24,6 +25,9 @@ export type AppointmentRowProps = {
   status: string;
   canAdvance: boolean;
   returnHref: string;
+  startsAt?: string;
+  patientActive?: boolean;
+  timezone?: string;
 };
 
 export function AppointmentRow({
@@ -37,6 +41,9 @@ export function AppointmentRow({
   canAdvance,
   id,
   returnHref,
+  startsAt,
+  patientActive,
+  timezone,
 }: AppointmentRowProps) {
   const statusLabel = status === "scheduled" ? null : (STATUS_LABELS[status] ?? status);
   return (
@@ -60,6 +67,7 @@ export function AppointmentRow({
         ) : null}
         {status === "scheduled" ? (
           <>
+            {patientActive && startsAt && timezone && new Date(startsAt).getTime() > Date.now() ? <ScheduleButton appointmentId={id} timezone={timezone} /> : null}
             <StatusButton appointmentId={id} returnHref={returnHref} target="no_show" />
             <Button asChild variant="outline" size="sm"><Link href={`/appointments/${id}/reschedule`}>Reschedule</Link></Button>
             <CancelButton appointmentId={id} returnHref={returnHref} />

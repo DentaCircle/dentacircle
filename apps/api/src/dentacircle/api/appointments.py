@@ -77,6 +77,7 @@ class PatientSummaryResponse(BaseModel):
     id: UUID
     full_name: str
     display_id: str
+    status: str
 
 
 class CalendarItemResponse(BaseModel):
@@ -198,6 +199,7 @@ def _calendar_item(item: CalendarItemView) -> CalendarItemResponse:
             id=item.patient.id,
             full_name=item.patient.full_name,
             display_id=item.patient.display_id,
+            status=item.patient.status,
         ),
         clinician=PartyResponse(id=item.clinician.id, full_name=item.clinician.full_name),
         appointment_type=TypeNameResponse(

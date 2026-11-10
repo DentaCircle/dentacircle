@@ -87,7 +87,7 @@ export type CalendarVisit = {
   starts_at: string;
   ends_at: string;
   status: string;
-  patient: { id: string; full_name: string; display_id: string };
+  patient: { id: string; full_name: string; display_id: string; status?: string };
   clinician: { id: string; full_name: string };
   appointment_type: { id: string; name: string };
 };
@@ -1130,13 +1130,14 @@ function calendarVisitData(value: unknown): CalendarVisit | null {
 
 function patientSummaryData(
   value: unknown,
-): { id: string; full_name: string; display_id: string } | null {
+): { id: string; full_name: string; display_id: string; status?: string } | null {
   if (!isRecord(value)) return null;
   const id = stringField(value, "id");
   const fullName = stringField(value, "full_name");
   const displayId = stringField(value, "display_id");
   if (id === null || fullName === null || displayId === null) return null;
-  return { id, full_name: fullName, display_id: displayId };
+  const status = stringField(value, "status");
+  return { id, full_name: fullName, display_id: displayId, ...(status === null ? {} : { status }) };
 }
 
 function upcomingListData(value: unknown): UpcomingVisit[] | null {
