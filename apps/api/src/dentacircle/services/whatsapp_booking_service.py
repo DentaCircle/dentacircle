@@ -439,6 +439,30 @@ def _offer_types(session: Session, actor: WhatsAppActor, booking: WhatsAppBookin
     _show_options(session, actor, booking, entries, "Choose an appointment type", 0)
 
 
+def _offer_dates(
+    session: Session, actor: WhatsAppActor, booking: WhatsAppBookingSession, now: datetime
+) -> None:
+    clinic = ClinicDayRepository(session, actor.clinic_id).get_clinic()
+    if clinic is None:
+        raise RuntimeError("clinic not found")
+    today = now.astimezone(ZoneInfo(clinic.timezone)).date()
+    entries = [{"id": "earliest", "label": "Earliest available"}]
+    entries.extend(
+        {"id": day.isoformat(), "label": day.strftime("%a, %d %b")}
+        for day in (today + timedelta(days=i) for i in range(7))
+    )
+    booking.state = "slots"
+    _show_options(session, actor, booking, entries, "Choose a date", 0)
+
+
+def _offer_clinicians(
+    session: Session, actor: WhatsAppActor, booking: WhatsAppBookingSession
+) -> None:
+    entries = [{"id": "any", "label": "Any available clinician"}, *_all_clinicians(session, actor)]
+    booking.state = "slots"
+    _show_options(session, actor, booking, entries, "Choose a clinician", 0)
+
+
 def _offer_slots(
     session: Session,
     actor: WhatsAppActor,
@@ -556,9 +580,7 @@ def _choice_command(
         return True
     if booking.state == "slots" and command == f"CLINICIANS {booking.menu_token}":
         _rotate(booking, now)
-        _show_options(
-            session, actor, booking, _all_clinicians(session, actor), "Choose a clinician", 0
-        )
+        _offer_clinicians(session, actor, booking)
         return True
     if command == f"TYPE {booking.menu_token}":
         _rotate(booking, now)
@@ -571,7 +593,12 @@ def _choice_command(
                 {"id": "unsure", "label": "Not sure what to book"}
             ]
         elif booking.state == "slots" and booking.choices["title"] == "Choose a clinician":
-            current = _all_clinicians(session, actor)
+            current = [
+                {"id": "any", "label": "Any available clinician"},
+                *_all_clinicians(session, actor),
+            ]
+        elif booking.state == "slots" and booking.choices["title"] == "Choose a date":
+            current = entries
         elif booking.state == "slots":
             current = _slot_entries(
                 session, actor, booking, now, booking.selected_date, booking.clinician_user_id
@@ -633,9 +660,29 @@ def _choice_command(
             booking.selected_date = None
             booking.clinician_user_id = None
             _rotate(booking, now)
-            _offer_slots(session, actor, booking, now)
+            _offer_dates(session, actor, booking, now)
+    elif booking.choices["title"] == "Choose a date":
+        selected = choice["id"]
+        booking.selected_date = None if selected == "earliest" else date.fromisoformat(selected)
+        clinic = ClinicDayRepository(session, actor.clinic_id).get_clinic()
+        if clinic is None:
+            raise RuntimeError("clinic not found")
+        today = now.astimezone(ZoneInfo(clinic.timezone)).date()
+        if (
+            booking.selected_date is not None
+            and not today <= booking.selected_date <= today + timedelta(days=6)
+        ):
+            _rotate(booking, now)
+            _offer_dates(session, actor, booking, now)
+            return True
+        _rotate(booking, now)
+        _offer_clinicians(session, actor, booking)
     elif booking.choices["title"] == "Choose a clinician":
-        booking.clinician_user_id = UUID(choice["id"])
+        if choice["id"] != "any" and choice not in _all_clinicians(session, actor):
+            _rotate(booking, now)
+            _offer_clinicians(session, actor, booking)
+            return True
+        booking.clinician_user_id = None if choice["id"] == "any" else UUID(choice["id"])
         _rotate(booking, now)
         _offer_slots(session, actor, booking, now, booking.selected_date, booking.clinician_user_id)
     else:

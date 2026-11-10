@@ -115,7 +115,13 @@ def test_numbered_quoted_replies_book_and_stale_prompt_cannot_choose(database: s
         stale_reply = send("1", "SOURCE")
         assert booking.state == "type"
         assert "invalid" in stale_reply.body.lower()
-        slots = send("1\ufe0f\u20e3", "TYPE")
+        dates = send("1\ufe0f\u20e3", "TYPE")
+        accepted(dates, "DATES")
+        assert "date" in dates.body.lower()
+        clinicians = send("1", "DATES")
+        accepted(clinicians, "CLINICIANS")
+        assert "clinician" in clinicians.body.lower()
+        slots = send("1", "CLINICIANS")
         accepted(slots, "SLOTS")
         assert booking.state == "slots"
         confirmation = send("1", "SLOTS")
@@ -125,6 +131,55 @@ def test_numbered_quoted_replies_book_and_stale_prompt_cannot_choose(database: s
         send("1", "CONFIRM")
         assert booking.state == "booked"
         assert session.scalar(select(func.count()).select_from(Appointment)) == 1
+
+
+def test_specific_date_and_clinician_are_kept_for_slot_search(database: str) -> None:
+    clinic = world()
+    number = "+15551234567"
+    with Session(get_engine(), expire_on_commit=False) as session:
+        contact = link_contact(
+            session, clinic.clinic_id, clinic.actor_id, clinic.patient_id, "demo", number, {number}
+        )
+
+        def send(body: str) -> None:
+            event_id = str(uuid4())
+            receive_message(
+                session, clinic.clinic_id, IncomingText("demo", number, event_id, body, None)
+            )
+            incoming = session.scalar(
+                select(Message).where(Message.provider_message_id == event_id)
+            )
+            assert incoming is not None
+            process_action(
+                session, resolve_actor(session, authority(clinic.clinic_id), incoming.id)
+            )
+            session.commit()
+
+        send("BOOK")
+        booking = session.scalar(
+            select(WhatsAppBookingSession).where(WhatsAppBookingSession.contact_id == contact.id)
+        )
+        assert booking is not None
+        send(f"{booking.menu_token}:1")
+        send(f"{booking.menu_token}:1")
+        assert booking.choices["title"] == "Choose a date"
+        selected_day = booking.choices["entries"][1]["id"]
+        send(f"{booking.menu_token}:2")
+        assert (
+            booking.selected_date is not None and booking.selected_date.isoformat() == selected_day
+        )
+        assert booking.choices["title"] == "Choose a clinician"
+        clinician_index = next(
+            index
+            for index, entry in enumerate(booking.choices["entries"], start=1)
+            if entry["id"] == str(clinic.clinician_id)
+        )
+        send(f"{booking.menu_token}:{clinician_index}")
+        assert booking.clinician_user_id == clinic.clinician_id
+        assert all(
+            entry["start"].startswith(selected_day) and entry["id"] == str(clinic.clinician_id)
+            for entry in booking.choices["entries"]
+        )
 
 
 def test_pause_requires_current_fresh_challenge(database: str) -> None:
@@ -316,6 +371,10 @@ def test_existing_visits_must_be_paged_before_additional_booking(database: str) 
         session.refresh(booking)
         send(f"{booking.menu_token}:1")
         session.refresh(booking)
+        send(f"{booking.menu_token}:1")
+        session.refresh(booking)
+        send(f"{booking.menu_token}:1")
+        session.refresh(booking)
         assert booking.state == "confirmation"
         old_code = booking.menu_token
         existing_id = UUID(booking.acknowledged_visits[0]["id"])
@@ -409,6 +468,10 @@ def test_patient_confirms_once_after_selecting_an_earliest_slot(database: str) -
         send(f"{booking.menu_token}:1")
         session.refresh(booking)
         assert booking.state == "slots"
+        send(f"{booking.menu_token}:1")
+        session.refresh(booking)
+        send(f"{booking.menu_token}:1")
+        session.refresh(booking)
         send(f"{booking.menu_token}:1")
         session.refresh(booking)
         assert booking.state == "confirmation"
@@ -544,6 +607,10 @@ def test_booking_only_updates_the_selected_source(database: str, source: str) ->
         session.refresh(booking)
         send(f"{booking.menu_token}:1")
         session.refresh(booking)
+        send(f"{booking.menu_token}:1")
+        session.refresh(booking)
+        send(f"{booking.menu_token}:1")
+        session.refresh(booking)
         assert session.scalar(select(func.count()).select_from(Appointment)) == 1
         send(f"CONFIRM {booking.menu_token}")
         session.refresh(follow)
@@ -593,7 +660,7 @@ def test_taken_slot_keeps_incoming_message_and_does_not_partially_book(database:
             )
         )
         assert booking is not None
-        for _ in range(3):
+        for _ in range(5):
             send(f"{booking.menu_token}:1")
             session.refresh(booking)
         assert booking.state == "confirmation" and booking.appointment_type_id is not None
@@ -676,7 +743,7 @@ def test_cancelled_acknowledged_visit_is_shown_before_fresh_choice(database: str
         )
         assert booking is not None
         send(f"ANOTHER {booking.menu_token}")
-        for _ in range(3):
+        for _ in range(5):
             session.refresh(booking)
             send(f"{booking.menu_token}:1")
         session.refresh(booking)
@@ -757,7 +824,7 @@ def test_slot_pages_are_ordered_and_date_and_clinician_filters_refresh_codes(dat
             )
         )
         assert booking is not None
-        for _ in range(2):
+        for _ in range(4):
             send(f"{booking.menu_token}:1")
             session.refresh(booking)
         assert booking.state == "slots"
@@ -773,7 +840,7 @@ def test_slot_pages_are_ordered_and_date_and_clinician_filters_refresh_codes(dat
         send(f"CLINICIANS {booking.menu_token}")
         session.refresh(booking)
         assert booking.choices["title"] == "Choose a clinician"
-        send(f"{booking.menu_token}:1")
+        send(f"{booking.menu_token}:2")
         session.refresh(booking)
         assert len({item["id"] for item in booking.choices["entries"]}) <= 1
         chosen_day = booking.choices["entries"][0]["start"][:10]
@@ -819,7 +886,7 @@ def test_concurrent_confirmations_create_one_visit(database: str) -> None:
             )
         )
         assert booking is not None
-        for _ in range(3):
+        for _ in range(5):
             incoming_id = prepare(f"{booking.menu_token}:1")
             process_action(
                 session, resolve_actor(session, authority(clinic.clinic_id), incoming_id)
