@@ -54,6 +54,13 @@ that it did not arrive. No automatic retry was attempted.
 Opening the saved contact on the clinic phone without sending a message did not create a
 chat visible to OpenWA. OpenWA's number-status check confirmed that the test number exists.
 
+With developer approval, an isolated OpenWA 5.1.0 session was tested without a license.
+The published image initially referenced a removed executable and its dependency resolution
+needed a temporary compatibility pin. After correcting those in the isolated environment,
+the service started but never exposed a pairing QR and authentication timed out. No v5 send
+was attempted, so the test does not establish whether v5 can send the first invitation. The
+temporary session was removed and the original v4 session remained connected.
+
 The developer later requested numbered replies without visible codes. A live WhatsApp test
 confirmed that replying to the appointment message with 1 opened the booking-source menu,
 and the bridge recorded the outgoing message reference. The complete numbered booking and
