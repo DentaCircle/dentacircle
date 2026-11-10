@@ -41,6 +41,7 @@ _HEAD_TABLES = [
     "patient_number_counter",
     "procedure_resource_rule",
     "recall",
+    "reminder",
     "timeline_event",
     "user_role",
     "whatsapp_booking_session",

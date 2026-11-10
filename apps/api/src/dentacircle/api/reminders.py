@@ -10,12 +10,12 @@ from pydantic_core import PydanticCustomError
 
 from dentacircle.core.access import SessionDep, require_roles
 from dentacircle.core.errors import CodedHttpError
-from dentacircle.repositories.reminder_repository import ReminderRepository
 from dentacircle.services.auth_service import CurrentUser
 from dentacircle.services.reminder_service import (
     ReminderConflictError,
     ReminderNotFoundError,
     ReminderTimeError,
+    list_reminders,
     resolve,
     schedule,
 )
@@ -88,9 +88,7 @@ def get_reminders(
     view: Literal["due", "pending"] = "due",
     page: Annotated[int, Query(ge=1, le=(2**63 - 1) // 20)] = 1,
 ) -> ReminderList:
-    rows, total = ReminderRepository(session, user.clinic.id).list(
-        datetime.now(UTC), view == "due", page
-    )
+    rows, total = list_reminders(session, user.clinic.id, datetime.now(UTC), view == "due", page)
     return ReminderList(
         items=[
             ReminderItem(
@@ -110,7 +108,12 @@ def get_reminders(
     )
 
 
-def _resolve(reminder_id: UUID, user: CurrentUser, session: SessionDep, target: str) -> Response:
+def _resolve(
+    reminder_id: UUID,
+    user: CurrentUser,
+    session: SessionDep,
+    target: Literal["completed", "cancelled"],
+) -> Response:
     try:
         resolve(session, user.clinic.id, user.id, reminder_id, target, datetime.now(UTC))
     except ReminderNotFoundError:

@@ -114,3 +114,9 @@ def _set_status(
         changed_fields=["status", "resolved_at"],
     )
     session.flush()
+
+
+def list_reminders(
+    session: Session, clinic_id: UUID, now: datetime, due_only: bool, page: int
+) -> tuple[list[tuple[Reminder, Appointment, Patient]], int]:
+    return ReminderRepository(session, clinic_id).list(now, due_only, page)

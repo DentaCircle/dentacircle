@@ -279,3 +279,72 @@ def test_due_order_pagination_and_started_visit_filter(api: TestClient) -> None:
         assert ReminderRepository(session, clinic).list(now, False, 1)[1] == 0
         session.rollback()
         assert reminder.id is not None
+
+
+def test_pending_pagination_is_stable_when_due_times_tie(api: TestClient) -> None:
+    from uuid import uuid4
+
+    from dentacircle.models.appointment import Appointment
+
+    visit, _ = _visit(api)
+    clinic, _actor = _identity()
+    now = datetime.now(UTC)
+    with Session(get_engine()) as session:
+        first = session.get(Appointment, UUID(visit))
+        assert first is not None
+        due = now - timedelta(minutes=1)
+        for index in range(21):
+            start = first.starts_at + timedelta(days=index + 1)
+            appointment = Appointment(
+                id=uuid4(),
+                clinic_id=clinic,
+                patient_id=first.patient_id,
+                clinician_user_id=first.clinician_user_id,
+                appointment_type_id=first.appointment_type_id,
+                starts_at=start,
+                ends_at=start + timedelta(minutes=30),
+                status="scheduled",
+            )
+            session.add(appointment)
+            session.add(
+                Reminder(
+                    id=uuid4(),
+                    clinic_id=clinic,
+                    appointment_id=appointment.id,
+                    due_at=due,
+                    status="pending",
+                )
+            )
+        session.commit()
+    cookie = _cookie(api)
+    first_page = api.get("/reminders?page=1", cookies=cookie).json()
+    second_page = api.get("/reminders?page=2", cookies=cookie).json()
+    ids = [row["id"] for row in first_page["items"] + second_page["items"]]
+    assert first_page["total"] == second_page["total"] == 21
+    assert len(first_page["items"]) == 20 and len(second_page["items"]) == 1
+    assert ids == sorted(ids) and len(set(ids)) == 21
+
+
+def test_service_time_boundaries_and_create_rollback(api: TestClient) -> None:
+    from dentacircle.services.reminder_service import ReminderTimeError
+
+    visit, start = _visit(api)
+    clinic, actor = _identity()
+    now = datetime.now(UTC)
+    with Session(get_engine()) as session:
+        for due in (now - timedelta(microseconds=1), start, now.replace(tzinfo=None)):
+            with pytest.raises(ReminderTimeError):
+                schedule(session, clinic, actor, UUID(visit), due, now)
+        row = schedule(session, clinic, actor, UUID(visit), now, now)
+        reminder_id = row.id
+        session.rollback()
+    with Session(get_engine()) as session:
+        assert session.get(Reminder, reminder_id) is None
+        assert (
+            session.scalars(
+                select(AuditEvent).where(
+                    AuditEvent.entity_type == "reminder", AuditEvent.entity_id == reminder_id
+                )
+            ).one_or_none()
+            is None
+        )
