@@ -46,7 +46,11 @@ clinic-initiated invitation was later retried after the patient started a conver
 accepted it and the patient confirmed receipt. The synthetic transcript remains fake-provider
 evidence and does not itself claim real delivery. The patient replied BOOK to the invitation
 and confirmed receiving the existing-appointment details and the option to book another visit.
-The failed first invitation is not proven fixed for a contact with no existing conversation.
+The failed first invitation is not fixed for a contact with no existing conversation. On a
+repeat test, the developer removed the synthetic chat from the clinic phone; OpenWA confirmed
+that no chat existed and that the contact was saved. The invitation again produced an unknown
+outcome and the same `t.isRegularUser is not a function` provider error; the recipient confirmed
+that it did not arrive. No automatic retry was attempted.
 
 The developer later requested numbered replies without visible codes. A live WhatsApp test
 confirmed that replying to the appointment message with 1 opened the booking-source menu,
