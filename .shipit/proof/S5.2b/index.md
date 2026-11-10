@@ -51,12 +51,13 @@ The failed first invitation is not proven fixed for a contact with no existing c
 The developer later requested numbered replies without visible codes. A live WhatsApp test
 confirmed that replying to the appointment message with 1 opened the booking-source menu,
 and the bridge recorded the outgoing message reference. The complete numbered booking and
-rejection of an old prompt were also exercised by automated tests; a complete numbered live
-booking has not been performed.
+rejection of an old prompt were also exercised by automated tests.
 
 After the preference-flow change, the developer confirmed on the test phone that the date
-and clinician menus both appeared before the available times. Automated tests additionally
-cover choosing a specific date and clinician and completing the synthetic booking.
+and clinician menus both appeared before the available times. A complete numbered live
+booking was then confirmed on the phone, and the synthetic database showed the booking
+as booked and its appointment as scheduled. Automated tests additionally cover choosing a
+specific date and clinician and reject stale menu replies.
 
 STOP was also confirmed on the patient's phone; the stored conversation state became stopped
 and the synthetic appointment remained scheduled. A later BOOK produced a fresh resume
