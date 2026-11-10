@@ -128,8 +128,12 @@ def test_numbered_quoted_replies_book_and_stale_prompt_cannot_choose(database: s
         accepted(confirmation, "CONFIRM")
         assert booking.state == "confirmation"
         assert session.scalar(select(func.count()).select_from(Appointment)) == 0
-        send("1", "CONFIRM")
+        result = send("1", "CONFIRM")
         assert booking.state == "booked"
+        assert session.scalar(select(func.count()).select_from(Appointment)) == 1
+        assert "Appointment update" in result.body
+        repeated_result = send("1", "CONFIRM")
+        assert "Appointment update" in repeated_result.body
         assert session.scalar(select(func.count()).select_from(Appointment)) == 1
 
 

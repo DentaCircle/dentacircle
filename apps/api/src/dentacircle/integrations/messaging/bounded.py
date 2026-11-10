@@ -85,16 +85,33 @@ def _bounded_send(
         if child.is_alive():
             child.terminate()
             child.join(timeout=1)
+        if child.is_alive():
+            child.kill()
+            child.join()
+        if child.exitcode != 0 and shared_fence is not None:
+            _release_unclaimed_fence(shared_fence)
         if include_receipt and isinstance(result, SendReceipt):
             return result
         return cast(
             SendStatus, result if result in ("accepted", "failed", "unknown") else "unknown"
         )
     except (OSError, RuntimeError, TypeError):
+        if shared_fence is not None:
+            _release_unclaimed_fence(shared_fence)
         return "unknown"
     finally:
         send.close()
         receive.close()
+
+
+def _release_unclaimed_fence(shared_fence: Any) -> None:
+    """Close the resource-sharer duplicate when startup failed before child detach."""
+    try:
+        duplicate_fd = shared_fence.detach()
+    except (EOFError, KeyError, OSError):
+        # The child already detached it; once joined, its process exit closes the fd.
+        return
+    os.close(duplicate_fd)
 
 
 def bounded_send(
@@ -163,6 +180,9 @@ def bounded_connection(provider: MessagingProvider, *, timeout_seconds: float) -
         if child.is_alive():
             child.terminate()
             child.join(timeout=1)
+        if child.is_alive():
+            child.kill()
+            child.join()
         return result
     except (OSError, RuntimeError, TypeError):
         return None

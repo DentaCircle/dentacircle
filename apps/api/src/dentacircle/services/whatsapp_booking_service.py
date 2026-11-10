@@ -105,6 +105,40 @@ def _matches_current_prompt(
     return len(matches) == 1
 
 
+def _matches_booked_confirmation(
+    session: Session,
+    actor: WhatsAppActor,
+    contact: MessagingContact,
+    booking: WhatsAppBookingSession,
+) -> bool:
+    quoted = actor.quoted_stanza_id
+    if quoted is None or booking.automation_version != contact.automation_version:
+        return False
+    rows = session.scalars(
+        select(Message).where(
+            Message.clinic_id == actor.clinic_id,
+            Message.contact_id == contact.id,
+            Message.account_key == actor.account_key,
+            Message.origin == "automation",
+            Message.state == "accepted",
+            Message.booking_session_id == booking.id,
+            Message.menu_version == booking.menu_version,
+            Message.automation_version == booking.automation_version,
+            Message.reply_kind == "menu",
+            Message.provider_message_id.is_not(None),
+        )
+    ).all()
+    return (
+        sum(
+            row.provider_message_id is not None
+            and row.provider_message_id.rsplit("_", 1)[-1] == quoted
+            and "Please check your appointment" in row.body
+            for row in rows
+        )
+        == 1
+    )
+
+
 def _quoted_command(booking: WhatsAppBookingSession, command: str) -> str:
     """Translate a reply only after its prompt has been authenticated."""
     token = booking.menu_token
@@ -168,6 +202,27 @@ def process_action(session: Session, actor: WhatsAppActor) -> None:
         if command == "STATUS":
             queue_reply(
                 session, actor, "No booking result is available. Reply STAFF for reception."
+            )
+            return
+    if command == "1" and actor.quoted_stanza_id is not None:
+        saved = session.scalar(
+            select(WhatsAppBookingSession)
+            .where(
+                WhatsAppBookingSession.clinic_id == actor.clinic_id,
+                WhatsAppBookingSession.contact_id == contact.id,
+                WhatsAppBookingSession.account_key == actor.account_key,
+                WhatsAppBookingSession.state == "booked",
+            )
+            .order_by(WhatsAppBookingSession.created_at.desc())
+            .limit(1)
+        )
+        if saved is not None and _matches_booked_confirmation(session, actor, contact, saved):
+            queue_reply(
+                session,
+                actor,
+                _result_text(session, actor, saved, now),
+                booking=saved,
+                kind="result",
             )
             return
     if booking is not None and booking.expires_at <= now:
@@ -350,33 +405,45 @@ def _show_visits(
     visits = booking.choices["visits"]
     display = booking.choices["display"]
     cursor = booking.choices["cursor"]
-    lines = [notice, "", "*Your appointments*"] if notice else ["*Your appointments*"]
-    for index, visit in enumerate(display[cursor : cursor + 5], start=cursor + 1):
-        start = datetime.fromisoformat(visit["starts_at"]).astimezone(zone)
-        name = " ".join(visit["type_name"].split())[:150]
-        clinician = " ".join(visit["clinician_name"].split())[:150]
-        lines.append(
-            f"\nAppointment {index}\n"
-            f"{start:%d %b %Y} at {start:%H:%M}\n"
-            f"{name} with {clinician}\nStatus: {visit['status']}"
+    page_size = min(5, len(display) - cursor)
+    while True:
+        lines = [notice, "", "*Your appointments*"] if notice else ["*Your appointments*"]
+        for index, visit in enumerate(display[cursor : cursor + page_size], start=cursor + 1):
+            start = datetime.fromisoformat(visit["starts_at"]).astimezone(zone)
+            name = " ".join(visit["type_name"].split())[:150]
+            clinician = " ".join(visit["clinician_name"].split())[:150]
+            lines.append(
+                f"\nAppointment {index}\n"
+                f"{start:%d %b %Y} at {start:%H:%M}\n"
+                f"{name} with {clinician}\nStatus: {visit['status']}"
+            )
+        next_cursor = cursor + page_size
+        if next_cursor < len(display):
+            action = "See more appointments"
+        elif visits:
+            action = "Book another visit"
+        else:
+            action = "Continue"
+        lines.extend(
+            [
+                "",
+                f"1️⃣ {action}",
+                "",
+                "Use WhatsApp Reply on this message, then send 1.",
+                "",
+                "Need help? Reply STAFF.",
+            ]
         )
-    next_cursor = min(cursor + 5, len(display))
+        if len("\n".join(lines)) <= 2000 or page_size <= 1:
+            break
+        page_size -= 1
+    next_cursor = cursor + page_size
     booking.choices = {
         "visits": visits,
         "display": display,
         "cursor": cursor,
         "next_cursor": next_cursor,
     }
-    lines.append("")
-    if next_cursor < len(display):
-        lines.append("1\ufe0f\u20e3 See more appointments")
-    elif visits:
-        lines.append("1\ufe0f\u20e3 Book another visit")
-    else:
-        lines.append("1\ufe0f\u20e3 Continue")
-    lines.extend(
-        ["", "Use WhatsApp Reply on this message, then send 1.", "", "Need help? Reply STAFF."]
-    )
     queue_reply(session, actor, "\n".join(lines), booking=booking, kind="menu")
 
 

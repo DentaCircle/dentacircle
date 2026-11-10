@@ -1,6 +1,6 @@
 # WhatsApp booking contract
 
-Detail for approved [S5.2 scope](../.shipit/slices/S5.2-coordinator-booking.md), [foundation](../.shipit/slices/S5.2a-whatsapp-action-foundation.md) and [conversation](../.shipit/slices/S5.2b-whatsapp-self-booking.md). Review corrections authorised 2026-11-04. These are build requirements, not implemented behavior. S5.1 is still a prerequisite.
+Implemented behavior and contract for [S5.2 scope](../.shipit/slices/S5.2-coordinator-booking.md), [foundation](../.shipit/slices/S5.2a-whatsapp-action-foundation.md) and [conversation](../.shipit/slices/S5.2b-whatsapp-self-booking.md). Review corrections authorised 2026-11-04. S5.1, S5.2a and S5.2b are implemented; first-contact invitations remain deferred.
 
 ## Entry and identity
 

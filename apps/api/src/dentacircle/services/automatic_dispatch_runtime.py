@@ -13,6 +13,7 @@ from dentacircle.repositories.automatic_dispatch_repository import AutomaticDisp
 from dentacircle.services.automatic_dispatch import Guard, dispatch_one
 
 _logger = logging.getLogger(__name__)
+_MAX_WORKERS = 4
 
 
 class Dispatcher:
@@ -62,10 +63,10 @@ class Dispatcher:
                 if contacts:
                     offset = self.cursor % len(contacts)
                     contacts = contacts[offset:] + contacts[:offset]
-                    self.cursor = (offset + 16) % len(contacts)
+                    self.cursor = (offset + _MAX_WORKERS) % len(contacts)
                 for contact_id in contacts:
                     with self.lock:
-                        if contact_id in self.active or len(self.active) >= 16:
+                        if contact_id in self.active or len(self.active) >= _MAX_WORKERS:
                             continue
                         worker = threading.Thread(target=self._one, args=(contact_id,), daemon=True)
                         self.active[contact_id] = worker
