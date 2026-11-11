@@ -67,3 +67,13 @@ test("keeps visit facts separate from labeled actions", () => {
   expect(actions).not.toHaveTextContent("Sample Patient");
   expect(screen.getByText("Scheduled")).toBeInTheDocument();
 });
+
+test("scheduling appears only for an active patient with a future scheduled visit", () => {
+  const base = { id: "v", timeRange: "10:00–10:30", patientId: "p", patientName: "Sample", displayId: "P-0001", typeName: "Consultation", clinicianName: "Sample Clinician", canAdvance: true, returnHref: "/calendar", timezone: "Asia/Kolkata", startsAt: "2099-01-01T10:00:00+05:30" };
+  const { rerender } = render(<AppointmentRow {...base} patientActive status="scheduled" />);
+  expect(screen.getByRole("button", { name: "Schedule reminder" })).toBeInTheDocument();
+  rerender(<AppointmentRow {...base} patientActive={false} status="scheduled" />);
+  expect(screen.queryByRole("button", { name: "Schedule reminder" })).not.toBeInTheDocument();
+  rerender(<AppointmentRow {...base} patientActive status="arrived" />);
+  expect(screen.queryByRole("button", { name: "Schedule reminder" })).not.toBeInTheDocument();
+});

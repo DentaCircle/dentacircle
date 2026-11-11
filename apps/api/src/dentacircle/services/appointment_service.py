@@ -48,6 +48,7 @@ from dentacircle.services.follow_up_service import (
 from dentacircle.services.inventory_service import consume_for_completed_visit
 from dentacircle.services.patient_service import PatientNotFoundError
 from dentacircle.services.recall_service import record_recall, release_booked_recall
+from dentacircle.services.reminder_service import cancel_for_visit
 from dentacircle.services.timeline_service import record as record_timeline
 from dentacircle.services.whatsapp_actor import WhatsAppActor, require_patient
 
@@ -114,6 +115,7 @@ class PatientSummaryView:
     id: UUID
     full_name: str
     display_id: str
+    status: str
 
 
 @dataclass(frozen=True)
@@ -213,6 +215,7 @@ def cancel_appointment(
         raise AppointmentNotFoundError
     if row.status not in MOVABLE_STATUSES:
         raise InvalidStatusError
+    cancel_for_visit(session, clinic_id, actor_user_id, row.id, occurred_at)
     row.status = "cancelled"
     record(
         session,
@@ -275,6 +278,8 @@ def change_status(
     problem = _status_time_problem(target, row.starts_at, zone, now)
     if problem is not None:
         raise AppointmentFieldError("status", problem)
+    if target in ("arrived", "no_show"):
+        cancel_for_visit(session, clinic_id, actor_user_id, row.id, now)
     row.status = target
     record(
         session,
@@ -411,6 +416,8 @@ def reschedule_appointment(
     changed = ["starts_at", "ends_at"]
     if clinician.id != row.clinician_user_id:
         changed.append("clinician_user_id")
+    if not same_instant(start, row.starts_at):
+        cancel_for_visit(session, clinic_id, actor_user_id, row.id, now)
     row.starts_at = start
     row.ends_at = end
     row.clinician_user_id = clinician.id
@@ -672,6 +679,7 @@ def _calendar_view(
             id=patient.id,
             full_name=patient.full_name,
             display_id=display_id(patient.patient_number),
+            status=patient.status,
         ),
         clinician=PartyView(id=clinician.id, full_name=clinician.full_name),
         appointment_type=TypeNameView(id=appointment_type.id, name=appointment_type.name),

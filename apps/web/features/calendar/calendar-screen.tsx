@@ -16,6 +16,7 @@ export type CalendarScreenProps =
       days: CalendarDay[];
       notice: CalendarNotice | null;
       canAdvance: boolean;
+      timezone?: string;
     };
 
 export function CalendarScreen(props: CalendarScreenProps) {
@@ -43,6 +44,7 @@ export function CalendarScreen(props: CalendarScreenProps) {
               day={day}
               showBookingLink={props.view === "day"}
               canAdvance={props.canAdvance}
+              timezone={props.timezone}
               returnHref={calendarHref({
                 view: props.view,
                 date: props.date,

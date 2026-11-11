@@ -52,6 +52,7 @@ export default async function CalendarPage({ searchParams }: CalendarPageProps) 
       days={days}
       notice={query.notice}
       canAdvance={canAdvanceAppointments(user.roles)}
+      timezone={day.data.timezone}
     />
   );
 }
