@@ -1,7 +1,7 @@
 """Staff appointment reminder endpoints."""
 
 from datetime import UTC, datetime
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
@@ -56,7 +56,29 @@ class ReminderList(BaseModel):
     page_size: int
 
 
-@router.post("/appointments/{appointment_id}/reminders", status_code=201)
+class ErrorBody(BaseModel):
+    code: str
+    message: str
+    request_id: str
+
+
+class ErrorResponse(BaseModel):
+    error: ErrorBody
+
+
+_CREATE_ERRORS: dict[int | str, dict[str, Any]] = {
+    404: {"model": ErrorResponse, "description": "Not Found"},
+    409: {"model": ErrorResponse, "description": "reminder_conflict"},
+}
+_RESOLVE_ERRORS: dict[int | str, dict[str, Any]] = {
+    404: {"model": ErrorResponse, "description": "Not Found"},
+    409: {"model": ErrorResponse, "description": "reminder_conflict"},
+}
+
+
+@router.post(
+    "/appointments/{appointment_id}/reminders", status_code=201, responses=_CREATE_ERRORS
+)
 def post_reminder(
     appointment_id: UUID,
     body: ScheduleBody,
@@ -124,14 +146,14 @@ def _resolve(
     return Response(status_code=204)
 
 
-@router.post("/reminders/{reminder_id}/complete", status_code=204)
+@router.post("/reminders/{reminder_id}/complete", status_code=204, responses=_RESOLVE_ERRORS)
 def post_complete(
     reminder_id: UUID, user: Annotated[CurrentUser, Depends(can_use)], session: SessionDep
 ) -> Response:
     return _resolve(reminder_id, user, session, "completed")
 
 
-@router.post("/reminders/{reminder_id}/cancel", status_code=204)
+@router.post("/reminders/{reminder_id}/cancel", status_code=204, responses=_RESOLVE_ERRORS)
 def post_cancel(
     reminder_id: UUID, user: Annotated[CurrentUser, Depends(can_use)], session: SessionDep
 ) -> Response:
