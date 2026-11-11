@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   ArrowRight, CalendarDays, ChevronRight, Clock3,
-  FlaskConical, Layers3, Package, PhoneCall, Plus, RotateCcw, Search,
+  Bell, FlaskConical, Layers3, Package, PhoneCall, Plus, RotateCcw, Search,
   type LucideIcon,
 } from "lucide-react";
 
@@ -78,13 +78,14 @@ function CoordinationDashboard({ data }: { data: DashboardData }) {
         <Metric label="Appointments today" value={data.appointments?.length ?? null}
           description="Your daily schedule" href={calendarHref} icon={CalendarDays} tone="teal" />
         <Metric label="Follow-ups due" value={data.followUps?.total ?? null}
-          description="Due today & overdue" href="/follow-ups" icon={PhoneCall} tone="amber" />
+          description="Due today & overdue" href="/follow-ups?view=due&page=1" icon={PhoneCall} tone="amber" />
         <Metric label="Recalls due" value={data.recalls?.total ?? null}
-          description="Time to reconnect" href="/recalls" icon={RotateCcw} tone="violet" />
+          description="Time to reconnect" href="/recalls?view=due&page=1" icon={RotateCcw} tone="violet" />
         <Metric label="Open lab work" value={data.lab?.total ?? null}
-          description="Pending & ready to collect" href="/lab" icon={FlaskConical} tone="blue" />
+          description="Pending & ready to collect" href="/lab?view=open&page=1" icon={FlaskConical} tone="blue" />
+        <Metric label="Reminders due" value={data.reminders?.total ?? null}
+          description="Due now" href="/reminders?view=due&page=1" icon={Bell} tone="violet" />
       </div>
-      <DayProgress visits={data.appointments} href={calendarHref} />
     </>
   );
 }
@@ -130,7 +131,7 @@ function PanelHeading({ title, href, link }: PanelHeadingProps) {
 }
 
 function Agenda({ visits, href }: AgendaProps) {
-  const sorted = visits?.toSorted((a, b) => a.starts_at.localeCompare(b.starts_at)) ?? [];
+  const sorted = visits?.toSorted((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at) || a.id.localeCompare(b.id)) ?? [];
   return (
     <section className="dashboard-panel" aria-label="Today's appointments">
       <PanelHeading title="Today’s appointments" href={href} link="View calendar" />
@@ -190,34 +191,6 @@ function AgendaRow({ visit }: { visit: CalendarVisit }) {
   );
 }
 
-function DayProgress({ visits, href }: AgendaProps) {
-  const completed = visits?.filter((visit) => visit.status === "completed").length ?? 0;
-  const total = visits?.length ?? 0;
-  const summary = visits === null ? "Unavailable" : total === 0
-    ? "No appointments today" : `${completed} of ${total} visits completed`;
-  return (
-    <section className="day-progress">
-      <div className="progress-symbol"><Layers3 size={22} aria-hidden="true" /></div>
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold">Today’s visit progress</h2>
-          <Link href={href} className="text-xs font-medium text-primary">
-            {visits === null ? "Schedule unavailable" : `${completed} of ${total} visits completed`}
-          </Link>
-        </div>
-        <div className="progress-track" role="progressbar" aria-label="Today's visits completed"
-          aria-valuemin={0} aria-valuemax={total || 1} aria-valuenow={completed} aria-valuetext={summary}>
-          <span style={{ width: `${total === 0 ? 0 : completed / total * 100}%` }} />
-        </div>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {visits === null ? "Open the calendar to check your day." : total === 0
-            ? "Your day’s progress will appear here." : "Completed visits today."}
-        </p>
-      </div>
-    </section>
-  );
-}
-
 function Attention({ data }: { data: DashboardData }) {
   const rows = data.followUps?.items.slice(0, 3) ?? [];
   return (
@@ -228,7 +201,7 @@ function Attention({ data }: { data: DashboardData }) {
         <div>
           <h3>Follow-ups due</h3>
           <p>{data.followUps === null ? "Queue unavailable" : data.followUps.total === 0
-            ? "You’re all caught up" : `${data.followUps.total} waiting for a next step`}</p>
+            ? "You’re all caught up" : <Link href="/follow-ups?view=due&page=1">{data.followUps.total} waiting for a next step</Link>}</p>
         </div>
       </div>
       {rows.length > 0 ? (
@@ -248,14 +221,16 @@ function Attention({ data }: { data: DashboardData }) {
           ))}
         </ul>
       ) : null}
-      <Link href="/follow-ups" className="attention-footer">
+      <Link href="/follow-ups?view=due&page=1" className="attention-footer">
         Open follow-up queue <ArrowRight size={14} aria-hidden="true" />
       </Link>
       <div className="queue-links">
-        <QueueLink href="/recalls" icon={RotateCcw} title="Recall queue"
+        <QueueLink href="/recalls?view=due&page=1" icon={RotateCcw} title="Recall queue"
           detail={data.recalls === null ? "Unavailable" : `${data.recalls.total} due`} />
-        <QueueLink href="/lab" icon={FlaskConical} title="Lab coordination"
+        <QueueLink href="/lab?view=open&page=1" icon={FlaskConical} title="Lab coordination"
           detail={data.lab === null ? "Unavailable" : `${data.lab.total} open`} />
+        <QueueLink href="/reminders?view=due&page=1" icon={Bell} title="Reminders"
+          detail={data.reminders === null ? "Unavailable" : `${data.reminders.total} due`} />
       </div>
     </section>
   );

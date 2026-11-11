@@ -17,7 +17,7 @@ const syntheticUser: CurrentUser = {
 
 beforeEach(() => {
   vi.mocked(requireUser).mockResolvedValue(syntheticUser);
-  vi.mocked(loadDashboard).mockResolvedValue({ mode: "coordination", today: "2026-10-26", timezone: "Asia/Kolkata", appointments: [], followUps: { items: [], total: 0, page: 1, page_size: 20 }, recalls: { items: [], total: 0, page: 1, page_size: 20 }, lab: { items: [], total: 0, page: 1, page_size: 20 } });
+  vi.mocked(loadDashboard).mockResolvedValue({ mode: "coordination", today: "2026-10-26", timezone: "Asia/Kolkata", appointments: [], followUps: { items: [], total: 0, page: 1, page_size: 20 }, recalls: { items: [], total: 0, page: 1, page_size: 20 }, lab: { items: [], total: 0, page: 1, page_size: 20 }, reminders: { total: 0 } });
 });
 
 test("loads the dashboard with the authenticated user and session", async () => {

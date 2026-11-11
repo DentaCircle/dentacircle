@@ -2,7 +2,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { loadDashboard } from "@/features/dashboard/load-dashboard";
 import * as api from "@/lib/api/client";
 
-vi.mock("@/lib/api/client", () => ({ getClinicDay: vi.fn(), listAppointments: vi.fn(), listFollowUps: vi.fn(), listRecalls: vi.fn(), listClinicLabWork: vi.fn() }));
+vi.mock("@/lib/api/client", () => ({ getClinicDay: vi.fn(), listAppointments: vi.fn(), listFollowUps: vi.fn(), listRecalls: vi.fn(), listClinicLabWork: vi.fn(), listReminderTotal: vi.fn() }));
 const user: api.CurrentUser = { id: "synthetic-user", full_name: "Synthetic User", email: "synthetic@x.test", roles: ["receptionist"], clinic: { id: "synthetic-clinic", name: "Synthetic Clinic" } };
 const emptyPage = { items: [], total: 0, page: 1, page_size: 20 };
 const failure = { ok: false, error: { kind: "network", message: "Unavailable" } } as const;
@@ -15,6 +15,7 @@ beforeEach(() => {
   vi.mocked(api.listFollowUps).mockResolvedValue({ ok: true, data: { ...emptyPage, total: 42 } });
   vi.mocked(api.listRecalls).mockResolvedValue({ ok: true, data: { ...emptyPage, total: 31 } });
   vi.mocked(api.listClinicLabWork).mockResolvedValue({ ok: true, data: { ...emptyPage, total: 27 } });
+  vi.mocked(api.listReminderTotal).mockResolvedValue({ ok: true, data: { total: 53 } });
 });
 
 test("uses clinic-local day at the UTC boundary and API totals beyond a page", async () => {
@@ -29,6 +30,8 @@ test("uses clinic-local day at the UTC boundary and API totals beyond a page", a
   expect(data.followUps?.total).toBe(42);
   expect(data.recalls?.total).toBe(31);
   expect(data.lab?.total).toBe(27);
+  expect(data.reminders?.total).toBe(53);
+  expect(api.listReminderTotal).toHaveBeenCalledWith("dc_session=synthetic");
   vi.useRealTimers();
 });
 
@@ -68,5 +71,18 @@ test("appointment and remaining queue failures remain independently unavailable"
   expect(data.appointments).toBeNull();
   expect(data.recalls).toBeNull();
   expect(data.lab).toBeNull();
+  expect(data.followUps?.total).toBe(42);
+});
+
+ test("mixed inventory and coordination roles receive coordination data", async () => {
+  const data = await loadDashboard({ ...user, roles: ["inventory_admin", "receptionist"] }, "synthetic");
+  expect(data.mode).toBe("coordination");
+  expect(api.listReminderTotal).toHaveBeenCalled();
+});
+
+test("a reminder failure leaves the other totals available", async () => {
+  vi.mocked(api.listReminderTotal).mockResolvedValue(failure);
+  const data = await loadDashboard(user, "synthetic");
+  expect(data.reminders).toBeNull();
   expect(data.followUps?.total).toBe(42);
 });

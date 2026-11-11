@@ -9,6 +9,7 @@ import {
   getPatient,
   getReadiness,
   listAppointments,
+  listReminderTotal,
   listDocuments,
   listInventoryItems,
   listDocumentsInBrowser,
@@ -498,4 +499,13 @@ test("timeline accepts a patient WhatsApp actor with no staff id", async () => {
   if (result.ok) expect(result.data.items[0].actor).toEqual({
     id: null, name: "Patient via WhatsApp", kind: "whatsapp",
   });
+});
+
+
+test("reminder totals use the due list, forward the session and reject invalid totals", async () => {
+  const fetcher = stubFetch(jsonResponse(200, { items: [], total: 42, page: 1, page_size: 20 }));
+  await expect(listReminderTotal("dc_session=synthetic")).resolves.toEqual({ ok: true, data: { total: 42 } });
+  expect(fetcher).toHaveBeenCalledWith(expect.stringContaining("/reminders?view=due&page=1"), expect.objectContaining({ headers: { cookie: "dc_session=synthetic" } }));
+  stubFetch(jsonResponse(200, { items: [], total: -1 }));
+  expect((await listReminderTotal("dc_session=synthetic")).ok).toBe(false);
 });
