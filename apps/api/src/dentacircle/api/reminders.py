@@ -76,9 +76,7 @@ _RESOLVE_ERRORS: dict[int | str, dict[str, Any]] = {
 }
 
 
-@router.post(
-    "/appointments/{appointment_id}/reminders", status_code=201, responses=_CREATE_ERRORS
-)
+@router.post("/appointments/{appointment_id}/reminders", status_code=201, responses=_CREATE_ERRORS)
 def post_reminder(
     appointment_id: UUID,
     body: ScheduleBody,
