@@ -69,6 +69,7 @@ class ErrorResponse(BaseModel):
 _CREATE_ERRORS: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorResponse, "description": "Not Found"},
     409: {"model": ErrorResponse, "description": "reminder_conflict"},
+    422: {"model": ErrorResponse, "description": "invalid_due_at or validation_error"},
 }
 _RESOLVE_ERRORS: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorResponse, "description": "Not Found"},
