@@ -376,7 +376,10 @@ Beyond the defaults in AGENTS.md, no extra project stops yet.
 S0.1 through S5.1 and S5.3 are done. S5.2 is in progress. S5.1 adds a clinic-scoped WhatsApp inbox through a replaceable provider interface, with an optional local OpenWA bridge. Automated checks and local fake-provider proof pass; live pairing, delivery and provider licensing remain deferred until a dedicated test account and phones are available (tracked in `.shipit/open.md`). `make dev` starts PostgreSQL, applies migrations, and runs
 the API and the web app. Sign in at `/login`. The browser posts through the `/api` rewrite,
 so `dc_session` stays on the web origin. The dashboard shows the signed-in user's name,
-roles and clinic from `GET /auth/me`. `/` and `/status` require that session. Create a
+roles and clinic from `GET /auth/me`. Coordination staff see today's clinic-wide agenda
+and links to due follow-ups, recalls, reminders and open lab work. Counts use the existing
+queue totals, and a failed section shows unavailable. Inventory-only users see inventory
+shortcuts without coordination data requests. `/` and `/status` require that session. Create a
 user with `make create-user`. Deployment is still deferred to the end of Phase 1.
 
 Each clinic has a timezone, weekly working hours, a default appointment duration and
