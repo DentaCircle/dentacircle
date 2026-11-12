@@ -6,7 +6,7 @@ import type { CalendarVisit, CurrentUser } from "@/lib/api/client";
 
 const user: CurrentUser = { id: "synthetic-user", full_name: "Synthetic User", email: "synthetic@x.test", roles: ["receptionist"], clinic: { id: "synthetic-clinic", name: "Synthetic Clinic" } };
 const page = { items: [], total: 0, page: 1, page_size: 20 };
-const blank: DashboardData = { mode: "coordination", today: "2026-10-26", timezone: "Asia/Kolkata", appointments: [], followUps: page, recalls: page, lab: page, reminders: page };
+const blank: DashboardData = { mode: "coordination", today: "2026-10-26", timezone: "Asia/Kolkata", appointments: [], followUps: page, recalls: page, lab: page, reminders: page, inventory: null };
 const visit: CalendarVisit = { id: "synthetic-visit", starts_at: "2026-10-26T09:30:00+05:30", ends_at: "2026-10-26T10:00:00+05:30", status: "completed", patient: { id: "synthetic-patient", full_name: "Synthetic Patient", display_id: "P-0001" }, clinician: { id: "synthetic-clinician", full_name: "Synthetic Clinician" }, appointment_type: { id: "synthetic-type", name: "Scaling" } };
 
 test("empty dashboard has honest zero totals, clinic date and existing shortcuts", () => {
@@ -76,4 +76,22 @@ test("agenda breaks equal start times by visit ID", () => {
   render(<DashboardScreen user={user} data={{ ...blank, appointments: visits }} />);
   const agenda = screen.getByRole("region", { name: "Today's appointments" });
   expect(within(agenda).getAllByRole("listitem")[0]).toHaveTextContent("First Patient");
+});
+
+
+test("inventory counts link to their filtered lists and may overlap", () => {
+  render(<DashboardScreen user={{ ...user, roles: ["clinician"] }} data={{ ...blank, inventory: { out_of_stock: 3, low_stock: 0, expiring_soon: 3, expired: 1 } }} />);
+  for (const [label, value, code] of [["Out of stock", 3, "out_of_stock"], ["Low stock", 0, "low_stock"], ["Expiring soon", 3, "expiring_soon"], ["Expired", 1, "expired"]]) {
+    expect(screen.getByRole("link", { name: `${label}: ${value}` })).toHaveAttribute("href", `/inventory?status=active&alert=${code}&page=1`);
+  }
+  expect(screen.getByText(/appear in more than one category/)).toBeInTheDocument();
+});
+
+test("all clear requires four successful zero counts", () => {
+  const inventory = { out_of_stock: 0, low_stock: 0, expiring_soon: 0, expired: 0 };
+  const { rerender } = render(<DashboardScreen user={user} data={{ ...blank, inventory }} />);
+  expect(screen.getByText("No inventory items need attention.")).toBeInTheDocument();
+  rerender(<DashboardScreen user={user} data={{ ...blank, inventory: { ...inventory, expired: null } }} />);
+  expect(screen.queryByText("No inventory items need attention.")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Expired: unavailable" })).toHaveTextContent("Unavailable");
 });

@@ -7,7 +7,8 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { wallTime } from "@/features/appointments/wall-time";
-import type { DashboardData } from "@/features/dashboard/load-dashboard";
+import { inventoryHref } from "@/features/inventory/links";
+import type { DashboardData, InventoryCounts } from "@/features/dashboard/load-dashboard";
 import type { CalendarVisit, CurrentUser } from "@/lib/api/client";
 
 type DashboardProps = { user: CurrentUser; data: DashboardData };
@@ -22,6 +23,7 @@ export function DashboardScreen({ user, data }: DashboardProps) {
       ) : (
         <OtherDashboard mode={data.mode} />
       )}
+      {data.inventory !== null ? <InventoryAttention counts={data.inventory} /> : null}
       <footer className="dashboard-footer">
         <div className="flex flex-wrap items-center gap-2">
           <span>{user.clinic.name}</span>
@@ -33,6 +35,31 @@ export function DashboardScreen({ user, data }: DashboardProps) {
           </ul>
         </div>
       </footer>
+    </section>
+  );
+}
+
+function InventoryAttention({ counts }: { counts: InventoryCounts }) {
+  const alerts = [
+    { code: "out_of_stock", label: "Out of stock" },
+    { code: "low_stock", label: "Low stock" },
+    { code: "expiring_soon", label: "Expiring soon" },
+    { code: "expired", label: "Expired" },
+  ] as const;
+  const baseFilter = { status: "active" as const, categoryId: "", query: "" };
+  return (
+    <section aria-label="Inventory attention" className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold">Inventory attention</h2>
+        <Link href={inventoryHref(baseFilter)} className="font-medium text-primary">Open inventory</Link>
+      </div>
+      <p className="text-sm text-muted-foreground">An item can appear in more than one category.</p>
+      {alerts.every(({ code }) => counts[code] === 0) ? <p>No inventory items need attention.</p> : null}
+      <div className="metric-grid">
+        {alerts.map(({ code, label }) => <Metric key={code} label={label} value={counts[code]}
+          description="Active items" href={`${inventoryHref({ ...baseFilter, alert: code })}&page=1`}
+          icon={Package} tone="amber" />)}
+      </div>
     </section>
   );
 }
