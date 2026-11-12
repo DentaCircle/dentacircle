@@ -100,8 +100,10 @@ Fill the "Review packet" section of the brief, and show it in chat:
   that fails or does not apply.
 
 Once implementation, required checks, proof and the review packet are complete,
-set `Status: built`. Stop with the review packet. If the developer asks for changes,
-make them here. Do not seal unless the developer asks to seal; a separate review
-approval statement is not required.
+set `Status: built`. Stop with the review packet. If the developer asks for review
+changes to a built slice, first set its brief back to `Status: approved`, make and verify
+the requested changes, then set it to `Status: built` again and refresh the review packet.
+Do not seal unless the developer asks to seal. Do not mark the slice done or tick
+ROADMAP.md until the developer explicitly says the review is approved.
 
 Use plain words and short instructions.

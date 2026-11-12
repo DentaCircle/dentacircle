@@ -22,7 +22,8 @@ If earlier slices are unfinished or `.shipit/open.md` has blockers, say so first
 
 ## Write the brief
 
-Copy `.shipit/slices/_template.md` to `.shipit/slices/S<id>-<name>.md` and fill it in.
+If `.shipit/slices/S<id>-<name>.md` already exists, read and update it in place.
+Otherwise copy `.shipit/slices/_template.md` to that path and fill in the new brief.
 
 - Keep it to about one page. Plain words. No filler sections.
 - Acceptance criteria must be testable. If you cannot imagine the test, rewrite the criterion.

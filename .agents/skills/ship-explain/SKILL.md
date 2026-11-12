@@ -68,10 +68,13 @@ OpenAPI, env vars, and pytest fixtures when they appear in the slice.
 
 ## Before you explain
 
-1. Read the slice brief in `.shipit/slices/`: goal, acceptance criteria, out of scope,
-   and the review packet if it exists.
+1. For a slice explanation, read its brief in `.shipit/slices/`: goal, acceptance
+   criteria, out of scope and review packet if it exists. For a file or function request
+   outside a slice, continue with the requested code; no slice brief is needed.
 2. Get the real diff against the base branch: `git diff <base>...HEAD` and
-   `git log <base>..HEAD --oneline`. Use the repo's base branch name.
+   `git log <base>..HEAD --oneline`. Use the repo's base branch name. Also run
+   `git status --short`; include staged and unstaged changes, and inspect untracked files
+   directly because Git diff does not show them.
 3. Open the changed files. Read the code you are about to explain. Never explain from
    the brief alone, and never guess what a line does.
 4. Read AGENTS.md so you can point to the rule behind a decision (tenancy, audit, roles).
