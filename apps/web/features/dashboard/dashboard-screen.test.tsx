@@ -6,7 +6,7 @@ import type { CalendarVisit, CurrentUser } from "@/lib/api/client";
 
 const user: CurrentUser = { id: "synthetic-user", full_name: "Synthetic User", email: "synthetic@x.test", roles: ["receptionist"], clinic: { id: "synthetic-clinic", name: "Synthetic Clinic" } };
 const page = { items: [], total: 0, page: 1, page_size: 20 };
-const blank: DashboardData = { mode: "coordination", today: "2026-10-26", timezone: "Asia/Kolkata", appointments: [], followUps: page, recalls: page, lab: page };
+const blank: DashboardData = { mode: "coordination", today: "2026-10-26", timezone: "Asia/Kolkata", appointments: [], followUps: page, recalls: page, lab: page, reminders: page };
 const visit: CalendarVisit = { id: "synthetic-visit", starts_at: "2026-10-26T09:30:00+05:30", ends_at: "2026-10-26T10:00:00+05:30", status: "completed", patient: { id: "synthetic-patient", full_name: "Synthetic Patient", display_id: "P-0001" }, clinician: { id: "synthetic-clinician", full_name: "Synthetic Clinician" }, appointment_type: { id: "synthetic-type", name: "Scaling" } };
 
 test("empty dashboard has honest zero totals, clinic date and existing shortcuts", () => {
@@ -16,31 +16,32 @@ test("empty dashboard has honest zero totals, clinic date and existing shortcuts
   expect(screen.getByRole("link", { name: "Appointments today: 0" })).toHaveAttribute("href", "/calendar?date=2026-10-26");
   expect(screen.getByRole("link", { name: "Register patient" })).toHaveAttribute("href", "/patients/new");
   expect(screen.getByRole("link", { name: "Find patient" })).toHaveAttribute("href", "/patients");
-  expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuetext", "No appointments today");
+  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Reminders due: 0" })).toHaveAttribute("href", "/reminders?view=due&page=1");
 });
 
 test("shows total counts, sorted six-visit preview, clinic wall time and patient links", () => {
   const visits = Array.from({ length: 8 }, (_, i) => ({ ...visit, id: `visit-${i}`, starts_at: `2026-10-26T${String(16-i).padStart(2, "0")}:30:00+05:30` }));
   render(<DashboardScreen user={user} data={{ ...blank, appointments: visits, followUps: { ...page, total: 42 }, recalls: { ...page, total: 31 }, lab: { ...page, total: 27 } }} />);
   expect(screen.getByRole("link", { name: "Appointments today: 8" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Follow-ups due: 42" })).toHaveAttribute("href", "/follow-ups");
-  expect(screen.getByRole("link", { name: "Recalls due: 31" })).toHaveAttribute("href", "/recalls");
-  expect(screen.getByRole("link", { name: "Open lab work: 27" })).toHaveAttribute("href", "/lab");
+  expect(screen.getByRole("link", { name: "Follow-ups due: 42" })).toHaveAttribute("href", "/follow-ups?view=due&page=1");
+  expect(screen.getByRole("link", { name: "Recalls due: 31" })).toHaveAttribute("href", "/recalls?view=due&page=1");
+  expect(screen.getByRole("link", { name: "Open lab work: 27" })).toHaveAttribute("href", "/lab?view=open&page=1");
   const agenda = screen.getByRole("region", { name: "Today's appointments" });
   expect(within(agenda).getAllByRole("listitem")).toHaveLength(6);
   expect(within(agenda).getAllByRole("listitem")[0]).toHaveTextContent("09:30");
   expect(within(agenda).getAllByRole("link", { name: "Synthetic Patient" })[0]).toHaveAttribute("href", "/patients/synthetic-patient");
   expect(screen.getByText("Showing 6 of 8 appointments")).toBeInTheDocument();
-  expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "8");
+  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
 });
 
 test("unavailable data is not shown as zero, caught-up, or a fabricated date", () => {
-  render(<DashboardScreen user={user} data={{ ...blank, today: null, timezone: null, appointments: null, followUps: null, recalls: null, lab: null }} />);
+  render(<DashboardScreen user={user} data={{ ...blank, today: null, timezone: null, appointments: null, followUps: null, recalls: null, lab: null, reminders: null }} />);
   expect(screen.getByRole("link", { name: "Follow-ups due: unavailable" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Appointments today: unavailable" })).toHaveAttribute("href", "/calendar");
   expect(screen.getByText("Clinic date unavailable")).toBeInTheDocument();
   expect(screen.queryByText("You’re all caught up")).not.toBeInTheDocument();
-  expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuetext", "Unavailable");
+  expect(screen.getByRole("link", { name: "Reminders due: unavailable" })).toBeInTheDocument();
 });
 
 test("follow-up preview links patients and distinguishes overdue from contacted", () => {
@@ -68,4 +69,11 @@ test("puts today's appointments and attention before summary metrics", () => {
   expect(attention.compareDocumentPosition(metric) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   expect(screen.getByRole("link", { name: "Open today’s calendar" })).toHaveAttribute("href", "/calendar?date=2026-10-26");
   expect(screen.queryByText("A clear view.")).not.toBeInTheDocument();
+});
+
+test("agenda breaks equal start times by visit ID", () => {
+  const visits = [{ ...visit, id: "b", patient: { ...visit.patient, full_name: "Second Patient" } }, { ...visit, id: "a", patient: { ...visit.patient, full_name: "First Patient" } }];
+  render(<DashboardScreen user={user} data={{ ...blank, appointments: visits }} />);
+  const agenda = screen.getByRole("region", { name: "Today's appointments" });
+  expect(within(agenda).getAllByRole("listitem")[0]).toHaveTextContent("First Patient");
 });

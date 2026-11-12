@@ -409,3 +409,14 @@ def _today() -> str:
 
 def _day(offset: int) -> str:
     return (datetime.now(_ZONE).date() + timedelta(days=offset)).isoformat()
+
+
+def test_open_clinic_list_includes_inactive_patients(api: TestClient) -> None:
+    patient_id = _patient(api)
+    lab_id = _create(api, patient_id, "Synthetic lab item")
+    _deactivate(patient_id)
+
+    response = api.get("/lab-work", cookies=_cookie(api), params={"view": "open"})
+
+    assert response.status_code == 200
+    assert any(item["id"] == lab_id for item in response.json()["items"])

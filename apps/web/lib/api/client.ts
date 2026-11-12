@@ -114,6 +114,17 @@ export function listAppointments(
   return getJson(`/appointments?${params.toString()}`, calendarListData, cookieHeaders(cookieHeader));
 }
 
+// The dashboard needs the authoritative total, even when the list has more pages.
+export type ReminderTotal = Pick<components["schemas"]["ReminderList"], "total">;
+
+export function listReminderTotal(cookieHeader: string): Promise<ApiResult<ReminderTotal>> {
+  return getJson("/reminders?view=due&page=1", (value) => {
+    if (!isRecord(value) || !Array.isArray(value.items)) return null;
+    const total = numberField(value, "total");
+    return total === null || !Number.isSafeInteger(total) || total < 0 ? null : { total };
+  }, cookieHeaders(cookieHeader));
+}
+
 export type AppointmentStatusTarget = "arrived" | "in_progress" | "completed" | "no_show";
 
 export function changeAppointmentStatus(
