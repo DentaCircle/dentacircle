@@ -2,7 +2,7 @@ import { beforeEach, expect, test, vi } from "vitest";
 import { loadDashboard } from "@/features/dashboard/load-dashboard";
 import * as api from "@/lib/api/client";
 
-vi.mock("@/lib/api/client", () => ({ getClinicDay: vi.fn(), listAppointments: vi.fn(), listFollowUps: vi.fn(), listRecalls: vi.fn(), listClinicLabWork: vi.fn(), listReminderTotal: vi.fn() }));
+vi.mock("@/lib/api/client", () => ({ getClinicDay: vi.fn(), listAppointments: vi.fn(), listFollowUps: vi.fn(), listRecalls: vi.fn(), listClinicLabWork: vi.fn(), listReminderTotal: vi.fn(), listInventoryItems: vi.fn() }));
 const user: api.CurrentUser = { id: "synthetic-user", full_name: "Synthetic User", email: "synthetic@x.test", roles: ["receptionist"], clinic: { id: "synthetic-clinic", name: "Synthetic Clinic" } };
 const emptyPage = { items: [], total: 0, page: 1, page_size: 20 };
 const failure = { ok: false, error: { kind: "network", message: "Unavailable" } } as const;
@@ -10,6 +10,7 @@ const failure = { ok: false, error: { kind: "network", message: "Unavailable" } 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useRealTimers();
+  vi.mocked(api.listInventoryItems).mockResolvedValue({ ok: true, data: { ...emptyPage, total: 42 } });
   vi.mocked(api.getClinicDay).mockResolvedValue({ ok: true, data: { timezone: "Asia/Kolkata" } });
   vi.mocked(api.listAppointments).mockResolvedValue({ ok: true, data: [] });
   vi.mocked(api.listFollowUps).mockResolvedValue({ ok: true, data: { ...emptyPage, total: 42 } });
@@ -38,7 +39,9 @@ test("uses clinic-local day at the UTC boundary and API totals beyond a page", a
 test.each(["inventory_admin", "unknown"])("%s makes no patient or calendar requests", async (role) => {
   const data = await loadDashboard({ ...user, roles: [role] }, "synthetic");
   expect(data.mode).toBe(role === "inventory_admin" ? "inventory" : "restricted");
-  for (const fn of Object.values(api)) expect(fn).not.toHaveBeenCalled();
+  expect(api.listAppointments).not.toHaveBeenCalled();
+  expect(api.listFollowUps).not.toHaveBeenCalled();
+  expect(api.listInventoryItems).toHaveBeenCalledTimes(role === "inventory_admin" ? 4 : 0);
 });
 
 test.each(["clinician", "clinic_admin"])("%s retains the existing coordination access", async (role) => {
@@ -85,4 +88,29 @@ test("a reminder failure leaves the other totals available", async () => {
   const data = await loadDashboard(user, "synthetic");
   expect(data.reminders).toBeNull();
   expect(data.followUps?.total).toBe(42);
+});
+
+
+test.each([{ roles: ["inventory_admin"] }, { roles: ["clinician"] }, { roles: ["clinic_admin"] }, { roles: ["receptionist", "inventory_admin"] }])("inventory roles $roles load filtered totals", async ({ roles }) => {
+  const result = await loadDashboard({ ...user, roles }, "synthetic");
+  for (const alert of ["out_of_stock", "low_stock", "expiring_soon", "expired"]) {
+    expect(api.listInventoryItems).toHaveBeenCalledWith("synthetic", "active", "", "", 1, 1, alert);
+  }
+  expect(result.inventory?.out_of_stock).toBe(42);
+});
+
+test("inventory failures remain independent and refresh loads again", async () => {
+  vi.mocked(api.listInventoryItems).mockResolvedValueOnce(failure);
+  vi.mocked(api.getClinicDay).mockResolvedValue(failure);
+  const first = await loadDashboard({ ...user, roles: ["clinician"] }, "synthetic");
+  expect(first.inventory?.out_of_stock).toBeNull();
+  expect(first.inventory?.low_stock).toBe(42);
+  const second = await loadDashboard({ ...user, roles: ["clinician"] }, "synthetic");
+  expect(second.inventory?.out_of_stock).toBe(42);
+  expect(api.listInventoryItems).toHaveBeenCalledTimes(8);
+});
+
+test("receptionist never loads inventory", async () => {
+  expect((await loadDashboard(user, "synthetic")).inventory).toBeNull();
+  expect(api.listInventoryItems).not.toHaveBeenCalled();
 });
