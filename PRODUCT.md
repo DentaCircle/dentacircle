@@ -379,7 +379,9 @@ so `dc_session` stays on the web origin. The dashboard shows the signed-in user'
 roles and clinic from `GET /auth/me`. Coordination staff see today's clinic-wide agenda
 and links to due follow-ups, recalls, reminders and open lab work. Counts use the existing
 queue totals, and a failed section shows unavailable. Inventory-only users see inventory
-shortcuts without coordination data requests. `/` and `/status` require that session. Create a
+shortcuts and four clickable active-item attention counts (out of stock, low stock, expiring
+soon and expired); coordination users with inventory access see the same section. Counts use
+the inventory filters, fail independently, and may overlap. `/` and `/status` require that session. Create a
 user with `make create-user`. Deployment is still deferred to the end of Phase 1.
 
 Each clinic has a timezone, weekly working hours, a default appointment duration and
